@@ -70,6 +70,14 @@ rust_library(
     ],
 )
 
+rust_test(
+    name = "operation_test",
+    crate = ":operation",
+    deps = [
+        "@crate_index//:tokio",
+    ],
+)
+
 rust_library(
     name = "simple_operation",
     srcs = ["simple_operation.rs"],
