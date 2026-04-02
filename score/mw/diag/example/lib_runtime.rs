@@ -290,18 +290,27 @@ impl RuntimeImpl {
                 SOVDReply::ReadDataResource(reply)
             }
 
-            SOVDMessage::ListOperations(_) => {
-                let all_entities: Vec<Arc<Entity>> = entities
-                    .lock()
-                    .expect("mutex acquisition failed")
-                    .values()
-                    .cloned()
-                    .collect();
-                let mut all_ops = Vec::new();
-                for entity in &all_entities {
-                    all_ops.extend(entity.list_operations());
-                }
-                SOVDReply::ListOperations(Ok(all_ops))
+            SOVDMessage::ListOperations(entity_id) => {
+                let reply = if entity_id.is_empty() || entity_id == "*" {
+                    // Global: list operations from all entities
+                    let all_entities: Vec<Arc<Entity>> = entities
+                        .lock()
+                        .expect("mutex acquisition failed")
+                        .values()
+                        .cloned()
+                        .collect();
+                    let mut all_ops = Vec::new();
+                    for entity in &all_entities {
+                        all_ops.extend(entity.list_operations());
+                    }
+                    Ok(all_ops)
+                } else {
+                    // Filtered: list operations for specific entity
+                    Self::select_entity(entities, &entity_id, |entity| {
+                        Ok(entity.list_operations())
+                    })
+                };
+                SOVDReply::ListOperations(reply)
             }
 
             SOVDMessage::GetOperationMetadata((entity_id, op_id)) => {
