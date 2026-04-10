@@ -1,0 +1,520 @@
+' Copyright (c) 2026 Contributors to the Eclipse Foundation
+'
+' See the NOTICE file(s) distributed with this work for additional
+' information regarding copyright ownership.
+'
+' This program and the accompanying materials are made available under the
+' terms of the Apache License Version 2.0 which is available at
+' <https://www.apache.org/licenses/LICENSE-2.0>
+'
+' SPDX-License-Identifier: Apache-2.0
+
+@startuml
+
+hide empty members
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 75
+skinparam ranksep 75
+
+title Rust API Design for Diag Lib
+
+package common {
+  note as note_common_aliases
+    type aliases
+    ---
+    ByteSlice<'a> = &'a [u8]
+    ByteVector = Vec<u8>
+    Result<T> = std::result::Result<T, ::common::Error>
+  end note
+
+  together {
+    class JsonValue <<alias>> {
+      serde_json::Value
+    }
+
+    class JsonSchema <<alias>> {
+      serde_json::Value
+    }
+  }
+
+  class KeyValueAttributes <<alias>> {
+    indexmap::IndexMap<String, String>
+  }
+
+  package "common.sovd" {
+    class Error <<alias>> {
+      GenericError
+    }
+
+    enum ErrorCode <<enum>> {
+      ErrorResponse
+      IncompleteRequest
+      InsufficientAccessRights
+      InvalidResponseContent
+      InvalidSignature
+      LockBroken
+      NotResponding
+      PreconditionNotFulfilled
+      SovdServerFailure
+      SovdServerMisconfigured
+      UpdateAutomatedNotSupported
+      UpdateExecutionInProgress
+      UpdatePreparationInProgress
+      UpdateProcessInProgress
+      VendorSpecific
+    }
+
+    class GenericError {
+      +sovd_error : String
+      +message_text : String
+      +vendor_error : Option<String>
+      +translation_id : Option<String>
+      +additional_attrs : Option<KeyValueAttributes>
+      --
+      +{static} from_code(code: ErrorCode, message: String) : Self
+      +{static} from_code_with_translation(code: ErrorCode, message: String, translation_id: String) : Self
+      +{static} from_vendor_error(error: String, message: String) : Self
+      +{static} from_vendor_error_with_translation(error: String, message: String, translation_id: String) : Self
+      +add_additional_attr(key: String, value: String)
+      +set_additional_attrs(attrs: KeyValueAttributes)
+    }
+
+    class DataError {
+      +path : String
+      +error : Option<GenericError>
+      --
+      +{static} from_path(path: String) : Self
+      +{static} from_error(error: GenericError) : Self
+      +with_error(error: GenericError) : Self
+    }
+  }
+
+  package "common.uds" {
+    enum NegativeResponseCode <<enum>> {
+      GeneralReject = 0x10
+      ServiceNotSupported = 0x11
+      SubFunctionNotSupported = 0x12
+      IncorrectMessageLengthOrInvalidFormat = 0x13
+      ResponseTooLong = 0x14
+      BusyRepeatRequest = 0x21
+      ConditionsNotCorrect = 0x22
+      NoResponseFromSubnetComponent = 0x23
+      RequestSequenceError = 0x24
+      NoResponseFromSubNetComponent = 0x25
+      FailurePreventsExecutionOfRequestedAction = 0x26
+      RequestOutOfRange = 0x31
+      SecurityAccessDenied = 0x33
+      AuthenticationRequired = 0x34
+      InvalidKey = 0x35
+      ExceededNumberOfAttempts = 0x36
+      RequiredTimeDelayNotExpired = 0x37
+      SecureDataTransmissionRequired = 0x38
+      SecureDataTransmissionNotAllowed = 0x39
+      SecureDataVerificationFailed = 0x3A
+      CertificateVerificationFailedInvalidTimePeriod = 0x50
+      CertificateVerificationFailedInvalidSignature = 0x51
+      CertificateVerificationFailedInvalidChainOfTrust = 0x52
+      CertificateVerificationFailedInvalidType = 0x53
+      CertificateVerificationFailedInvalidFormat = 0x54
+      CertificateVerificationFailedInvalidContent = 0x55
+      CertificateVerificationFailedInvalidScope = 0x56
+      CertificateVerificationFailedInvalidCertificate = 0x57
+      OwnershipVerificationFailed = 0x58
+      ChallengeCalculationFailed = 0x59
+      SettingAccessRightsFailed = 0x5A
+      SessionKeyCreationOrDerivationFailed = 0x5B
+      ConfigurationDataUsageFailed = 0x5C
+      DeAuthenticationFailed = 0x5D
+      UploadDownloadNotAccepted = 0x70
+      TransferDataSuspended = 0x71
+      GeneralProgrammingFailure = 0x72
+      WrongBlockSequenceCounter = 0x73
+      RequestCorrectlyReceivedResponsePending = 0x78
+      SubFunctionNotSupportedInActiveSession = 0x7E
+      ServiceNotSupportedInActiveSession = 0x7F
+      RpmTooHigh = 0x81
+      RpmTooLow = 0x82
+      EngineIsRunning = 0x83
+      EngineIsNotRunning = 0x84
+      EngineRunTimeTooLow = 0x85
+      TemperatureTooHigh = 0x86
+      TemperatureTooLow = 0x87
+      VehicleSpeedTooHigh = 0x88
+      VehicleSpeedTooLow = 0x89
+      ThrottleOrPedalTooHigh = 0x8A
+      ThrottleOrPedalTooLow = 0x8B
+      TransmissionRangeNotInNeutral = 0x8C
+      TransmissionRangeNotInGear = 0x8D
+      BrakeSwitchOrSwitchesNotClosed = 0x8F
+      ShifterLeverNotInPark = 0x90
+      TorqueConvertClutchLocked = 0x91
+      VoltageTooHigh = 0x92
+      VoltageTooLow = 0x93
+      ResourceTemporarilyNotAvailable = 0x94
+      VehicleManufacturerSpecific
+    }
+
+    class VehicleManufacturerSpecificCNC<u8> {
+      +{static} from(value: u8) : Self
+    }
+  }
+
+  together {
+    enum RequestMessagePayload <<enum>> {
+      Binary(ByteVector)
+      JSON(JsonValue)
+      UTF8(String)
+    }
+
+    enum JsonSchemaRequired <<enum>> {
+      Yes
+      No
+    }
+
+    enum ReplyMessageEncoding <<enum>> {
+      Binary
+      JSON
+      UTF8
+    }
+
+    enum ReplyMessagePayload <<enum>> {
+      Binary(ByteVector)
+      JSON(JsonValue, Option<JsonSchema>)
+      UTF8(String)
+      --
+      +{static} from_byte_vector(payload: ByteVector) : Self
+      +{static} from_json(payload: JsonValue) : Self
+      +{static} from_json_and_schema(payload: JsonValue, schema: JsonSchema) : Self
+      +{static} from_string(payload: String) : Self
+    }
+
+    class DiagnosticReply {
+      +message_payload : Option<ReplyMessagePayload>
+      +additional_attrs : Option<KeyValueAttributes>
+    }
+
+    enum ErrorCode <<enum>> {
+      SOVD(sovd::Error)
+      UDS(uds::NegativeResponseCode)
+    }
+
+    class Error {
+      +code : ErrorCode
+      +payload : Option<ReplyMessagePayload>
+      --
+      +{static} mutex_error() : Self
+      +{static} from_error(error: sovd::Error) : Self
+      +{static} from_nrc(nrc: uds::NegativeResponseCode) : Self
+      +with_payload(payload: ReplyMessagePayload) : Self
+    }
+  }
+}
+
+package data_resource {
+  note as note_data_resource_aliases
+    type aliases
+    ---
+    DiagResult<T> = ::common::Result<T>
+  end note
+
+  package "data_resource.sovd" {
+    enum DataCategory <<enum>> {
+      IdentData
+      CurrentData
+      StoredData
+      SysInfo
+      Custom
+    }
+
+    class DataCategoryInfo {
+      +item : DataCategory
+      +category_translation_id : Option<String>
+    }
+
+    class DataResourceMetadata {
+      +id : String
+      +name : String
+      +translation_id : Option<String>
+      +category : DataCategory
+      +groups : Option<Vec<String>>
+    }
+  }
+
+  class ReadValueArgs {
+    +reply_encoding : ReplyMessageEncoding
+    +additional_attrs : Option<KeyValueAttributes>
+    --
+    +{static} from(encoding: ReplyMessageEncoding) : Self
+    +with_additional_attrs(additional_attrs: KeyValueAttributes) : Self
+  }
+
+  class ReadValueReply {
+    +id : Option<String>
+    +data : ReplyMessagePayload
+    +errors : Option<Vec<DataError>>
+  }
+
+  class WriteValueArgs {
+    +signature : Option<String>
+    +user_data : Option<RequestMessagePayload>
+    +additional_attrs : Option<KeyValueAttributes>
+  }
+
+  interface DataResource <<trait>> {
+    +read(input: ReadValueArgs) : DiagResult<ReadValueReply>
+    +write(input: WriteValueArgs) : Result<(), DataError>
+  }
+}
+
+package operation {
+  note as note_operation_aliases
+    type aliases
+    ---
+    DiagResult<T> = ::common::Result<T>
+  end note
+
+  together {
+    class ExecutionId <<alias>> {
+      String
+    }
+
+    class ExecutionResult <<alias>> {
+      DiagResult<DiagnosticReply>
+    }
+
+    class UserParameters <<alias>> {
+      ::common::RequestMessagePayload
+    }
+
+    class ExecuteArguments {
+      +reply_encoding : ReplyMessageEncoding
+      +user_parameters : Option<UserParameters>
+      +additional_attrs : Option<KeyValueAttributes>
+      +proximity_response : Option<String>
+    }
+
+    enum ExecutionStatus <<enum>> {
+      UnsupportedCapability
+      Unknown
+      Scheduled
+      Running
+      Interrupted
+      Completed
+      Stopped
+      Failed
+    }
+
+    class ExecutionStatusDetails {
+      +last_executed_capability : String
+      +completion_percentage : Option<u8>
+      +event_result : Option<DiagnosticReply>
+      +exec_errors : Option<Vec<::common::Error>>
+      --
+      +{static} none() : ExecutionStatusDetails
+      +{static} from(ExecutionEventKind) : ExecutionStatusDetails
+      +with_reply_data(DiagnosticReply) : ExecutionStatusDetails
+      +with_exec_errors(Vec<::common::Error>) : ExecutionStatusDetails
+    }
+
+    class StatusReporter {
+      -inner : Option<Box<dyn FnOnce(ExecutionStatus, ExecutionStatusDetails) + Send>>
+      --
+      +{static} none() : StatusReporter
+      +{static} new(f) : StatusReporter
+      +put(status: ExecutionStatus, details: ExecutionStatusDetails)
+    }
+
+    class CustomCapability <<alias>> {
+      String
+    }
+
+    enum ExecutionEventKind <<enum>> {
+      HandleCustomCapability
+      ReportStatus
+      ControlGone
+      Interrupt
+      Resume
+      Stop
+    }
+
+    class ExecutionEvent {
+      +kind : ExecutionEventKind
+      +args : Option<ExecuteArguments>
+      +status_reporter : StatusReporter
+      --
+      +{static} from_kind(kind: ExecutionEventKind) : ExecutionEvent
+      +with_args(args: ExecuteArguments) : ExecutionEvent
+      +with_status_reporter(f) : ExecutionEvent
+    }
+
+    interface ExecutionControlApi <<trait>> {
+      +next_exec_event() : BoxFuture<ExecutionEvent>
+    }
+
+    class ExecutionControl {
+      -inner : Box<dyn ExecutionControlApi + Send>
+      -exec_id : ExecutionId
+      --
+      +{static} from(api: impl ExecutionControlApi, exec_id: ExecutionId) : ExecutionControl
+      +next_exec_event() : BoxFuture<ExecutionEvent>
+      +get_exec_id() : &ExecutionId
+    }
+
+    class ExecutionHandle {
+      +future : Pin<Box<dyn Future<Output = ExecutionResult> + Send>>
+      +reply : Option<DiagnosticReply>
+      --
+      +{static} from_closure(f) : DiagResult<ExecutionHandle>
+      +{static} from_closure_and_reply(f, r: DiagnosticReply) : DiagResult<ExecutionHandle>
+      +{static} from_future_and_reply(f, r: DiagnosticReply) : DiagResult<ExecutionHandle>
+      +{static} from_future(f) : DiagResult<ExecutionHandle>
+      +{static} from_error(err: ::common::sovd::Error) : DiagResult<ExecutionHandle>
+    }
+  }
+
+  class OperationMetadata {
+    +proximity_proof_required : bool
+    +synchronous_execution : bool
+    +exclusive_execution : bool
+    +supported_modes : Option<IndexMap<String, Vec<String>>>
+  }
+
+  interface Operation <<trait>> {
+    +execute(input: ExecuteArguments, control: ExecutionControl) : DiagResult<ExecutionHandle>
+  }
+}
+
+package simple_operation {
+  interface SimpleOperation <<trait>> {
+    +start(input: ExecuteArguments) : DiagResult<ExecutionHandle>
+    +stop(input: Option<ExecuteArguments>) : DiagResult<Option<DiagnosticReply>>
+    +completion_percentage() : Option<u8>
+  }
+
+  class SimpleOperationAdapter {
+    -op_instance : Arc<Mutex<Box<dyn SimpleOperation + Send>>>
+    -active_exec_id : Mutex<Option<ExecutionId>>
+    --
+    +{static} from(instance: impl SimpleOperation) : Self
+  }
+}
+
+package uds {
+  note as uds_aliases
+    type aliases
+    ---
+    DiagResult<T> = ::common::Result<T>
+  end note
+
+  interface ReadDataByIdentifier <<trait>> {
+    +read() : DiagResult<ByteVector>
+  }
+
+  interface WriteDataByIdentifier <<trait>> {
+    +write(input: ByteSlice) : DiagResult<()>
+  }
+
+  interface RoutineControl <<trait>> {
+    +start(input: Option<ByteSlice>) : DiagResult<StartRoutine>
+    +stop(input: Option<ByteSlice>) : DiagResult<Option<ByteVector>>
+    +completion_percentage() : Option<u8>
+  }
+
+  class StartRoutine {
+    +future : Pin<Box<dyn Future<Output = DiagResult<Option<ByteVector>>> + Send>>
+    +reply : Option<ByteVector>
+    --
+    +{static} from_closure(closure) : DiagResult<Self>
+    +{static} from_closure_with_reply(closure, reply: ByteVector) : DiagResult<Self>
+    +{static} from_future_with_reply(future, reply: ByteVector) : DiagResult<Self>
+    +{static} from_future(future) : DiagResult<Self>
+    +{static} from_nrc(nrc: NegativeResponseCode) : DiagResult<Self>
+  }
+}
+
+package uds_adapters {
+  enum DataResourceAdapter <<enum>> {
+    RDBI(Box<dyn ReadDataByIdentifier + Send>)
+    WDBI(Box<dyn WriteDataByIdentifier + Send>)
+    --
+    +{static} from_rdbi(rdbi: impl ReadDataByIdentifier) : Self
+    +{static} from_wdbi(wdbi: impl WriteDataByIdentifier) : Self
+  }
+
+  class RoutineControlAdapter {
+    -routine_control : Box<dyn RoutineControl + Send>
+    --
+    +{static} from(instance: impl RoutineControl) : Self
+  }
+}
+
+common.ErrorCode *-- common.sovd.Error : SOVD
+common.ErrorCode *-- common.uds.NegativeResponseCode : UDS
+common.Error *-- common.ErrorCode
+common.Error *-- common.ReplyMessagePayload
+common.Error ..> common.uds.NegativeResponseCode
+common.DiagnosticReply *-- common.ReplyMessagePayload
+common.DiagnosticReply *-- common.KeyValueAttributes
+common.ReplyMessageEncoding *-- common.JsonSchemaRequired : JSON
+common.ReplyMessagePayload *-- common.JsonValue : JSON
+common.ReplyMessagePayload *-- common.JsonSchema : JSON
+common.RequestMessagePayload *-- common.JsonValue : JSON
+common.sovd.GenericError *-- common.KeyValueAttributes
+common.sovd.DataError *-- common.sovd.GenericError
+common.sovd.Error ..> common.sovd.GenericError
+common.uds.NegativeResponseCode *-- common.uds.VehicleManufacturerSpecificCNC : VehicleManufacturerSpecific
+
+data_resource.sovd.DataCategoryInfo *-- data_resource.sovd.DataCategory
+data_resource.sovd.DataResourceMetadata *-- data_resource.sovd.DataCategory
+data_resource.ReadValueArgs *-- common.ReplyMessageEncoding
+data_resource.ReadValueArgs *-- common.KeyValueAttributes
+data_resource.ReadValueReply --> common.ReplyMessagePayload
+data_resource.ReadValueReply --> common.sovd.DataError
+data_resource.WriteValueArgs *-- common.KeyValueAttributes
+data_resource.WriteValueArgs *-- common.RequestMessagePayload
+data_resource.DataResource ..> data_resource.ReadValueArgs
+data_resource.DataResource ..> data_resource.ReadValueReply
+data_resource.DataResource ..> data_resource.WriteValueArgs
+data_resource.DataResource ..> common.sovd.DataError
+
+operation.ExecuteArguments *-- common.KeyValueAttributes
+operation.ExecuteArguments *-- common.ReplyMessageEncoding
+operation.ExecuteArguments *-- common.RequestMessagePayload
+operation.ExecuteArguments *-- operation.UserParameters
+operation.ExecutionStatusDetails *-- common.DiagnosticReply
+operation.ExecutionStatusDetails *-- common.Error
+operation.ExecutionEventKind *-- operation.CustomCapability : HandleCustomCapability
+operation.ExecutionEvent *-- operation.ExecutionEventKind
+operation.ExecutionEvent *-- operation.ExecuteArguments
+operation.ExecutionEvent *-- operation.StatusReporter
+operation.ExecutionControlApi ..> operation.ExecutionEvent
+operation.ExecutionControl *-- operation.ExecutionControlApi
+operation.ExecutionControl ..> operation.ExecutionEvent
+operation.ExecutionControl *-- operation.ExecutionId
+operation.ExecutionHandle *-- common.DiagnosticReply
+operation.ExecutionHandle --> operation.ExecutionResult
+operation.Operation ..> operation.ExecuteArguments
+operation.Operation ..> operation.ExecutionControl
+operation.Operation ..> operation.ExecutionHandle
+operation.StatusReporter ..> operation.ExecutionStatus
+operation.StatusReporter ..> operation.ExecutionStatusDetails
+
+simple_operation.SimpleOperation ..> operation.ExecuteArguments
+simple_operation.SimpleOperation ..> operation.ExecutionHandle
+simple_operation.SimpleOperation ..> common.DiagnosticReply
+simple_operation.SimpleOperationAdapter *-- operation.ExecutionId
+simple_operation.SimpleOperationAdapter --|> operation.Operation : <<implements>>
+simple_operation.SimpleOperationAdapter *-- simple_operation.SimpleOperation
+
+uds.RoutineControl ..> uds.StartRoutine
+uds.StartRoutine ..> common.uds.NegativeResponseCode
+
+uds_adapters.DataResourceAdapter --|> data_resource.DataResource : <<implements>>
+uds_adapters.DataResourceAdapter *-- uds.ReadDataByIdentifier : RDBI
+uds_adapters.DataResourceAdapter *-- uds.WriteDataByIdentifier : WDBI
+uds_adapters.RoutineControlAdapter --|> simple_operation.SimpleOperation : <<implements>>
+uds_adapters.RoutineControlAdapter *-- uds.RoutineControl
+
+@enduml
