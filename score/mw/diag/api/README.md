@@ -11,7 +11,7 @@ At a high level, the intended usage pattern is:
 3. Let the runtime manage them internally as SOVD-style data resources or operations.
 4. Optionally reuse the provided UDS adapters instead of writing the higher-level SOVD-facing wrappers yourself.
 
-The examples in [../examples/examples.rs](../examples/examples.rs) demonstrate some patterns end to end.
+The examples in [../example/example.rs](../example/example.rs) demonstrate some patterns end to end.
 
 ## API Surface
 
@@ -75,10 +75,22 @@ let uds_error = Error::from_nrc(diag_api::uds::NegativeResponseCode::ConditionsN
 
 Use `sovd::DataResource` when you want to expose a value under the runtime's data-resource model.
 
+`DataResource` has two methods: `read()` and `write()`, both returning a handle (ReadValueHandle/WriteValueHandle) that can be either:
+- **Ready**: `from_error(err)` — error available immediately
+- **Ready**: `ready(reply)` / `ready()` — result available immediately
+- **Pending**: `from_future(async move { ... })` — returns a future to await
+- **Pending**: `from_closure(|| { ... })` — wraps a synchronous closure in an async handle that returns the result directly
+
+For async data resources, use `from_future(async move { ... })` where the closure returns the final result.
+
+For simple synchronous operations, use `from_closure(|| { ... })` where the closure directly returns the result without async wrapping.
+
+### Read-Only Data Resource
+
 The minimum implementation only needs `read`. The default `write` implementation rejects writes and therefore makes the resource read-only.
 
 ```rust
-use diag_api::sovd::data_resource::{DataResource, ReadValueArgs, ReadValueReply};
+use diag_api::sovd::data_resource::{DataResource, ReadValueHandle, ReadValueArgs, ReadValueReply, WriteValueHandle, WriteValueArgs};
 use diag_api::{ReplyMessageEncoding, ReplyMessagePayload, Result as DiagResult};
 
 struct BuildInfoResource {
@@ -86,22 +98,25 @@ struct BuildInfoResource {
 }
 
 impl DataResource for BuildInfoResource {
-    fn read(&self, input: ReadValueArgs) -> DiagResult<ReadValueReply> {
+    fn read(&self, input: ReadValueArgs) -> ReadValueHandle {
         assert_eq!(input.reply_encoding, ReplyMessageEncoding::UTF8);
 
-        Ok(ReadValueReply {
-            id: Some("build_info".to_string()),
-            data: ReplyMessagePayload::from_string(self.version.clone()),
+        let version = self.version.clone();
+        ReadValueHandle::from_closure(move || Ok(ReadValueReply {
+            data: ReplyMessagePayload::from_string(version),
             errors: None,
-        })
+        }))
     }
 }
 ```
 
+### Writable Data Resource
+
 Implement `write` only when the value is actually writable:
 
 ```rust
-use diag_api::sovd::data_resource::{DataError, DataResource, ReadValueArgs, ReadValueReply, WriteValueArgs};
+use diag_api::sovd::{DataError};
+use diag_api::sovd::data_resource::{DataResource, ReadValueHandle, ReadValueArgs, ReadValueReply, WriteValueHandle, WriteValueArgs};
 use diag_api::{RequestMessagePayload, ReplyMessagePayload, Result as DiagResult};
 
 struct WritableFlag {
@@ -109,28 +124,29 @@ struct WritableFlag {
 }
 
 impl DataResource for WritableFlag {
-    fn read(&self, _input: ReadValueArgs) -> DiagResult<ReadValueReply> {
-        Ok(ReadValueReply {
-            id: Some("feature_flag".to_string()),
+    fn read(&self, _input: ReadValueArgs) -> ReadValueHandle {
+        ReadValueHandle::ready(ReadValueReply {
             data: ReplyMessagePayload::from_string(self.enabled.to_string()),
             errors: None,
         })
     }
 
-    fn write(&mut self, input: WriteValueArgs) -> Result<(), DataError> {
+    fn write(&mut self, input: WriteValueArgs) -> WriteValueHandle {
         match input.user_data {
             Some(RequestMessagePayload::UTF8(value)) if value == "true" => {
                 self.enabled = true;
-                Ok(())
+                WriteValueHandle::ready()
             }
             Some(RequestMessagePayload::UTF8(value)) if value == "false" => {
                 self.enabled = false;
-                Ok(())
+                WriteValueHandle::ready()
             }
-            _ => Err(DataError::from_error(diag_api::sovd::GenericError::from_code(
+            _ => WriteValueHandle::from_error(DataError::new(
+                "/data/x".to_string()
+            ).with_error(diag_api::sovd::GenericError::from_code(
                 diag_api::sovd::ErrorCode::IncompleteRequest,
                 "expected a UTF-8 boolean payload".to_string(),
-            ))),
+            )))
         }
     }
 }
@@ -147,10 +163,13 @@ let metadata = DataResourceMetadata {
     id: "build_info".to_string(),
     name: "Build Information".to_string(),
     translation_id: None,
+    read_only: true,
     category: DataCategory::IdentData,
     groups: None,
 };
 ```
+
+Declare actual read/write capabilities in metadata so clients don't need to probe by attempting operations.
 
 ## Implementing an Operation
 
@@ -159,7 +178,7 @@ Use `sovd::Operation` when you need full control over execution lifecycle handli
 `execute` receives:
 
 - `ExecuteArguments`, containing requested reply encoding, user payload, additional attributes, and optional proximity proof data
-- `ExecutionControl`, which is the channel through which the runtime delivers execution events such as status queries, stop requests, or custom capabilities
+- `ExecutionControl`, a trait that extends `Stream<Item = ExecutionEvent>`, through which the runtime delivers execution events such as status queries, stop requests, or custom capabilities
 
 `execute` returns an `ExecutionHandle`. That handle contains:
 
@@ -180,18 +199,18 @@ impl Operation for PingOperation {
     fn execute(
         &mut self,
         input: ExecuteArguments,
-        _control: ExecutionControl,
+        _control: Box<dyn ExecutionControl>,
     ) -> DiagResult<ExecutionHandle> {
         assert_eq!(input.reply_encoding, ReplyMessageEncoding::UTF8);
 
-        ExecutionHandle::from_closure(|| {
+        Ok(ExecutionHandle::from_closure(|| {
             Ok(DiagnosticReply {
                 message_payload: Some(ReplyMessagePayload::from_string(
                     "pong".to_string(),
                 )),
                 additional_attrs: None,
             })
-        })
+        }))
     }
 }
 ```
@@ -206,7 +225,7 @@ The relevant intent for the below example is:
 - process execution control in another future
 - use `tokio::select!` so stop or control events can interrupt the operation cleanly
 - keep the current execution status in shared state so `ReportStatus` can always return it
-- let the user code pause itself in `Interrupted` until the control loop receives `Resume` (just for demonstration puposes here)
+- let the user code pause itself in `Interrupted` until the control loop receives `Resume` (just for demonstration purposes here)
 
 Sketch of that pattern:
 
@@ -216,6 +235,7 @@ use diag_api::sovd::operation::{
     ExecutionStatus, ExecutionStatusDetails, Operation,
 };
 use diag_api::{DiagnosticReply, Error, ReplyMessagePayload, Result as DiagResult};
+use futures::StreamExt;
 use std::sync::{Arc, Mutex};
 use tokio::sync::Notify;
 
@@ -248,23 +268,25 @@ impl AsyncOperation {
     }
 
     async fn exec_control(
-        mut control: ExecutionControl,
+        mut control: Box<dyn ExecutionControl>,
         exec_status: Arc<Mutex<ExecutionStatus>>,
         resume_signal: Arc<Notify>,
     ) {
-        let mut last_exec_event_kind = ExecutionEventKind::Resume;
         loop {
-            let exec_event = exec_control.next_exec_event().await;
+            let exec_event = match control.next().await {
+                Some(event) => event,
+                None => break,
+            };
             match exec_event.kind {
                 ExecutionEventKind::ControlGone => break,
                 ExecutionEventKind::ReportStatus => {
-                    let current_status = *exec_status.lock().unwrap();
-                    event
+                    let current_status = exec_status.lock().unwrap().clone();
+                    exec_event
                         .status_reporter
-                        .put(current_status, ExecutionStatusDetails::none());
+                        .put(current_status, ExecutionStatusDetails::default());
                 }
                 _ => {
-                    let mut last_exec_event_kind = exec_event.kind;
+                    let last_exec_event_kind = exec_event.kind;
                     match last_exec_event_kind {
                         ExecutionEventKind::Resume => {
                             resume_signal.notify_one();
@@ -275,7 +297,9 @@ impl AsyncOperation {
                         }
                         _ => {
                             let mut status = exec_status.lock().unwrap();
-                            *status = ExecutionStatus::UnsupportedCapability;
+                            *status = ExecutionStatus::UnsupportedCapability(
+                                last_exec_event_kind.to_string(),
+                            );
                         }
                     }
                 }
@@ -288,12 +312,12 @@ impl Operation for AsyncOperation {
     fn execute(
         &mut self,
         input: ExecuteArguments,
-        control: ExecutionControl,
+        control: Box<dyn ExecutionControl>,
     ) -> DiagResult<ExecutionHandle> {
         let exec_status = Arc::new(Mutex::new(ExecutionStatus::Running));
         let resume_signal = Arc::new(Notify::new());
 
-        ExecutionHandle::from_future(async move {
+        Ok(ExecutionHandle::from_future(async move {
             tokio::select! {
                 result = Self::user_code(
                     input,
@@ -307,7 +331,7 @@ impl Operation for AsyncOperation {
                     ),
                 )),
             }
-        })
+        }))
     }
 }
 ```
@@ -337,14 +361,14 @@ struct EraseOperation;
 
 impl SimpleOperation for EraseOperation {
     fn start(&mut self, _input: ExecuteArguments) -> DiagResult<ExecutionHandle> {
-        ExecutionHandle::from_closure(|| {
+        Ok(ExecutionHandle::from_closure(|| {
             Ok(DiagnosticReply {
                 message_payload: Some(ReplyMessagePayload::from_string(
                     "erase finished".to_string(),
                 )),
                 additional_attrs: None,
             })
-        })
+        }))
     }
 
     fn stop(&mut self, _input: Option<ExecuteArguments>) -> DiagResult<Option<DiagnosticReply>> {
@@ -357,7 +381,7 @@ impl SimpleOperation for EraseOperation {
     }
 }
 
-let operation = SimpleOperationAdapter::from(EraseOperation);
+let operation = SimpleOperationAdapter::new(EraseOperation);
 let metadata = OperationMetadata {
     proximity_proof_required: false,
     synchronous_execution: true,
@@ -388,7 +412,7 @@ impl ReadDataByIdentifier for VinDid {
     }
 }
 
-let resource = DataResourceAdapter::from_rdbi(VinDid);
+let resource = DataResourceAdapter::new().with_rdbi(VinDid);
 ```
 
 Important adapter constraints:
@@ -417,12 +441,12 @@ struct MyRoutine {
 impl RoutineControl for MyRoutine {
     fn start(&mut self, _input: Option<&[u8]>) -> DiagResult<StartRoutine> {
         let completion = self.completion.clone();
-        StartRoutine::from_future_with_reply(
+        StartRoutine::from_future(
             async move {
                 completion.notified().await;
                 Ok(Some(vec![0xCA, 0xFE]))
             },
-            vec![0xBE, 0xEF],
+            Some(vec![0xBE, 0xEF]),
         )
     }
 
@@ -432,14 +456,14 @@ impl RoutineControl for MyRoutine {
     }
 }
 
-let operation = SimpleOperationAdapter::from(RoutineControlAdapter::from(MyRoutine {
+let operation = SimpleOperationAdapter::new(RoutineControlAdapter::new(MyRoutine {
     completion: Arc::new(Notify::new()),
 }));
 ```
 
 ## Registering Implementations at the Runtime
 
-The example test code in [../examples/examples.rs](../examples/examples.rs) shows the expected runtime integration point:
+The example test code in [../example/example.rs](../example/example.rs) shows the expected runtime integration point:
 
 ```rust
 use diag_api::sovd::data_resource::{DataCategory, DataResourceMetadata};
@@ -458,6 +482,7 @@ entity.register_data_resource(
         id: "build_info".to_string(),
         name: "Build Information".to_string(),
         translation_id: None,
+        read_only: true,
         category: DataCategory::IdentData,
         groups: None,
     },
@@ -496,6 +521,7 @@ The currently modeled event kinds include:
 
 - `HandleCustomCapability`
 - `ReportStatus`
+- `ControlGone`
 - `Interrupt`
 - `Resume`
 - `Reset`
@@ -552,11 +578,11 @@ Use the UDS traits and adapters when:
 
 ## Reference Files
 
-For the concrete implementations which the above guide described, see:
+For concrete implementations which the above guide described, see:
 
+- [../example/example.rs](../example/example.rs)
 - [data_resource.rs](../api/data_resource.rs)
 - [operation.rs](../api/operation.rs)
 - [simple_operation.rs](../api/simple_operation.rs)
 - [uds.rs](../api/uds.rs)
 - [uds_adapters.rs](../api/uds_adapters.rs)
-- [../examples/examples.rs](../examples/examples.rs)
