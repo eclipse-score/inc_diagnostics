@@ -13,6 +13,7 @@
 
 use common::DiagnosticReply;
 use common::Result as DiagResult;
+use futures::StreamExt;
 use operation::{
     ExecuteArguments, ExecutionControl, ExecutionEventKind, ExecutionHandle, ExecutionId,
     ExecutionStatus, ExecutionStatusDetails,
@@ -64,7 +65,7 @@ impl operation::Operation for SimpleOperationAdapter {
     fn execute(
         &mut self,
         input: ExecuteArguments,
-        mut exec_control: ExecutionControl,
+        mut exec_control: Box<dyn ExecutionControl>,
     ) -> DiagResult<ExecutionHandle> {
         let mut data = self
             .data
@@ -90,7 +91,9 @@ impl operation::Operation for SimpleOperationAdapter {
             let mut exec_status = ExecutionStatus::Running;
 
             loop {
-                let exec_event = exec_control.next_exec_event().await;
+                let Some(exec_event) = exec_control.next().await else {
+                    break;
+                };
                 match exec_event.kind {
                     ExecutionEventKind::ControlGone => break,
 
@@ -159,6 +162,7 @@ impl operation::Operation for SimpleOperationAdapter {
                 ));
             }
 
+            // Control ended normally; yield to let the operation future provide the result.
             Ok(DiagnosticReply::default())
         };
 
@@ -182,9 +186,10 @@ impl operation::Operation for SimpleOperationAdapter {
 mod tests {
     use super::*;
     use common::ReplyMessagePayload;
-    use futures::future::BoxFuture;
-    use operation::{ExecutionControlApi, ExecutionEvent, ExecutionEventKind, ExecutionHandle};
+    use operation::{ExecutionControl, ExecutionEvent, ExecutionEventKind, ExecutionHandle};
+    use std::pin::Pin;
     use std::sync::{Arc, Mutex};
+    use std::task::{Context, Poll};
 
     // ── Mock infrastructure ──────────────────────────────────────────
 
@@ -231,34 +236,55 @@ mod tests {
         }
     }
 
-    /// Mock `ExecutionControlApi` that returns a configurable sequence of events.
+    /// Mock `ExecutionControl` that returns a configurable sequence of events.
+    /// Alternates between `Pending` and `Ready` to simulate async delivery.
     struct MockExecControl {
         events: Vec<ExecutionEvent>,
+        exec_id: ExecutionId,
+        yield_next: bool,
     }
 
     impl MockExecControl {
-        fn from_kinds(kinds: Vec<ExecutionEventKind>) -> Self {
+        fn from_kinds(kinds: Vec<ExecutionEventKind>, exec_id: String) -> Self {
             Self {
                 events: kinds.into_iter().map(|k| ExecutionEvent::new(k)).collect(),
+                exec_id,
+                yield_next: true,
             }
         }
 
-        fn from_events(events: Vec<ExecutionEvent>) -> Self {
-            Self { events }
+        fn from_events(events: Vec<ExecutionEvent>, exec_id: String) -> Self {
+            Self {
+                events,
+                exec_id,
+                yield_next: true,
+            }
         }
     }
 
-    impl ExecutionControlApi for MockExecControl {
-        fn next_exec_event(&mut self) -> BoxFuture<'_, ExecutionEvent> {
-            let event = if self.events.is_empty() {
-                ExecutionEvent::new(ExecutionEventKind::ControlGone)
+    impl futures::Stream for MockExecControl {
+        type Item = ExecutionEvent;
+        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            let this = self.get_mut();
+            if this.yield_next {
+                this.yield_next = false;
+                cx.waker().wake_by_ref();
+                Poll::Pending
             } else {
-                self.events.remove(0)
-            };
-            Box::pin(async move {
-                tokio::task::yield_now().await;
-                event
-            })
+                this.yield_next = true;
+                if this.events.is_empty() {
+                    Poll::Ready(None)
+                } else {
+                    let event = this.events.remove(0);
+                    Poll::Ready(Some(event))
+                }
+            }
+        }
+    }
+
+    impl ExecutionControl for MockExecControl {
+        fn exec_id(&self) -> &ExecutionId {
+            &self.exec_id
         }
     }
 
@@ -273,13 +299,19 @@ mod tests {
     }
 
     /// Helper: create an `ExecutionControl` from a list of event kinds.
-    fn exec_control_from_kinds(kinds: Vec<ExecutionEventKind>, exec_id: &str) -> ExecutionControl {
-        ExecutionControl::new(MockExecControl::from_kinds(kinds), exec_id.to_string())
+    fn exec_control_from_kinds(
+        kinds: Vec<ExecutionEventKind>,
+        exec_id: &str,
+    ) -> Box<dyn ExecutionControl> {
+        Box::new(MockExecControl::from_kinds(kinds, exec_id.to_string()))
     }
 
     /// Helper: create an `ExecutionControl` from a list of events.
-    fn exec_control_from_events(events: Vec<ExecutionEvent>, exec_id: &str) -> ExecutionControl {
-        ExecutionControl::new(MockExecControl::from_events(events), exec_id.to_string())
+    fn exec_control_from_events(
+        events: Vec<ExecutionEvent>,
+        exec_id: &str,
+    ) -> Box<dyn ExecutionControl> {
+        Box::new(MockExecControl::from_events(events, exec_id.to_string()))
     }
 
     // ── Test Adapter construction ────────────────────────────────────

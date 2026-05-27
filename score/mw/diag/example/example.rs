@@ -19,6 +19,7 @@ use diag_api::*;
 
 use diag_runtime::*;
 
+use futures::StreamExt;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Notify};
 
@@ -88,7 +89,7 @@ impl Operation for MySyncOperation {
     fn execute(
         &mut self,
         input: ExecuteArguments,
-        _control: ExecutionControl,
+        _control: Box<dyn ExecutionControl>,
     ) -> DiagResult<ExecutionHandle> {
         assert_eq!(input.reply_encoding, ReplyMessageEncoding::UTF8);
         Ok(ExecutionHandle::from_closure(move || {
@@ -126,10 +127,12 @@ impl MyAsyncOperation {
         })
     }
 
-    async fn exec_control(mut control: ExecutionControl, notifier: mpsc::Sender<()>) {
+    async fn exec_control(mut control: Box<dyn ExecutionControl>, notifier: mpsc::Sender<()>) {
         let mut exec_status = ExecutionStatus::Scheduled;
         loop {
-            let exec_event = control.next_exec_event().await;
+            let Some(exec_event) = control.next().await else {
+                break;
+            };
             match exec_event.kind {
                 ExecutionEventKind::HandleCustomCapability(custom_capability) => {
                     println!("Async operation's execution received custom capability event!");
@@ -179,7 +182,7 @@ impl Operation for MyAsyncOperation {
     fn execute(
         &mut self,
         input: ExecuteArguments,
-        control: ExecutionControl,
+        control: Box<dyn ExecutionControl>,
     ) -> DiagResult<ExecutionHandle> {
         let (notifier, notification) = mpsc::channel(10);
         Ok(ExecutionHandle::from_future(async move {

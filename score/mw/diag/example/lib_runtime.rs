@@ -15,14 +15,13 @@ use diag_api::sovd::data_resource::{
     DataResource, DataResourceMetadata, ReadValueArgs, ReadValueHandle, ReadValueReply,
 };
 use diag_api::sovd::operation::{
-    ExecuteArguments, ExecutionControl, ExecutionControlApi, ExecutionEvent, ExecutionEventKind,
-    ExecutionResult, ExecutionStatus, Operation, OperationMetadata,
+    ExecuteArguments, ExecutionControl, ExecutionEvent, ExecutionEventKind, ExecutionResult,
+    ExecutionStatus, Operation, OperationMetadata,
 };
 use diag_api::Error as DiagError;
 use diag_api::Result as DiagResult;
 use diag_api::*;
 
-use futures::future::BoxFuture;
 use futures::FutureExt;
 
 use indexmap::IndexMap;
@@ -84,24 +83,31 @@ pub enum SOVDReply {
 
 struct ExecutionControlImpl {
     exec_events: mpsc::Receiver<ExecutionEvent>,
+    exec_id: ExecutionId,
 }
 
 impl ExecutionControlImpl {
-    fn new(exec_events: mpsc::Receiver<ExecutionEvent>) -> Self {
-        Self { exec_events }
-    }
-
-    async fn do_get_next_event(&mut self) -> ExecutionEvent {
-        self.exec_events
-            .recv()
-            .map(|event| event.unwrap_or(ExecutionEvent::new(ExecutionEventKind::ControlGone)))
-            .await
+    fn new(exec_events: mpsc::Receiver<ExecutionEvent>, exec_id: ExecutionId) -> Self {
+        Self {
+            exec_events,
+            exec_id,
+        }
     }
 }
 
-impl ExecutionControlApi for ExecutionControlImpl {
-    fn next_exec_event(&mut self) -> BoxFuture<'_, ExecutionEvent> {
-        Box::pin(self.do_get_next_event())
+impl futures::Stream for ExecutionControlImpl {
+    type Item = ExecutionEvent;
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.get_mut().exec_events.poll_recv(cx)
+    }
+}
+
+impl ExecutionControl for ExecutionControlImpl {
+    fn exec_id(&self) -> &ExecutionId {
+        &self.exec_id
     }
 }
 
@@ -306,9 +312,7 @@ impl RuntimeImpl {
                     Ok(all_ops)
                 } else {
                     // Filtered: list operations for specific entity
-                    Self::select_entity(entities, &entity_id, |entity| {
-                        Ok(entity.list_operations())
-                    })
+                    Self::select_entity(entities, &entity_id, |entity| Ok(entity.list_operations()))
                 };
                 SOVDReply::ListOperations(reply)
             }
@@ -625,10 +629,10 @@ impl Entity {
 
         let (exec_event_sender, exec_event_receiver) = mpsc::channel(10);
         let exec_id = issue_new_execution_id();
-        let exec_control = ExecutionControl::new(
-            ExecutionControlImpl::new(exec_event_receiver),
+        let exec_control: Box<dyn ExecutionControl> = Box::new(ExecutionControlImpl::new(
+            exec_event_receiver,
             exec_id.clone(),
-        );
+        ));
         let exec_control_for_timeout = if timeout.is_some() {
             Some(exec_event_sender.clone())
         } else {
