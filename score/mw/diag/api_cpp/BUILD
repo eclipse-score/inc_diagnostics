@@ -33,47 +33,48 @@ cc_library(
     name = "sovd_error",
     hdrs = ["sovd_error.h"],
     include_prefix = "score/mw/diag",
-    deps = [":result"],
     visibility = _VISIBILITY,
+    deps = [":result"],
 )
 
 cc_library(
     name = "uds",
     hdrs = ["uds.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":result",
         ":sovd_error",
     ],
-    visibility = _VISIBILITY,
 )
 
 cc_library(
     name = "data_resource",
     hdrs = ["data_resource.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":result",
         ":sovd_error",
     ],
-    visibility = _VISIBILITY,
 )
 
 cc_library(
     name = "operation",
     hdrs = ["operation.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":result",
         ":sovd_error",
     ],
-    visibility = _VISIBILITY,
 )
 
 cc_library(
     name = "diag",
     hdrs = ["diag.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":data_resource",
         ":operation",
@@ -81,7 +82,6 @@ cc_library(
         ":sovd_error",
         ":uds",
     ],
-    visibility = _VISIBILITY,
 )
 
 # ---------------------------------------------------------------------------
@@ -93,11 +93,11 @@ cc_library(
     testonly = True,
     hdrs = ["uds_mock.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":uds",
         "@googletest//:gtest",
     ],
-    visibility = _VISIBILITY,
 )
 
 cc_library(
@@ -105,11 +105,11 @@ cc_library(
     testonly = True,
     hdrs = ["data_resource_mock.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":data_resource",
         "@googletest//:gtest",
     ],
-    visibility = _VISIBILITY,
 )
 
 cc_library(
@@ -117,11 +117,11 @@ cc_library(
     testonly = True,
     hdrs = ["operation_mock.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":operation",
         "@googletest//:gtest",
     ],
-    visibility = _VISIBILITY,
 )
 
 # ---------------------------------------------------------------------------
