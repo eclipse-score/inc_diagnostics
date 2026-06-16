@@ -48,7 +48,7 @@ TEST(OperationTest, ExecuteArgumentsDefaultBinaryEncoding)
 TEST(OperationTest, ExecuteArgumentsWithUserParameters)
 {
     ExecuteArguments args{};
-    args.user_parameters = RequestMessagePayload::from_bytes({0xABU, 0xCDU});
+    args.user_parameters = RequestMessagePayload::from_bytes({std::byte{0xAB}, std::byte{0xCD}});
     ASSERT_TRUE(args.user_parameters.has_value());
     EXPECT_EQ(args.user_parameters->binary_data.size(), 2U);
 }
@@ -123,7 +123,7 @@ TEST(OperationTest, ExecutionStatusDetailsWithCompletionPercentage)
 TEST(OperationTest, ExecutionStatusDetailsWithReplyData)
 {
     DiagnosticReply reply{};
-    reply.message_payload = ReplyMessagePayload::from_byte_vector({0x01U, 0x02U});
+    reply.message_payload = ReplyMessagePayload::from_byte_vector({std::byte{0x01}, std::byte{0x02}});
     auto details = ExecutionStatusDetails{}.with_reply_data(reply);
     ASSERT_TRUE(details.event_result.has_value());
     ASSERT_TRUE(details.event_result->message_payload.has_value());
@@ -246,7 +246,7 @@ TEST(OperationTest, ExecutionEventForCustomCapabilityFactorySetsNameAndKind)
 TEST(OperationTest, ExecutionEventWithArgs)
 {
     ExecuteArguments args{};
-    args.user_parameters = RequestMessagePayload::from_bytes({0x01U});
+    args.user_parameters = RequestMessagePayload::from_bytes({std::byte{0x01}});
     const auto event =
         ExecutionEvent::from_kind(ExecutionEventKind::Resume).with_args(std::move(args));
     ASSERT_TRUE(event.args.has_value());
@@ -398,6 +398,7 @@ TEST(OperationTest, OperationMockExecuteReturnsError)
 
     EXPECT_CALL(mock, execute(_, _))
         .WillOnce(Return(OperationMock::ExecResult{
+            score::unexpect,
             Error::from_error(
                 sovd::GenericError::from_code(
                     sovd::ErrorCode::PreconditionNotFulfilled,

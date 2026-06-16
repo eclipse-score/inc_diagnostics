@@ -194,6 +194,10 @@ struct WriteValueArgs
 /* DataResource interface           */
 /************************************/
 
+/// Result type for DataResource::write() — success (monostate) or a DataError.
+/// Corresponds to Rust's WriteValueHandle wrapping Result<(), DataError>.
+using WriteValueResult = std::variant<std::monostate, sovd::DataError>;
+
 /// Interface for a single SOVD data resource provider.
 ///
 /// Implementations may optionally also provide write access to a specific data value
@@ -216,7 +220,7 @@ class DataResource
     ///
     /// The default implementation returns a PreconditionNotFulfilled error
     /// indicating that this data resource is read-only.
-    virtual std::variant<std::monostate, sovd::DataError> write(WriteValueArgs input)
+    virtual WriteValueResult write(WriteValueArgs input)
     {
         (void)input;
         return sovd::DataError::from_error(

@@ -17,8 +17,11 @@
 #ifndef SCORE_MW_DIAG_RESULT_H
 #define SCORE_MW_DIAG_RESULT_H
 
+#include "score/span.hpp"
+
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -37,25 +40,11 @@ namespace diag
 /************************************/
 
 /// Owning byte buffer
-using ByteVector = std::vector<std::uint8_t>;
+using ByteVector = std::vector<std::byte>;
 
-/// Non-owning read-only view over a byte buffer
-struct ByteView
-{
-    const std::uint8_t* ptr_{nullptr};
-    std::size_t         len_{0U};
-
-    ByteView() noexcept = default;
-    constexpr ByteView(const std::uint8_t* p, std::size_t n) noexcept : ptr_{p}, len_{n} {}
-    explicit ByteView(const ByteVector& v) noexcept : ptr_{v.data()}, len_{v.size()} {}
-
-    const std::uint8_t* data()  const noexcept { return ptr_; }
-    std::size_t         size()  const noexcept { return len_; }
-    bool                empty() const noexcept { return len_ == 0U; }
-    const std::uint8_t& operator[](std::size_t i) const noexcept { return ptr_[i]; }
-    const std::uint8_t* begin() const noexcept { return ptr_; }
-    const std::uint8_t* end()   const noexcept { return ptr_ + len_; }
-};
+/// Non-owning read-only view over a byte buffer (C++17 polyfill via score_baselibs).
+/// Equivalent to std::span<const std::byte> (C++20).
+using ByteView = score::cpp::span<const std::byte>;
 
 /************************************/
 /* Key-value attribute map          */
@@ -228,6 +217,38 @@ enum class NegativeResponseCode : std::uint8_t
     VoltageTooHigh                                       = 0x92,
     VoltageTooLow                                        = 0x93,
     ResourceTemporarilyNotAvailable                      = 0x94,
+};
+
+/// cf. ISO 14229-1:2020, Table A.1 (vehicleManufacturerSpecificConditionsNotCorrect)
+/// Wraps an NRC byte in the manufacturer-specific range 0xF0–0xFE.
+class VehicleManufacturerSpecificCNC
+{
+  public:
+    /// Factory: construct from a validated byte value.
+    /// Precondition: value must be in [0xF0, 0xFE].
+    static VehicleManufacturerSpecificCNC from(std::uint8_t value) noexcept
+    {
+        assert(value >= 0xF0U && value <= 0xFEU && "VehicleManufacturerSpecificCNC out of range");
+        return VehicleManufacturerSpecificCNC{value};
+    }
+
+    /// Returns the raw NRC byte value.
+    std::uint8_t value() const noexcept { return value_; }
+
+    bool operator==(const VehicleManufacturerSpecificCNC& other) const noexcept
+    {
+        return value_ == other.value_;
+    }
+
+    bool operator!=(const VehicleManufacturerSpecificCNC& other) const noexcept
+    {
+        return !(*this == other);
+    }
+
+  private:
+    explicit VehicleManufacturerSpecificCNC(std::uint8_t v) noexcept : value_{v} {}
+
+    std::uint8_t value_{0xF0U};
 };
 
 }  // namespace uds

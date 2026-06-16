@@ -40,18 +40,18 @@ TEST(UdsTest, StartRoutineResultDefaultNoReply)
 TEST(UdsTest, StartRoutineResultWithReplyAndProvider)
 {
     StartRoutine result{};
-    result.reply             = ByteVector{0xBEU, 0xEFU};
+    result.reply             = ByteVector{std::byte{0xBE}, std::byte{0xEF}};
     result.result_provider   = []() -> Result<std::optional<ByteVector>> {
-        return std::optional<ByteVector>{ByteVector{0xCAU, 0xFEU}};
+        return std::optional<ByteVector>{ByteVector{std::byte{0xCA}, std::byte{0xFE}}};
     };
     ASSERT_TRUE(result.reply.has_value());
     EXPECT_EQ(result.reply->size(), 2U);
-    EXPECT_EQ((*result.reply)[0], 0xBEU);
+    EXPECT_EQ((*result.reply)[0], std::byte{0xBE});
 
     const auto exec_result = result.result_provider();
     ASSERT_TRUE(is_ok(exec_result));
     ASSERT_TRUE(get_value(exec_result).has_value());
-    EXPECT_EQ((*get_value(exec_result))[0], 0xCAU);
+    EXPECT_EQ((*get_value(exec_result))[0], std::byte{0xCA});
 }
 
 TEST(UdsTest, StartRoutineResultProviderReturnsNone)
@@ -69,7 +69,7 @@ TEST(UdsTest, StartRoutineResultProviderReturnsError)
 {
     StartRoutine result{};
     result.result_provider = []() -> Result<std::optional<ByteVector>> {
-        return Error::from_nrc(uds::NegativeResponseCode::ConditionsNotCorrect);
+        return Result<std::optional<ByteVector>>{score::unexpect, Error::from_nrc(uds::NegativeResponseCode::ConditionsNotCorrect)};
     };
     const auto exec_result = result.result_provider();
     EXPECT_TRUE(is_err(exec_result));
@@ -81,12 +81,12 @@ TEST(UdsTest, RdbiReadReturnsSuccessBytes)
 {
     ReadDataByIdentifierMock mock{};
     EXPECT_CALL(mock, read())
-        .WillOnce(Return(Result<ByteVector>{ByteVector{0xDEU, 0xADU}}));
+        .WillOnce(Return(Result<ByteVector>{ByteVector{std::byte{0xDE}, std::byte{0xAD}}}));
 
     const auto result = mock.read();
     ASSERT_TRUE(is_ok(result));
     EXPECT_EQ(get_value(result).size(), 2U);
-    EXPECT_EQ(get_value(result)[0], 0xDEU);
+    EXPECT_EQ(get_value(result)[0], std::byte{0xDE});
 }
 
 TEST(UdsTest, RdbiReadReturnsError)
@@ -94,7 +94,7 @@ TEST(UdsTest, RdbiReadReturnsError)
     ReadDataByIdentifierMock mock{};
     EXPECT_CALL(mock, read())
         .WillOnce(Return(Result<ByteVector>{
-            Error::from_nrc(uds::NegativeResponseCode::SecurityAccessDenied)}));
+            score::unexpect, Error::from_nrc(uds::NegativeResponseCode::SecurityAccessDenied)}));
 
     const auto result = mock.read();
     EXPECT_TRUE(is_err(result));
@@ -106,7 +106,7 @@ TEST(UdsTest, RdbiReadCalledMultipleTimes)
 {
     ReadDataByIdentifierMock mock{};
     EXPECT_CALL(mock, read()).Times(3)
-        .WillRepeatedly(Return(Result<ByteVector>{ByteVector{0x01U}}));
+        .WillRepeatedly(Return(Result<ByteVector>{ByteVector{std::byte{0x01}}}));
 
     for (int i = 0; i < 3; ++i)
     {
@@ -119,9 +119,9 @@ TEST(UdsTest, RdbiReadCalledMultipleTimes)
 TEST(UdsTest, WdbiWriteReturnsOk)
 {
     WriteDataByIdentifierMock mock{};
-    const ByteVector          data{0x01U, 0x02U};
+    const ByteVector          data{std::byte{0x01}, std::byte{0x02}};
     EXPECT_CALL(mock, write(_))
-        .WillOnce(Return(ResultBlank{std::monostate{}}));
+        .WillOnce(Return(ResultBlank{}));
 
     const auto result = mock.write(ByteView{data});
     EXPECT_TRUE(is_ok(result));
@@ -130,10 +130,10 @@ TEST(UdsTest, WdbiWriteReturnsOk)
 TEST(UdsTest, WdbiWriteReturnsError)
 {
     WriteDataByIdentifierMock mock{};
-    const ByteVector          data{0xFFU};
+    const ByteVector          data{std::byte{0xFF}};
     EXPECT_CALL(mock, write(_))
         .WillOnce(Return(ResultBlank{
-            Error::from_nrc(uds::NegativeResponseCode::GeneralProgrammingFailure)}));
+            score::unexpect, Error::from_nrc(uds::NegativeResponseCode::GeneralProgrammingFailure)}));
 
     const auto result = mock.write(ByteView{data});
     EXPECT_TRUE(is_err(result));
@@ -145,7 +145,7 @@ TEST(UdsTest, WdbiWriteEmptyInput)
 {
     WriteDataByIdentifierMock mock{};
     EXPECT_CALL(mock, write(_))
-        .WillOnce(Return(ResultBlank{std::monostate{}}));
+        .WillOnce(Return(ResultBlank{}));
 
     const ByteView empty_view{};
     EXPECT_TRUE(is_ok(mock.write(empty_view)));
@@ -157,15 +157,15 @@ TEST(UdsTest, RoutineControlStartReturnsSuccessWithReply)
 {
     RoutineControlMock mock{};
     StartRoutine expected_result{};
-    expected_result.reply = ByteVector{0xBEU, 0xEFU};
+    expected_result.reply = ByteVector{std::byte{0xBE}, std::byte{0xEF}};
     expected_result.result_provider = []() -> Result<std::optional<ByteVector>> {
-        return std::optional<ByteVector>{ByteVector{0xCAU, 0xFEU}};
+        return std::optional<ByteVector>{ByteVector{std::byte{0xCA}, std::byte{0xFE}}};
     };
 
     EXPECT_CALL(mock, start(_))
         .WillOnce(Return(Result<StartRoutine>{std::move(expected_result)}));
 
-    const ByteVector   input_data{0x01U};
+    const ByteVector   input_data{std::byte{0x01}};
     const ByteView     input_view{input_data};
     const auto result = mock.start(std::optional<ByteView>{input_view});
 
@@ -173,7 +173,7 @@ TEST(UdsTest, RoutineControlStartReturnsSuccessWithReply)
     EXPECT_TRUE(get_value(result).reply.has_value());
 }
 
-TEST(UdsTest, RoutineControlStartNoInput)
+TEST(UdsTest, RoutineControlStartReturnsOkWithNoInput)
 {
     RoutineControlMock mock{};
     // ByteView lacks operator==; use wildcard matcher and verify via return value.
@@ -189,7 +189,7 @@ TEST(UdsTest, RoutineControlStartReturnsError)
     RoutineControlMock mock{};
     EXPECT_CALL(mock, start(_))
         .WillOnce(Return(Result<StartRoutine>{
-            Error::from_nrc(uds::NegativeResponseCode::ConditionsNotCorrect)}));
+            score::unexpect, Error::from_nrc(uds::NegativeResponseCode::ConditionsNotCorrect)}));
 
     const auto result = mock.start(std::nullopt);
     EXPECT_TRUE(is_err(result));
@@ -200,12 +200,12 @@ TEST(UdsTest, RoutineControlStopReturnsBytes)
     RoutineControlMock mock{};
     EXPECT_CALL(mock, stop(_))
         .WillOnce(Return(Result<std::optional<ByteVector>>{
-            std::optional<ByteVector>{ByteVector{0xDAU, 0xDAU}}}));
+            std::optional<ByteVector>{ByteVector{std::byte{0xDA}, std::byte{0xDA}}}}));
 
     const auto result = mock.stop(std::nullopt);
     ASSERT_TRUE(is_ok(result));
     ASSERT_TRUE(get_value(result).has_value());
-    EXPECT_EQ((*get_value(result))[0], 0xDAU);
+    EXPECT_EQ((*get_value(result))[0], std::byte{0xDA});
 }
 
 TEST(UdsTest, RoutineControlStopReturnsNone)

@@ -33,7 +33,7 @@ class DataResourceMock : public DataResource
 {
   public:
     using ReadResult  = Result<ReadValueReply>;
-    using WriteResult = std::variant<std::monostate, sovd::DataError>;
+    using WriteResult = WriteValueResult;
 
     MOCK_METHOD(ReadResult,  read,  (ReadValueArgs  input), (override));
     MOCK_METHOD(WriteResult, write, (WriteValueArgs input), (override));

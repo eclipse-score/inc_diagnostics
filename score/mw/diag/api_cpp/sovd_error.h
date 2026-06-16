@@ -18,6 +18,7 @@
 #define SCORE_MW_DIAG_SOVD_ERROR_H
 
 #include "score/mw/diag/result.h"
+#include "score/result/result.h"
 
 #include <optional>
 #include <string>
@@ -277,23 +278,31 @@ struct Error
 /************************************/
 
 /// Result type for any diagnostic action.
+/// Uses score::details::expected<T, Error> from score_baselibs — the same expected
+/// machinery as score::Result<T>, but carrying our rich Error type with full
+/// SOVD/UDS error details (GenericError + payload) rather than the thin
+/// score::result::Error (code + domain + user_message).
+///
+/// Constructing error results — use score::unexpect as the in-place tag:
+///   return Result<T>{score::unexpect, Error::from_nrc(nrc)};
+///   return Result<T>{score::unexpect, Error::from_error(generic_err)};
 template <typename T>
-using Result = std::variant<T, Error>;
+using Result = score::details::expected<T, Error>;
 
 /// Void-like result for write/blank operations.
 using ResultBlank = Result<std::monostate>;
 
 template <typename T>
-bool is_ok(const Result<T>& r) noexcept { return std::holds_alternative<T>(r); }
+[[nodiscard]] bool is_ok(const Result<T>& r) noexcept { return r.has_value(); }
 
 template <typename T>
-bool is_err(const Result<T>& r) noexcept { return std::holds_alternative<Error>(r); }
+[[nodiscard]] bool is_err(const Result<T>& r) noexcept { return !r.has_value(); }
 
 template <typename T>
-const T& get_value(const Result<T>& r) { return std::get<T>(r); }
+const T& get_value(const Result<T>& r) { return r.value(); }
 
 template <typename T>
-const Error& get_error(const Result<T>& r) { return std::get<Error>(r); }
+const Error& get_error(const Result<T>& r) { return r.error(); }
 
 }  // namespace diag
 }  // namespace mw

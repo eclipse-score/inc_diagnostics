@@ -183,6 +183,14 @@ TEST(SovdErrorTest, ErrorCodeDefaultHoldsSovdGenericError)
     EXPECT_FALSE(is_uds_error(code));
 }
 
+TEST(SovdErrorTest, ErrorCodeHoldsNrc)
+{
+    const ErrorCode code{uds::NegativeResponseCode::RequestOutOfRange};
+    EXPECT_FALSE(is_sovd_error(code));
+    EXPECT_TRUE(is_uds_error(code));
+    EXPECT_EQ(get_uds_nrc(code), uds::NegativeResponseCode::RequestOutOfRange);
+}
+
 // ── Error factories ───────────────────────────────────────────────────────
 
 TEST(SovdErrorTest, ErrorFromSovdError)
@@ -191,6 +199,7 @@ TEST(SovdErrorTest, ErrorFromSovdError)
         sovd::GenericError::from_code(sovd::ErrorCode::SovdServerFailure, "down"));
     EXPECT_TRUE(is_sovd_error(err.code));
     EXPECT_EQ(get_sovd_error(err.code).sovd_error, "sovd-server-failure");
+    EXPECT_EQ(get_sovd_error(err.code).message_text, "down");
     EXPECT_FALSE(err.payload.has_value());
 }
 
@@ -231,7 +240,7 @@ TEST(SovdErrorTest, ResultIsOkInt)
 
 TEST(SovdErrorTest, ResultIsErr)
 {
-    const Result<int> r{Error::from_nrc(uds::NegativeResponseCode::GeneralReject)};
+    const Result<int> r{score::unexpect, Error::from_nrc(uds::NegativeResponseCode::GeneralReject)};
     EXPECT_FALSE(is_ok(r));
     EXPECT_TRUE(is_err(r));
     EXPECT_TRUE(is_uds_error(get_error(r).code));
@@ -239,13 +248,13 @@ TEST(SovdErrorTest, ResultIsErr)
 
 TEST(SovdErrorTest, ResultBlankOk)
 {
-    const ResultBlank r{std::monostate{}};
+    const ResultBlank r{};
     EXPECT_TRUE(is_ok(r));
 }
 
 TEST(SovdErrorTest, ResultBlankErr)
 {
-    const ResultBlank r{Error::from_nrc(uds::NegativeResponseCode::ConditionsNotCorrect)};
+    const ResultBlank r{score::unexpect, Error::from_nrc(uds::NegativeResponseCode::ConditionsNotCorrect)};
     EXPECT_TRUE(is_err(r));
 }
 

@@ -159,7 +159,7 @@ TEST(DataResourceTest, ReadValueArgsWithAdditionalAttrs)
 
 TEST(DataResourceTest, ReadValueReplyBinaryNoErrors)
 {
-    const ReadValueReply reply{ReplyMessagePayload::from_byte_vector({0xAAU}), std::nullopt};
+    const ReadValueReply reply{ReplyMessagePayload::from_byte_vector({std::byte{0xAA}}), std::nullopt};
     EXPECT_EQ(reply.data.kind, ReplyMessagePayload::Kind::Binary);
     EXPECT_FALSE(reply.errors.has_value());
 }
@@ -188,7 +188,7 @@ TEST(DataResourceTest, WriteValueArgsDefaultEmpty)
 TEST(DataResourceTest, WriteValueArgsWithBinaryData)
 {
     WriteValueArgs args{};
-    args.user_data = RequestMessagePayload::from_bytes({0x01U, 0x02U});
+    args.user_data = RequestMessagePayload::from_bytes({std::byte{0x01}, std::byte{0x02}});
     ASSERT_TRUE(args.user_data.has_value());
     EXPECT_EQ(args.user_data->kind, RequestMessagePayload::Kind::Binary);
     EXPECT_EQ(args.user_data->binary_data.size(), 2U);
@@ -235,6 +235,7 @@ TEST(DataResourceTest, MockReadReturnsError)
     DataResourceMock mock{};
     EXPECT_CALL(mock, read(_))
         .WillOnce(Return(DataResourceMock::ReadResult{
+            score::unexpect,
             Error::from_error(sovd::GenericError::from_code(
                 sovd::ErrorCode::NotResponding, "device not responding"))}));
 
@@ -251,7 +252,7 @@ TEST(DataResourceTest, MockWriteReturnsOk)
         .WillOnce(Return(DataResourceMock::WriteResult{std::monostate{}}));
 
     WriteValueArgs args{};
-    args.user_data = RequestMessagePayload::from_bytes({0xAAU});
+    args.user_data = RequestMessagePayload::from_bytes({std::byte{0xAA}});
     const auto result = mock.write(std::move(args));
     EXPECT_TRUE(std::holds_alternative<std::monostate>(result));
 }

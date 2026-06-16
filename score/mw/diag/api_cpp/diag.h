@@ -24,5 +24,7 @@
 #include "score/mw/diag/uds.h"          // ReadDataByIdentifier, WriteDataByIdentifier, RoutineControl
 #include "score/mw/diag/data_resource.h"// sovd::DataCategory, DataResourceMetadata, DataResource
 #include "score/mw/diag/operation.h"    // Operation, ExecutionHandle, OperationMetadata, ...
+#include "score/mw/diag/simple_operation.h" // SimpleOperation, SimpleOperationAdapter
+#include "score/mw/diag/uds_adapters.h" // DataResourceAdapter, RoutineControlAdapter
 
 #endif  // SCORE_MW_DIAG_DIAG_H

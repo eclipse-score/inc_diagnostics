@@ -26,6 +26,9 @@ cc_library(
     name = "result",
     hdrs = ["result.h"],
     include_prefix = "score/mw/diag",
+    deps = [
+        "@score_baselibs//score/language/futurecpp",
+    ],
     visibility = _VISIBILITY,
 )
 
@@ -33,8 +36,11 @@ cc_library(
     name = "sovd_error",
     hdrs = ["sovd_error.h"],
     include_prefix = "score/mw/diag",
+    deps = [
+        ":result",
+        "@score_baselibs//score/result",
+    ],
     visibility = _VISIBILITY,
-    deps = [":result"],
 )
 
 cc_library(
@@ -79,8 +85,10 @@ cc_library(
         ":data_resource",
         ":operation",
         ":result",
+        ":simple_operation",
         ":sovd_error",
         ":uds",
+        ":uds_adapters",
     ],
 )
 
@@ -121,6 +129,40 @@ cc_library(
     deps = [
         ":operation",
         "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "simple_operation",
+    hdrs = ["simple_operation.h"],
+    include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
+    deps = [
+        ":operation",
+    ],
+)
+
+cc_library(
+    name = "simple_operation_mock",
+    testonly = True,
+    hdrs = ["simple_operation_mock.h"],
+    include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
+    deps = [
+        ":simple_operation",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "uds_adapters",
+    hdrs = ["uds_adapters.h"],
+    include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
+    deps = [
+        ":data_resource",
+        ":simple_operation",
+        ":uds",
     ],
 )
 
@@ -174,6 +216,27 @@ cc_test(
     tags = ["unit"],
     deps = [
         ":operation_mock",
+        "@googletest//:gtest_main",
+    ],
+)
+cc_test(
+    name = "simple_operation_test",
+    srcs = ["simple_operation_test.cpp"],
+    tags = ["unit"],
+    deps = [
+        ":simple_operation_mock",
+        ":operation_mock",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "uds_adapters_test",
+    srcs = ["uds_adapters_test.cpp"],
+    tags = ["unit"],
+    deps = [
+        ":uds_adapters",
+        ":uds_mock",
         "@googletest//:gtest_main",
     ],
 )

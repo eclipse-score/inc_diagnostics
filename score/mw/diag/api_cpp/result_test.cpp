@@ -33,10 +33,10 @@ TEST(ResultTest, ByteVectorDefaultEmpty)
 
 TEST(ResultTest, ByteVectorInitializerList)
 {
-    const ByteVector v{0x01U, 0x02U, 0x03U};
+    const ByteVector v{std::byte{0x01}, std::byte{0x02}, std::byte{0x03}};
     EXPECT_EQ(v.size(), 3U);
-    EXPECT_EQ(v[0], 0x01U);
-    EXPECT_EQ(v[2], 0x03U);
+    EXPECT_EQ(v[0], std::byte{0x01});
+    EXPECT_EQ(v[2], std::byte{0x03});
 }
 
 // ── ByteView ─────────────────────────────────────────────────────────────
@@ -50,24 +50,24 @@ TEST(ResultTest, ByteViewDefaultEmpty)
 
 TEST(ResultTest, ByteViewFromByteVector)
 {
-    const ByteVector v{0xAAU, 0xBBU, 0xCCU};
+    const ByteVector v{std::byte{0xAA}, std::byte{0xBB}, std::byte{0xCC}};
     const ByteView   view{v};
     EXPECT_EQ(view.size(), 3U);
-    EXPECT_EQ(view[0], 0xAAU);
-    EXPECT_EQ(view[2], 0xCCU);
+    EXPECT_EQ(view[0], std::byte{0xAA});
+    EXPECT_EQ(view[2], std::byte{0xCC});
 }
 
 TEST(ResultTest, ByteViewFromRawPointer)
 {
-    const std::array<std::uint8_t, 2> arr{0x11U, 0x22U};
+    const std::array<std::byte, 2> arr{std::byte{0x11}, std::byte{0x22}};
     const ByteView view{arr.data(), arr.size()};
     EXPECT_EQ(view.size(), 2U);
-    EXPECT_EQ(view[1], 0x22U);
+    EXPECT_EQ(view[1], std::byte{0x22});
 }
 
 TEST(ResultTest, ByteViewIterationMatchesData)
 {
-    const ByteVector v{0x01U, 0x02U, 0x03U};
+    const ByteVector v{std::byte{0x01}, std::byte{0x02}, std::byte{0x03}};
     const ByteView   view{v};
     std::size_t      i = 0U;
     for (const auto byte : view)
@@ -111,10 +111,10 @@ TEST(ResultTest, JsonSchemaRequiredDistinctValues)
 
 TEST(ResultTest, RequestPayloadFromBytesKind)
 {
-    const auto payload = RequestMessagePayload::from_bytes({0xCAU, 0xFEU});
+    const auto payload = RequestMessagePayload::from_bytes({std::byte{0xCA}, std::byte{0xFE}});
     EXPECT_EQ(payload.kind, RequestMessagePayload::Kind::Binary);
     EXPECT_EQ(payload.binary_data.size(), 2U);
-    EXPECT_EQ(payload.binary_data[0], 0xCAU);
+    EXPECT_EQ(payload.binary_data[0], std::byte{0xCA});
 }
 
 TEST(ResultTest, RequestPayloadFromJsonKind)
@@ -168,7 +168,7 @@ TEST(ResultTest, ReplyEncodingUtf8Kind)
 
 TEST(ResultTest, ReplyPayloadFromByteVector)
 {
-    const auto payload = ReplyMessagePayload::from_byte_vector({0xDEU, 0xADU});
+    const auto payload = ReplyMessagePayload::from_byte_vector({std::byte{0xDE}, std::byte{0xAD}});
     EXPECT_EQ(payload.kind, ReplyMessagePayload::Kind::Binary);
     EXPECT_EQ(payload.binary_data.size(), 2U);
     EXPECT_FALSE(payload.json_schema.has_value());
