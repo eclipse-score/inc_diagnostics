@@ -26,21 +26,21 @@ cc_library(
     name = "result",
     hdrs = ["result.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         "@score_baselibs//score/language/futurecpp",
     ],
-    visibility = _VISIBILITY,
 )
 
 cc_library(
     name = "sovd_error",
     hdrs = ["sovd_error.h"],
     include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
     deps = [
         ":result",
         "@score_baselibs//score/result",
     ],
-    visibility = _VISIBILITY,
 )
 
 cc_library(
@@ -219,13 +219,14 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
 cc_test(
     name = "simple_operation_test",
     srcs = ["simple_operation_test.cpp"],
     tags = ["unit"],
     deps = [
-        ":simple_operation_mock",
         ":operation_mock",
+        ":simple_operation_mock",
         "@googletest//:gtest_main",
     ],
 )
