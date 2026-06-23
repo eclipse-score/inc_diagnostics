@@ -50,7 +50,8 @@ TEST(OperationTest, ExecuteArgumentsWithUserParameters)
     ExecuteArguments args{};
     args.user_parameters = RequestMessagePayload::from_bytes({std::byte{0xAB}, std::byte{0xCD}});
     ASSERT_TRUE(args.user_parameters.has_value());
-    EXPECT_EQ(args.user_parameters->binary_data.size(), 2U);
+    ASSERT_TRUE(std::holds_alternative<ByteVector>(*args.user_parameters));
+    EXPECT_EQ(std::get<ByteVector>(*args.user_parameters).size(), 2U);
 }
 
 TEST(OperationTest, ExecuteArgumentsWithProximityResponse)
@@ -251,7 +252,8 @@ TEST(OperationTest, ExecutionEventWithArgs)
         ExecutionEvent::from_kind(ExecutionEventKind::Resume).with_args(std::move(args));
     ASSERT_TRUE(event.args.has_value());
     ASSERT_TRUE(event.args->user_parameters.has_value());
-    EXPECT_EQ(event.args->user_parameters->binary_data.size(), 1U);
+    ASSERT_TRUE(std::holds_alternative<ByteVector>(*event.args->user_parameters));
+    EXPECT_EQ(std::get<ByteVector>(*event.args->user_parameters).size(), 1U);
 }
 
 TEST(OperationTest, ExecutionEventWithStatusReporter)

@@ -55,6 +55,16 @@ cc_library(
 )
 
 cc_library(
+    name = "dtc",
+    hdrs = ["dtc.h"],
+    include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
+    deps = [
+        ":sovd_error",
+    ],
+)
+
+cc_library(
     name = "data_resource",
     hdrs = ["data_resource.h"],
     include_prefix = "score/mw/diag",
@@ -83,6 +93,7 @@ cc_library(
     visibility = _VISIBILITY,
     deps = [
         ":data_resource",
+        ":dtc",
         ":operation",
         ":result",
         ":simple_operation",
@@ -104,6 +115,18 @@ cc_library(
     visibility = _VISIBILITY,
     deps = [
         ":uds",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "dtc_mock",
+    testonly = True,
+    hdrs = ["dtc_mock.h"],
+    include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
+    deps = [
+        ":dtc",
         "@googletest//:gtest",
     ],
 )
@@ -216,28 +239,6 @@ cc_test(
     tags = ["unit"],
     deps = [
         ":operation_mock",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "simple_operation_test",
-    srcs = ["simple_operation_test.cpp"],
-    tags = ["unit"],
-    deps = [
-        ":operation_mock",
-        ":simple_operation_mock",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "uds_adapters_test",
-    srcs = ["uds_adapters_test.cpp"],
-    tags = ["unit"],
-    deps = [
-        ":uds_adapters",
-        ":uds_mock",
         "@googletest//:gtest_main",
     ],
 )

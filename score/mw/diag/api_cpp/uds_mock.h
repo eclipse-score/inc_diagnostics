@@ -69,6 +69,15 @@ class RoutineControlMock : public RoutineControl
     MOCK_METHOD(std::optional<std::uint8_t>, completion_percentage, (), (const, noexcept, override));
 };
 
+/// Mock for score::mw::diag::UdsService (raw vendor-specific UDS services).
+class UdsServiceMock : public UdsService
+{
+  public:
+    using HandleResult = Result<ByteVector>;
+
+    MOCK_METHOD(HandleResult, handle_message, (ByteView input), (override));
+};
+
 }  // namespace diag
 }  // namespace mw
 }  // namespace score

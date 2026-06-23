@@ -86,7 +86,7 @@ TEST(SimpleOperationTest, StopReturnsReply)
     EXPECT_EQ(get_value(result)->message_payload->text_data, "done");
 }
 
-TEST(SimpleOperationTest, CompletionPercentageDefaultNullopt)
+TEST(SimpleOperationTest, CompletionPercentageMockReturnsNullopt)
 {
     SimpleOperationMock mock{};
     EXPECT_CALL(mock, completion_percentage())
@@ -147,8 +147,17 @@ TEST(SimpleOperationAdapterTest, StopEventCallsStopAndReturnsError)
     ExecutionControlMock control{};
     const ExecutionId exec_id = "exec-2";
     EXPECT_CALL(control, exec_id()).WillOnce(ReturnRef(exec_id));
+
+    ExecutionStatus reported_status = ExecutionStatus::Unknown;
+    auto stop_event =
+        ExecutionEvent::from_kind(ExecutionEventKind::Stop)
+            .with_status_reporter([&](ExecutionStatus s, ExecutionStatusDetails)
+            {
+                reported_status = s;
+            });
+
     EXPECT_CALL(control, next_exec_event())
-        .WillOnce(Return(ExecutionEvent::from_kind(ExecutionEventKind::Stop)));
+        .WillOnce(Return(std::move(stop_event)));
 
     SimpleOperationAdapter adapter{std::move(op)};
     auto result = adapter.execute(ExecuteArguments{}, control);
@@ -156,6 +165,7 @@ TEST(SimpleOperationAdapterTest, StopEventCallsStopAndReturnsError)
 
     const auto exec_result = get_value(result).future();
     EXPECT_TRUE(is_err(exec_result));
+    EXPECT_EQ(reported_status, ExecutionStatus::Stopped);
     EXPECT_EQ(get_sovd_error(get_error(exec_result).code).sovd_error, "error-response");
 }
 
@@ -250,6 +260,210 @@ TEST(SimpleOperationAdapterTest, StartErrorPropagated)
     auto result = adapter.execute(ExecuteArguments{}, control);
     EXPECT_TRUE(is_err(result));
     EXPECT_EQ(get_sovd_error(result.error().code).sovd_error, "not-responding");
+}
+
+// ── SimpleOperationAdapter: stop with a reply payload ─────────────────────────────
+
+TEST(SimpleOperationAdapterTest, StopEventWithReplyAttachesPayloadToStatus)
+{
+    auto op = std::make_unique<SimpleOperationMock>();
+    EXPECT_CALL(*op, start(_))
+        .WillOnce([](ExecuteArguments) -> SimpleOperationMock::StartResult
+        {
+            return ExecutionHandle{[]() -> ExecutionResult { return DiagnosticReply{}; }};
+        });
+
+    DiagnosticReply stop_reply{};
+    stop_reply.message_payload = ReplyMessagePayload::from_string("stopped-ok");
+    EXPECT_CALL(*op, stop(_))
+        .WillOnce(Return(SimpleOperationMock::StopResult{
+            std::optional<DiagnosticReply>{std::move(stop_reply)}}));
+
+    ExecutionControlMock control{};
+    const ExecutionId exec_id = "exec-stop-reply";
+    EXPECT_CALL(control, exec_id()).WillOnce(ReturnRef(exec_id));
+
+    ExecutionStatus     reported_status = ExecutionStatus::Unknown;
+    std::string         reported_text;
+    auto stop_event =
+        ExecutionEvent::from_kind(ExecutionEventKind::Stop)
+            .with_status_reporter([&](ExecutionStatus s, ExecutionStatusDetails d)
+            {
+                reported_status = s;
+                if (d.event_result.has_value() &&
+                    d.event_result->message_payload.has_value())
+                {
+                    reported_text = d.event_result->message_payload->text_data;
+                }
+            });
+
+    EXPECT_CALL(control, next_exec_event())
+        .WillOnce(Return(std::move(stop_event)));
+
+    SimpleOperationAdapter adapter{std::move(op)};
+    auto result = adapter.execute(ExecuteArguments{}, control);
+    ASSERT_TRUE(is_ok(result));
+
+    const auto exec_result = get_value(result).future();
+    EXPECT_TRUE(is_err(exec_result));
+    EXPECT_EQ(reported_status, ExecutionStatus::Stopped);
+    EXPECT_EQ(reported_text,   "stopped-ok");
+}
+
+// ── SimpleOperationAdapter: stop() returning Err ──────────────────────────────────
+
+TEST(SimpleOperationAdapterTest, StopEventErrorPropagated)
+{
+    auto op = std::make_unique<SimpleOperationMock>();
+    EXPECT_CALL(*op, start(_))
+        .WillOnce([](ExecuteArguments) -> SimpleOperationMock::StartResult
+        {
+            return ExecutionHandle{[]() -> ExecutionResult { return DiagnosticReply{}; }};
+        });
+    EXPECT_CALL(*op, stop(_))
+        .WillOnce(Return(SimpleOperationMock::StopResult{
+            score::unexpect,
+            Error::from_error(sovd::GenericError::from_code(
+                sovd::ErrorCode::NotResponding, "not-responding"))}));
+
+    ExecutionControlMock control{};
+    const ExecutionId exec_id = "exec-stop-err";
+    EXPECT_CALL(control, exec_id()).WillOnce(ReturnRef(exec_id));
+    EXPECT_CALL(control, next_exec_event())
+        .WillOnce(Return(ExecutionEvent::from_kind(ExecutionEventKind::Stop)));
+
+    SimpleOperationAdapter adapter{std::move(op)};
+    auto result = adapter.execute(ExecuteArguments{}, control);
+    ASSERT_TRUE(is_ok(result));
+
+    const auto exec_result = get_value(result).future();
+    EXPECT_TRUE(is_err(exec_result));
+    EXPECT_EQ(get_sovd_error(get_error(exec_result).code).sovd_error, "not-responding");
+}
+
+// ── SimpleOperationAdapter: HandleCustomCapability sets capability name in details ───
+
+TEST(SimpleOperationAdapterTest, HandleCustomCapabilityReportsNameInDetails)
+{
+    auto op = std::make_unique<SimpleOperationMock>();
+    EXPECT_CALL(*op, start(_))
+        .WillOnce([](ExecuteArguments) -> SimpleOperationMock::StartResult
+        {
+            return ExecutionHandle{[]() -> ExecutionResult { return DiagnosticReply{}; }};
+        });
+
+    ExecutionControlMock control{};
+    const ExecutionId exec_id = "exec-cap";
+    EXPECT_CALL(control, exec_id()).WillOnce(ReturnRef(exec_id));
+
+    ExecutionStatus reported_status = ExecutionStatus::Unknown;
+    std::string     reported_capability;
+    auto cap_event =
+        ExecutionEvent::for_custom_capability("my-capability")
+            .with_status_reporter([&](ExecutionStatus s, ExecutionStatusDetails d)
+            {
+                reported_status     = s;
+                reported_capability = d.last_executed_capability;
+            });
+
+    EXPECT_CALL(control, next_exec_event())
+        .WillOnce(Return(std::move(cap_event)))
+        .WillOnce(Return(ExecutionEvent::from_kind(ExecutionEventKind::ControlGone)));
+
+    SimpleOperationAdapter adapter{std::move(op)};
+    auto result = adapter.execute(ExecuteArguments{}, control);
+    ASSERT_TRUE(is_ok(result));
+
+    const auto exec_result = get_value(result).future();
+    EXPECT_TRUE(is_ok(exec_result));
+    EXPECT_EQ(reported_status,     ExecutionStatus::UnsupportedCapability);
+    EXPECT_EQ(reported_capability, "my-capability");
+}
+
+// ── SimpleOperationAdapter: Error events accumulated into exec_errors ─────────────
+
+TEST(SimpleOperationAdapterTest, ErrorEventsAccumulatedAndReportedOnControlGone)
+{
+    auto op = std::make_unique<SimpleOperationMock>();
+    EXPECT_CALL(*op, start(_))
+        .WillOnce([](ExecuteArguments) -> SimpleOperationMock::StartResult
+        {
+            return ExecutionHandle{[]() -> ExecutionResult { return DiagnosticReply{}; }};
+        });
+
+    ExecutionControlMock control{};
+    const ExecutionId exec_id = "exec-acc-errors";
+    EXPECT_CALL(control, exec_id()).WillOnce(ReturnRef(exec_id));
+
+    // Two Error events followed by ControlGone (with a status reporter to capture exec_errors).
+    auto err1 = ExecutionEvent::for_error(
+        Error::from_nrc(uds::NegativeResponseCode::GeneralReject));
+    auto err2 = ExecutionEvent::for_error(
+        Error::from_nrc(uds::NegativeResponseCode::ConditionsNotCorrect));
+
+    std::vector<Error> captured_errors;
+    auto done_event = ExecutionEvent::from_kind(ExecutionEventKind::ControlGone);
+    done_event.status_reporter.callback =
+        [&captured_errors](ExecutionStatus /*status*/, ExecutionStatusDetails details)
+        {
+            if (details.exec_errors.has_value())
+            {
+                captured_errors = *details.exec_errors;
+            }
+        };
+
+    EXPECT_CALL(control, next_exec_event())
+        .WillOnce(Return(std::move(err1)))
+        .WillOnce(Return(std::move(err2)))
+        .WillOnce(Return(std::move(done_event)));
+
+    SimpleOperationAdapter adapter{std::move(op)};
+    auto handle_result = adapter.execute(ExecuteArguments{}, control);
+    ASSERT_TRUE(is_ok(handle_result));
+
+    // Invoking the future triggers the event loop which processes the two Error events
+    // and then ControlGone, reporting exec_errors via the status reporter.
+    const auto exec_result = get_value(handle_result).future();
+    EXPECT_TRUE(is_ok(exec_result));
+
+    ASSERT_EQ(captured_errors.size(), 2U);
+    EXPECT_TRUE(is_uds_error(captured_errors[0].code));
+    EXPECT_EQ(get_uds_nrc(captured_errors[0].code), uds::NegativeResponseCode::GeneralReject);
+    EXPECT_TRUE(is_uds_error(captured_errors[1].code));
+    EXPECT_EQ(get_uds_nrc(captured_errors[1].code), uds::NegativeResponseCode::ConditionsNotCorrect);
+}
+
+// ── SimpleOperationAdapter: re-use after future completes ─────────────────────────
+
+TEST(SimpleOperationAdapterTest, AdapterCanBeReusedAfterFutureCompletes)
+{
+    auto op = std::make_unique<SimpleOperationMock>();
+    EXPECT_CALL(*op, start(_))
+        .Times(2)
+        .WillRepeatedly([](ExecuteArguments) -> SimpleOperationMock::StartResult
+        {
+            return ExecutionHandle{[]() -> ExecutionResult { return DiagnosticReply{}; }};
+        });
+
+    ExecutionControlMock control{};
+    const ExecutionId exec_id_1 = "exec-reuse-1";
+    const ExecutionId exec_id_2 = "exec-reuse-2";
+    EXPECT_CALL(control, exec_id())
+        .WillOnce(ReturnRef(exec_id_1))
+        .WillOnce(ReturnRef(exec_id_2));
+    EXPECT_CALL(control, next_exec_event())
+        .WillRepeatedly(Return(ExecutionEvent::from_kind(ExecutionEventKind::ControlGone)));
+
+    SimpleOperationAdapter adapter{std::move(op)};
+
+    // First execution — future completes and resets active_exec_id_.
+    auto first = adapter.execute(ExecuteArguments{}, control);
+    ASSERT_TRUE(is_ok(first));
+    EXPECT_TRUE(is_ok(get_value(first).future()));
+
+    // Second execution — must succeed because active_exec_id_ was reset.
+    auto second = adapter.execute(ExecuteArguments{}, control);
+    EXPECT_TRUE(is_ok(second));
 }
 
 }  // namespace score::mw::diag

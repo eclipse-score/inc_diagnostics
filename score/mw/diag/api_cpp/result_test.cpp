@@ -112,24 +112,23 @@ TEST(ResultTest, JsonSchemaRequiredDistinctValues)
 TEST(ResultTest, RequestPayloadFromBytesKind)
 {
     const auto payload = RequestMessagePayload::from_bytes({std::byte{0xCA}, std::byte{0xFE}});
-    EXPECT_EQ(payload.kind, RequestMessagePayload::Kind::Binary);
-    EXPECT_EQ(payload.binary_data.size(), 2U);
-    EXPECT_EQ(payload.binary_data[0], std::byte{0xCA});
+    ASSERT_TRUE(std::holds_alternative<ByteVector>(payload));
+    EXPECT_EQ(std::get<ByteVector>(payload).size(), 2U);
+    EXPECT_EQ(std::get<ByteVector>(payload)[0], std::byte{0xCA});
 }
 
 TEST(ResultTest, RequestPayloadFromJsonKind)
 {
     const auto payload = RequestMessagePayload::from_json("{\"key\":1}");
-    EXPECT_EQ(payload.kind, RequestMessagePayload::Kind::Json);
-    EXPECT_EQ(payload.text_data, "{\"key\":1}");
-    EXPECT_TRUE(payload.binary_data.empty());
+    ASSERT_TRUE(std::holds_alternative<JsonPayload>(payload));
+    EXPECT_EQ(std::get<JsonPayload>(payload).value, "{\"key\":1}");
 }
 
 TEST(ResultTest, RequestPayloadFromStringKind)
 {
     const auto payload = RequestMessagePayload::from_string("hello");
-    EXPECT_EQ(payload.kind, RequestMessagePayload::Kind::Utf8);
-    EXPECT_EQ(payload.text_data, "hello");
+    ASSERT_TRUE(std::holds_alternative<std::string>(payload));
+    EXPECT_EQ(std::get<std::string>(payload), "hello");
 }
 
 // ── ReplyMessageEncoding ──────────────────────────────────────────────────

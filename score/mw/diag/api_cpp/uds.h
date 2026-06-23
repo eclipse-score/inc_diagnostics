@@ -66,7 +66,7 @@ class ReadDataByIdentifier
   public:
     /// Read raw bytes for the data identifier.
     /// Returns Ok(ByteVector) on success, Err(Error) on failure.
-    virtual Result<ByteVector> read() = 0;
+    [[nodiscard]] virtual Result<ByteVector> read() = 0;
 
     ReadDataByIdentifier() = default;
     ReadDataByIdentifier(const ReadDataByIdentifier&) = delete;
@@ -86,7 +86,7 @@ class WriteDataByIdentifier
   public:
     /// Write raw bytes for the data identifier.
     /// Returns Ok on success, Err(Error) on failure.
-    virtual ResultBlank write(ByteView input) = 0;
+    [[nodiscard]] virtual ResultBlank write(ByteView input) = 0;
 
     WriteDataByIdentifier() = default;
     WriteDataByIdentifier(const WriteDataByIdentifier&) = delete;
@@ -135,13 +135,13 @@ class RoutineControl
     /// Start the routine (sub-function 0x01).
     /// @param input  Optional input data accompanying the start request.
     /// @return Ok(StartRoutine) on success, Err(Error) on failure.
-    virtual Result<StartRoutine> start(std::optional<ByteView> input) = 0;
+    [[nodiscard]] virtual Result<StartRoutine> start(std::optional<ByteView> input) = 0;
 
     /// Stop the routine (sub-function 0x02).
     /// @param input  Optional input data accompanying the stop request.
     /// @return Ok(optional<ByteVector>) on success (byte vector is the stop reply data),
     ///         Err(Error) on failure.
-    virtual Result<std::optional<ByteVector>> stop(std::optional<ByteView> input) = 0;
+    [[nodiscard]] virtual Result<std::optional<ByteVector>> stop(std::optional<ByteView> input) = 0;
 
     /// Optionally provide the current routine completion percentage (0..100).
     /// Returns std::nullopt if completion percentage is not available.
@@ -156,6 +156,41 @@ class RoutineControl
     RoutineControl& operator=(const RoutineControl&) & = delete;
     RoutineControl& operator=(RoutineControl&&) & noexcept = delete;
     virtual ~RoutineControl() noexcept = default;
+};
+
+/************************************/
+/* UdsService                       */
+/************************************/
+
+/// Raw UDS service handler for custom or proprietary services not covered by
+/// ReadDataByIdentifier, WriteDataByIdentifier or RoutineControl.
+/// cf. ISO 14229-1:2020 — vendor-specific service identifiers.
+///
+/// The default implementation rejects all messages with
+/// uds::NegativeResponseCode::SubFunctionNotSupported, indicating that the
+/// specific sub-function is not handled. Implementors override handle_message()
+/// to process the raw byte payload and return the response bytes.
+class UdsService
+{
+  public:
+    /// Handle a raw UDS message.
+    /// @param input  Raw request payload bytes (service identifier + data).
+    /// @return Ok(ByteVector) containing the raw response bytes on success,
+    ///         Err(Error) with a UDS NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<ByteVector> handle_message(ByteView input)
+    {
+        (void)input;
+        return Result<ByteVector>{
+            score::unexpect,
+            Error::from_nrc(uds::NegativeResponseCode::SubFunctionNotSupported)};
+    }
+
+    UdsService() = default;
+    UdsService(const UdsService&) = delete;
+    UdsService(UdsService&&) noexcept = delete;
+    UdsService& operator=(const UdsService&) & = delete;
+    UdsService& operator=(UdsService&&) & noexcept = delete;
+    virtual ~UdsService() noexcept = default;
 };
 
 }  // namespace diag

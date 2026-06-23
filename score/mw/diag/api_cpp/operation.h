@@ -64,8 +64,14 @@ using ExecutionId = std::string;
 /// cf. ISO 17978-3:2025 Section 7.14.6, Table 185
 enum class ExecutionStatus : std::uint8_t
 {
-    UnsupportedCapability,  // UnsupportedCapability(CustomCapability).
-                            // The capability name is in ExecutionStatusDetails::last_executed_capability.
+    /// Raised when an unknown or unhandled SOVD capability is received.
+    ///
+    /// @note The name of the unhandled capability MUST be set in
+    ///       ExecutionStatusDetails::last_executed_capability before reporting this status.
+    ///       SimpleOperationAdapter does this automatically for HandleCustomCapability events.
+    ///       Custom Operation implementations that report this status directly are
+    ///       responsible for setting last_executed_capability themselves.
+    UnsupportedCapability,
     Unknown,
     Scheduled,
     Running,
@@ -82,6 +88,11 @@ enum class ExecutionStatus : std::uint8_t
 /// cf. ISO 17978-3:2025 Section 7.14.7, Table 189
 struct ExecutionStatusDetails
 {
+    /// Name of the last-executed or unhandled SOVD capability.
+    ///
+    /// @note MUST be populated whenever reporting ExecutionStatus::UnsupportedCapability.
+    ///       Defaults to "n/a" if not set. SimpleOperationAdapter sets this automatically
+    ///       from HandleCustomCapability events.
     std::string                         last_executed_capability{"n/a"};
     std::optional<std::uint8_t>         completion_percentage;
     std::optional<DiagnosticReply>      event_result;
@@ -125,6 +136,8 @@ enum class ExecutionEventKind : std::uint8_t
     Resume,
     Reset,
     Stop,
+    Error,   ///< Carries an error payload in ExecutionEvent::error_payload; accumulated into
+             ///<   ExecutionStatusDetails::exec_errors on the final ControlGone event.
 };
 
 /// Returns the SOVD wire-format string for an ExecutionEventKind.
@@ -139,6 +152,7 @@ inline std::string_view to_string(ExecutionEventKind kind) noexcept
         case ExecutionEventKind::Resume:                 return "execute";
         case ExecutionEventKind::Reset:                  return "reset";
         case ExecutionEventKind::Stop:                   return "stop";
+        case ExecutionEventKind::Error:                  return "error";
     }
     return "";
 }
@@ -175,6 +189,7 @@ struct ExecutionEvent
     std::optional<std::string>   capability_name;  ///< non-empty when kind == HandleCustomCapability
     std::optional<ExecuteArguments> args;
     StatusReporter               status_reporter;
+    std::optional<Error>         error_payload;    ///< non-empty when kind == Error
 
     /// Factory: construct with a kind.
     static ExecutionEvent from_kind(ExecutionEventKind k) noexcept
@@ -187,6 +202,14 @@ struct ExecutionEvent
     {
         return ExecutionEvent{ExecutionEventKind::HandleCustomCapability,
                               std::move(capability), std::nullopt, {}};
+    }
+
+    /// Factory: construct an Error event carrying the given error payload.
+    static ExecutionEvent for_error(Error err) noexcept
+    {
+        ExecutionEvent ev{ExecutionEventKind::Error};
+        ev.error_payload = std::move(err);
+        return ev;
     }
 
     /// Builder: attach execute arguments.
@@ -296,8 +319,8 @@ class Operation
     /// will eventually produce the final execution result, and the runtime may deliver control events to the provided ExecutionControl handle at any time.
     /// Implementations that require async behaviour shall store the deferred work in a callable and return it inside the ExecutionHandle.
 
-    virtual Result<ExecutionHandle> execute(ExecuteArguments        input,
-                                            ExecutionControl&       control) = 0;
+    [[nodiscard]] virtual Result<ExecutionHandle> execute(ExecuteArguments        input,
+                                                         ExecutionControl&       control) = 0;
 
     Operation() = default;
     Operation(const Operation&) = delete;

@@ -239,4 +239,50 @@ TEST(UdsTest, RoutineControlCompletionPercentageNotAvailable)
     EXPECT_FALSE(mock.completion_percentage().has_value());
 }
 
+// ── UdsService ────────────────────────────────────────────────────────
+
+TEST(UdsTest, UdsServiceDefaultHandleMessageReturnsSubFunctionNotSupported)
+{
+    // Concrete subclass that does not override handle_message —
+    // relies on the default implementation.
+    struct DefaultUdsService final : public UdsService {};
+
+    DefaultUdsService svc{};
+    const ByteVector request{std::byte{0xB2}, std::byte{0x01}};
+    const auto result = svc.handle_message(ByteView{request});
+    EXPECT_TRUE(is_err(result));
+    EXPECT_TRUE(is_uds_error(get_error(result).code));
+    EXPECT_EQ(get_uds_nrc(get_error(result).code),
+              uds::NegativeResponseCode::SubFunctionNotSupported);
+}
+
+TEST(UdsTest, UdsServiceMockHandleMessageReturnsBytes)
+{
+    UdsServiceMock mock{};
+    const ByteVector response{std::byte{0xF2}, std::byte{0x00}};
+    EXPECT_CALL(mock, handle_message(_))
+        .WillOnce(Return(Result<ByteVector>{response}));
+
+    const ByteVector request{std::byte{0xB2}, std::byte{0x01}};
+    const auto result = mock.handle_message(ByteView{request});
+    ASSERT_TRUE(is_ok(result));
+    EXPECT_EQ(get_value(result).size(), 2U);
+    EXPECT_EQ(get_value(result)[0], std::byte{0xF2});
+}
+
+TEST(UdsTest, UdsServiceMockHandleMessageReturnsError)
+{
+    UdsServiceMock mock{};
+    EXPECT_CALL(mock, handle_message(_))
+        .WillOnce(Return(Result<ByteVector>{
+            score::unexpect,
+            Error::from_nrc(uds::NegativeResponseCode::SecurityAccessDenied)}));
+
+    const ByteVector request{std::byte{0xB2}};
+    const auto result = mock.handle_message(ByteView{request});
+    EXPECT_TRUE(is_err(result));
+    EXPECT_EQ(get_uds_nrc(get_error(result).code),
+              uds::NegativeResponseCode::SecurityAccessDenied);
+}
+
 }  // namespace score::mw::diag

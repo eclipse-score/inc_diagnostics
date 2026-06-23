@@ -22,9 +22,10 @@
 #include "score/mw/diag/result.h"       // ByteVector, ByteView, Result<T>, Error, NRC, payloads
 #include "score/mw/diag/sovd_error.h"   // sovd::ErrorCode, GenericError, DataError
 #include "score/mw/diag/uds.h"          // ReadDataByIdentifier, WriteDataByIdentifier, RoutineControl
+#include "score/mw/diag/dtc.h"          // DtcStatus, DebouncingConfig, DtcMonitor
 #include "score/mw/diag/data_resource.h"// sovd::DataCategory, DataResourceMetadata, DataResource
 #include "score/mw/diag/operation.h"    // Operation, ExecutionHandle, OperationMetadata, ...
-#include "score/mw/diag/simple_operation.h" // SimpleOperation, SimpleOperationAdapter
-#include "score/mw/diag/uds_adapters.h" // DataResourceAdapter, RoutineControlAdapter
+#include "score/mw/diag/simple_operation.h"          // SimpleOperation, SimpleOperationAdapter
+#include "score/mw/diag/uds_adapters.h"              // DataResourceAdapter, RoutineControlAdapter
 
 #endif  // SCORE_MW_DIAG_DIAG_H

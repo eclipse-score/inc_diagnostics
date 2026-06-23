@@ -19,13 +19,14 @@
 
 #include "score/span.hpp"
 
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace score
@@ -50,7 +51,14 @@ using ByteView = score::cpp::span<const std::byte>;
 /* Key-value attribute map          */
 /************************************/
 
-/// Insertion-order-preserving key/value map.
+/// Insertion-order-preserving key/value map with O(1) average-case lookup.
+///
+/// Internally uses the same dual-structure layout as Python dicts (3.7+) and Rust's IndexMap:
+///   entries_  — vector<pair<K,V>>        owns data and preserves insertion order
+///   index_    — unordered_map<K,size_t>  maps key → position in entries_
+///
+/// Lookup, insert and update are O(1) average.  Iteration is in insertion order.
+/// Note: erase is not provided; adding it would require O(n) index_ offset fixup.
 template <typename Key, typename Value>
 class InsertionOrderedMap
 {
@@ -59,16 +67,18 @@ class InsertionOrderedMap
     using iterator       = typename std::vector<value_type>::iterator;
     using const_iterator = typename std::vector<value_type>::const_iterator;
 
-    /// Insert with value; if key already exists the value is updated in-place.
-    /// Returns {iterator-to-element, true} on new insert, {iterator, false} on update.
+    /// Insert or update with value; Returns {iterator-to-element, true} on new insert,
+    /// {iterator, false} on update (if key already exists the value is updated in-place, insertion order unchanged).
     std::pair<iterator, bool> emplace(Key key, Value value)
     {
-        iterator it = find(key);
-        if (it != end())
+        const auto idx_it = index_.find(key);
+        if (idx_it != index_.end())
         {
-            it->second = std::move(value);
-            return {it, false};
+            entries_[idx_it->second].second = std::move(value);
+            return {entries_.begin() + static_cast<std::ptrdiff_t>(idx_it->second), false};
         }
+        const std::size_t pos = entries_.size();
+        index_.emplace(key, pos);  // copy key into index before moving into entries_
         entries_.emplace_back(std::move(key), std::move(value));
         return {entries_.end() - 1, true};
     }
@@ -76,52 +86,56 @@ class InsertionOrderedMap
     /// Access or default-insert by key (same semantics as std::map::operator[]).
     Value& operator[](const Key& key)
     {
-        iterator it = find(key);
-        if (it == end())
+        const auto idx_it = index_.find(key);
+        if (idx_it != index_.end())
         {
-            entries_.emplace_back(key, Value{});
-            return entries_.back().second;
+            return entries_[idx_it->second].second;
         }
-        return it->second;
+        const std::size_t pos = entries_.size();
+        index_.emplace(key, pos);
+        entries_.emplace_back(key, Value{});
+        return entries_.back().second;
     }
 
     /// Read-only access by key. Precondition: key must exist (asserted).
     const Value& at(const Key& key) const noexcept
     {
-        const_iterator it = find(key);
-        assert(it != cend());
-        return it->second;
+        const auto idx_it = index_.find(key);
+        assert(idx_it != index_.end());
+        return entries_[idx_it->second].second;
     }
 
     /// Read-write access by key. Precondition: key must exist (asserted).
     Value& at(const Key& key) noexcept
     {
-        iterator it = find(key);
-        assert(it != end());
-        return it->second;
+        const auto idx_it = index_.find(key);
+        assert(idx_it != index_.end());
+        return entries_[idx_it->second].second;
     }
 
     iterator find(const Key& key) noexcept
     {
-        return std::find_if(entries_.begin(), entries_.end(),
-                            [&key](const value_type& e) noexcept { return e.first == key; });
+        const auto idx_it = index_.find(key);
+        if (idx_it == index_.end()) { return entries_.end(); }
+        return entries_.begin() + static_cast<std::ptrdiff_t>(idx_it->second);
     }
 
     const_iterator find(const Key& key) const noexcept
     {
-        return std::find_if(entries_.cbegin(), entries_.cend(),
-                            [&key](const value_type& e) noexcept { return e.first == key; });
+        const auto idx_it = index_.find(key);
+        if (idx_it == index_.end()) { return entries_.cend(); }
+        return entries_.cbegin() + static_cast<std::ptrdiff_t>(idx_it->second);
     }
 
     /// Returns 1 if key is present, 0 otherwise. Matches std::map::count semantics.
     std::size_t count(const Key& key) const noexcept
     {
-        return find(key) != cend() ? 1U : 0U;
+        return index_.count(key);
     }
 
     std::size_t size()  const noexcept { return entries_.size(); }
     bool        empty() const noexcept { return entries_.empty(); }
-    void        clear()       noexcept { entries_.clear(); }
+    void        clear()       noexcept { entries_.clear(); index_.clear(); }
 
     iterator       begin()        noexcept { return entries_.begin(); }
     iterator       end()          noexcept { return entries_.end(); }
@@ -130,6 +144,7 @@ class InsertionOrderedMap
     const_iterator cbegin() const noexcept { return entries_.cbegin(); }
     const_iterator cend()   const noexcept { return entries_.cend(); }
 
+    /// Equality compares only entries_ (index_ is a derived structure).
     bool operator==(const InsertionOrderedMap& other) const noexcept
     {
         return entries_ == other.entries_;
@@ -141,7 +156,8 @@ class InsertionOrderedMap
     }
 
   private:
-    std::vector<value_type> entries_;
+    std::vector<value_type>              entries_;  ///< insertion-ordered data store
+    std::unordered_map<Key, std::size_t> index_;    ///< key → index into entries_
 };
 
 /// String key/value map that preserves insertion order.
@@ -217,6 +233,7 @@ enum class NegativeResponseCode : std::uint8_t
     VoltageTooHigh                                       = 0x92,
     VoltageTooLow                                        = 0x93,
     ResourceTemporarilyNotAvailable                      = 0x94,
+    NoProcessingNoResponse                               = 0xFF,
 };
 
 /// cf. ISO 14229-1:2020, Table A.1 (vehicleManufacturerSpecificConditionsNotCorrect)
@@ -264,34 +281,58 @@ enum class JsonSchemaRequired : std::uint8_t
     No,
 };
 
-/// Representation of a request message payload for further processing.
-struct RequestMessagePayload
+/// Tag type for a JSON string payload.
+/// Distinguishes JSON-encoded content from plain UTF-8 in RequestMessagePayload.
+struct JsonPayload
 {
-    /// Payload variant tag
-    enum class Kind : std::uint8_t
-    {
-        Binary,
-        Json,
-        Utf8,
-    };
+    std::string value;
+    bool operator==(const JsonPayload& other) const noexcept { return value == other.value; }
+    bool operator!=(const JsonPayload& other) const noexcept { return !(*this == other); }
+};
 
-    Kind kind;
-    ByteVector binary_data;  ///< valid when kind == Binary
-    std::string text_data;   ///< valid when kind == Json or Utf8 (raw JSON string or UTF-8 string)
+/// Request message payload — exactly one of raw bytes, a JSON string,
+/// or a UTF-8 string. Construct only via the static factories below.
+/// Pattern-match using the named alternative type aliases:
+/// @code
+///   std::get_if<RequestMessagePayload::Binary>(&p)  // ByteVector
+///   std::get_if<RequestMessagePayload::Json  >(&p)  // JsonPayload (->value)
+///   std::get_if<RequestMessagePayload::Utf8  >(&p)  // std::string
+/// @endcode
+/// @note Rust: enum RequestMessagePayload
+///             { Binary(ByteVector), JSON(JsonValue), UTF8(String) }
+class RequestMessagePayload : public std::variant<ByteVector, JsonPayload, std::string>
+{
+    using Base = std::variant<ByteVector, JsonPayload, std::string>;
 
+  public:
+    using Binary = ByteVector;   ///< Raw bytes.
+    using Json   = JsonPayload;  ///< JSON string (access via `.value`).
+    using Utf8   = std::string;  ///< UTF-8 text.
+
+    using Base::Base;
+
+    /// Factory: construct a Binary payload from raw bytes.
     static RequestMessagePayload from_bytes(ByteVector data) noexcept
     {
-        return RequestMessagePayload{Kind::Binary, std::move(data), {}};
+        return RequestMessagePayload{std::move(data)};
     }
 
+    /// Factory: construct a Binary payload by copying a non-owning byte view.
+    static RequestMessagePayload from_bytes(ByteView data) noexcept
+    {
+        return RequestMessagePayload{ByteVector{data.begin(), data.end()}};
+    }
+
+    /// Factory: construct a Json payload from a JSON string.
     static RequestMessagePayload from_json(std::string json_str) noexcept
     {
-        return RequestMessagePayload{Kind::Json, {}, std::move(json_str)};
+        return RequestMessagePayload{JsonPayload{std::move(json_str)}};
     }
 
+    /// Factory: construct a Utf8 string payload.
     static RequestMessagePayload from_string(std::string text) noexcept
     {
-        return RequestMessagePayload{Kind::Utf8, {}, std::move(text)};
+        return RequestMessagePayload{std::move(text)};
     }
 };
 
@@ -360,22 +401,41 @@ struct ReplyMessagePayload
         Utf8,
     };
 
-    Kind kind;
+    Kind kind{Kind::Binary};
     ByteVector binary_data;   ///< valid when kind == Binary
     std::string text_data;    ///< valid when kind == Json (raw JSON) or Utf8
     std::optional<std::string> json_schema;  ///< optional JSON schema string when kind == Json
 
+    bool is_binary() const noexcept { return kind == Kind::Binary; }
+    bool is_json()   const noexcept { return kind == Kind::Json; }
+    bool is_utf8()   const noexcept { return kind == Kind::Utf8; }
+
+    /// Factory: construct a Binary payload from an owning byte vector.
     static ReplyMessagePayload from_byte_vector(ByteVector data) noexcept
     {
         return ReplyMessagePayload{Kind::Binary, std::move(data), {}, std::nullopt};
     }
 
+    /// Alias for from_byte_vector.
+    static ReplyMessagePayload from_bytes(ByteVector data) noexcept
+    {
+        return from_byte_vector(std::move(data));
+    }
+
+    /// Factory: construct a Binary payload by copying a non-owning byte view.
+    static ReplyMessagePayload from_bytes(ByteView data) noexcept
+    {
+        return from_byte_vector(ByteVector{data.begin(), data.end()});
+    }
+
+    /// Factory: construct a Json payload from a JSON string.
     static ReplyMessagePayload from_json(std::string json_str,
                                          std::optional<std::string> schema = std::nullopt) noexcept
     {
         return ReplyMessagePayload{Kind::Json, {}, std::move(json_str), std::move(schema)};
     }
 
+    /// Factory: construct a Utf8 payload from a plain string.
     static ReplyMessagePayload from_string(std::string text) noexcept
     {
         return ReplyMessagePayload{Kind::Utf8, {}, std::move(text), std::nullopt};

@@ -213,14 +213,14 @@ class DataResource
   public:
     /// Read the current value of this data resource.
     /// i.e. GET /{entity-path}/data/{data-id}
-    virtual Result<ReadValueReply> read(ReadValueArgs input) = 0;
+    [[nodiscard]] virtual Result<ReadValueReply> read(ReadValueArgs input) = 0;
 
     /// Write a new value to this data resource.
     /// i.e. PUT /{entity-path}/data/{data-id}
     ///
     /// The default implementation returns a PreconditionNotFulfilled error
     /// indicating that this data resource is read-only.
-    virtual WriteValueResult write(WriteValueArgs input)
+    [[nodiscard]] virtual WriteValueResult write(WriteValueArgs input)
     {
         (void)input;
         return sovd::DataError::from_error(

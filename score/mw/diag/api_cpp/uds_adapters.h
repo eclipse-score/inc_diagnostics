@@ -52,83 +52,26 @@ class DataResourceAdapter final : public DataResource
     DataResourceAdapter() noexcept = default;
 
     /// Register a ReadDataByIdentifier implementation (builder pattern).
-    DataResourceAdapter& with_rdbi(std::unique_ptr<ReadDataByIdentifier> rdbi) & noexcept
-    {
-        rdbi_ = std::move(rdbi);
-        return *this;
-    }
+    ///
+    /// @note The Rust equivalent (DataResourceAdapter::with_rdbi(self)) consumes the builder
+    ///       and returns a new instance, preventing partial-builder reuse. In C++, this method
+    ///       returns an lvalue reference to *this to enable method chaining on a named variable.
+    ///       Only chain calls; do not store the returned reference beyond the full build expression.
+    DataResourceAdapter& with_rdbi(std::unique_ptr<ReadDataByIdentifier> rdbi) & noexcept;
 
     /// Register a WriteDataByIdentifier implementation (builder pattern).
-    DataResourceAdapter& with_wdbi(std::unique_ptr<WriteDataByIdentifier> wdbi) & noexcept
-    {
-        wdbi_ = std::move(wdbi);
-        return *this;
-    }
+    ///
+    /// @note Same consuming-vs-lvalue-reference note as with_rdbi() above.
+    DataResourceAdapter& with_wdbi(std::unique_ptr<WriteDataByIdentifier> wdbi) & noexcept;
 
     /// Read the data resource value via the registered RDBI service.
     /// Only Binary reply encoding is supported (UDS returns raw bytes).
-    Result<ReadValueReply> read(ReadValueArgs input) override
-    {
-        if (!rdbi_)
-        {
-            return Result<ReadValueReply>{score::unexpect,
-                    Error::from_error(sovd::GenericError::from_code(
-                        sovd::ErrorCode::PreconditionNotFulfilled,
-                        "no ReadDataByIdentifier service registered for this data resource"))};
-        }
-        if (!input.reply_encoding.is_binary())
-        {
-            return Result<ReadValueReply>{score::unexpect,
-                    Error::from_error(sovd::GenericError::from_code(
-                        sovd::ErrorCode::PreconditionNotFulfilled,
-                        "this data resource only supports binary encoding for its reply data"))};
-        }
-        auto read_result = rdbi_->read();
-        if (!read_result.has_value())
-        {
-            return Result<ReadValueReply>{score::unexpect, read_result.error()};
-        }
-        return ReadValueReply{
-            ReplyMessagePayload::from_byte_vector(std::move(*read_result)),
-            std::nullopt};
-    }
+    [[nodiscard]] Result<ReadValueReply> read(ReadValueArgs input) override;
 
     /// Write a value to the data resource via the registered WDBI service.
-    /// Only Binary input is supported (user_data must be RequestMessagePayload::Binary).
-    WriteValueResult write(WriteValueArgs input) override
-    {
-        if (!wdbi_)
-        {
-            return sovd::DataError::from_error(
-                sovd::GenericError::from_code(
-                    sovd::ErrorCode::PreconditionNotFulfilled,
-                    "no WriteDataByIdentifier service registered for this data resource"));
-        }
-        if (!input.user_data.has_value() ||
-            input.user_data->kind != RequestMessagePayload::Kind::Binary)
-        {
-            return sovd::DataError::from_error(
-                sovd::GenericError::from_code(
-                    sovd::ErrorCode::IncompleteRequest,
-                    "this data resource requires binary encoding for its input data"));
-        }
-        const ByteView view{input.user_data->binary_data};
-        auto write_result = wdbi_->write(view);
-        if (!write_result.has_value())
-        {
-        const Error& err = write_result.error();
-            // cf. Rust: match e.code { SOVD(err) => Some(err), UDS(nrc) => mapped GenericError }
-            if (is_sovd_error(err.code))
-            {
-                return sovd::DataError{std::string{}, get_sovd_error(err.code)};
-            }
-            return sovd::DataError::from_error(
-                sovd::GenericError::from_code(
-                    sovd::ErrorCode::ErrorResponse,
-                    "write operation failed with a UDS negative response code"));
-        }
-        return std::monostate{};
-    }
+    /// Only Binary input is supported (user_data must hold a ByteVector — i.e.
+    /// std::holds_alternative<ByteVector>(user_data) must be true).
+    [[nodiscard]] WriteValueResult write(WriteValueArgs input) override;
 
     DataResourceAdapter(const DataResourceAdapter&)           = delete;
     DataResourceAdapter(DataResourceAdapter&&) noexcept       = delete;
@@ -155,113 +98,13 @@ class RoutineControlAdapter final : public SimpleOperation
 {
   public:
     /// Constructs the adapter taking ownership of the RoutineControl implementation.
-    explicit RoutineControlAdapter(std::unique_ptr<RoutineControl> routine_control) noexcept
-        : routine_control_{std::move(routine_control)}
-    {}
+    explicit RoutineControlAdapter(std::unique_ptr<RoutineControl> routine_control) noexcept;
 
-    Result<ExecutionHandle> start(ExecuteArguments input) override
-    {
-        // Extract binary payload from user_parameters (only Binary encoding supported)
-        std::optional<ByteVector> byte_input;
-        if (input.user_parameters.has_value())
-        {
-            if (input.user_parameters->kind != RequestMessagePayload::Kind::Binary)
-            {
-                return Result<ExecutionHandle>{score::unexpect,
-                        Error::from_error(sovd::GenericError::from_code(
-                            sovd::ErrorCode::PreconditionNotFulfilled,
-                            "UDS RoutineControl only supports binary encoding for its input"))};
-            }
-            byte_input = std::move(input.user_parameters->binary_data);
-        }
+    [[nodiscard]] Result<ExecutionHandle> start(ExecuteArguments input) override;
 
-        const std::optional<ByteView> view =
-            byte_input.has_value()
-                ? std::optional<ByteView>{ByteView{*byte_input}}
-                : std::nullopt;
+    [[nodiscard]] Result<std::optional<DiagnosticReply>> stop(std::optional<ExecuteArguments> input) override;
 
-        auto start_result = routine_control_->start(view);
-        if (!start_result.has_value())
-        {
-            return Result<ExecutionHandle>{score::unexpect, start_result.error()};
-        }
-
-        StartRoutine& sr = *start_result;
-
-        // Build optional initial DiagnosticReply from the StartRoutine byte reply
-        std::optional<DiagnosticReply> initial_reply;
-        if (sr.reply.has_value())
-        {
-            initial_reply = DiagnosticReply{
-                ReplyMessagePayload::from_byte_vector(std::move(*sr.reply)),
-                std::nullopt};
-        }
-
-        // Wrap the StartRoutine::result_provider in an ExecutionResult callable
-        auto result_provider = std::move(sr.result_provider);
-        ExecutionHandle handle{
-            [rp = std::move(result_provider)]() mutable -> ExecutionResult
-            {
-                if (!rp)
-                {
-                    return DiagnosticReply{};
-                }
-                auto routine_result = rp();
-                if (!routine_result.has_value())
-                {
-                    return ExecutionResult{score::unexpect, routine_result.error()};
-                }
-                DiagnosticReply diag_reply{};
-                if (routine_result->has_value())
-                {
-                    diag_reply.message_payload =
-                        ReplyMessagePayload::from_byte_vector(std::move(**routine_result));
-                }
-                return diag_reply;
-            }};
-        handle.reply = std::move(initial_reply);
-        return handle;
-    }
-
-    Result<std::optional<DiagnosticReply>> stop(std::optional<ExecuteArguments> input) override
-    {
-        std::optional<ByteVector> byte_input;
-        if (input.has_value() && input->user_parameters.has_value())
-        {
-            if (input->user_parameters->kind != RequestMessagePayload::Kind::Binary)
-            {
-                return Result<std::optional<DiagnosticReply>>{score::unexpect,
-                        Error::from_error(sovd::GenericError::from_code(
-                            sovd::ErrorCode::PreconditionNotFulfilled,
-                            "UDS RoutineControl only supports binary encoding for its input"))};
-            }
-            byte_input = std::move(input->user_parameters->binary_data);
-        }
-
-        const std::optional<ByteView> view =
-            byte_input.has_value()
-                ? std::optional<ByteView>{ByteView{*byte_input}}
-                : std::nullopt;
-
-        auto stop_result = routine_control_->stop(view);
-        if (!stop_result.has_value())
-        {
-            return Result<std::optional<DiagnosticReply>>{score::unexpect, stop_result.error()};
-        }
-        if (!stop_result->has_value())
-        {
-            return std::optional<DiagnosticReply>{std::nullopt};
-        }
-        DiagnosticReply reply{};
-        reply.message_payload =
-            ReplyMessagePayload::from_byte_vector(std::move(**stop_result));
-        return std::optional<DiagnosticReply>{std::move(reply)};
-    }
-
-    std::optional<std::uint8_t> completion_percentage() const noexcept override
-    {
-        return routine_control_->completion_percentage();
-    }
+    std::optional<std::uint8_t> completion_percentage() const noexcept override;
 
     RoutineControlAdapter(const RoutineControlAdapter&)           = delete;
     RoutineControlAdapter(RoutineControlAdapter&&) noexcept       = delete;

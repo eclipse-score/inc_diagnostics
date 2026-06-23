@@ -23,8 +23,8 @@
 /// @note C++/Rust adaptation: Rust uses async streams (tokio::select!) for concurrent
 ///       event processing and future execution. In C++17, the event loop runs
 ///       synchronously inside ExecutionHandle::future.
-///       The ExecutionControl reference passed to execute() MUST remain valid until
-///       the returned ExecutionHandle's future has been invoked.
+///       Both the ExecutionControl reference AND the SimpleOperationAdapter instance
+///       MUST remain valid until the returned ExecutionHandle::future has been invoked.
 
 #ifndef SCORE_MW_DIAG_SIMPLE_OPERATION_H
 #define SCORE_MW_DIAG_SIMPLE_OPERATION_H
@@ -33,6 +33,8 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
+#include <vector>
 
 namespace score
 {
@@ -54,13 +56,13 @@ class SimpleOperation
   public:
     /// Start the operation with the given input arguments.
     /// @return Ok(ExecutionHandle) on success, Err(Error) on failure.
-    virtual Result<ExecutionHandle> start(ExecuteArguments input) = 0;
+    [[nodiscard]] virtual Result<ExecutionHandle> start(ExecuteArguments input) = 0;
 
     /// Stop the operation, optionally with input arguments.
     /// @return Ok(Some(DiagnosticReply)) if there is a stop reply,
     ///         Ok(None) if the operation stopped without a reply,
     ///         Err(Error) on failure.
-    virtual Result<std::optional<DiagnosticReply>> stop(
+    [[nodiscard]] virtual Result<std::optional<DiagnosticReply>> stop(
         std::optional<ExecuteArguments> input) = 0;
 
     /// Optionally provide the current completion percentage (0..100).
@@ -90,24 +92,117 @@ class SimpleOperation
 ///
 /// Event handling inside ExecutionHandle::future (synchronous C++ adaptation of Rust's
 /// tokio::select! event loop):
-///   - ControlGone: terminates the event loop and invokes the start result's future.
-///   - Stop:        calls SimpleOperation::stop(), reports Stopped status, returns error.
+///   - ControlGone:  terminates the event loop and invokes the start result's future.
+///                   Any accumulated Error events are reported via exec_errors in the
+///                   ControlGone event's StatusReporter before returning.
+///   - Stop:         calls SimpleOperation::stop(), reports Stopped status, returns error.
 ///   - ReportStatus: calls completion_percentage() and reports Running status.
-///   - Other kinds: reported as UnsupportedCapability status.
+///   - Error:        error payload is accumulated; attached to final exec_errors on ControlGone.
+///   - Other kinds:  reported as UnsupportedCapability status.
+///
+/// @warning Not thread-safe. Concurrent calls to execute() from multiple threads cause data
+///          races on the internal active_exec_id_ state. In the Rust equivalent, this type
+///          uses Arc<Mutex<...>> for interior mutability. If thread safety is required,
+///          guard all calls to execute() with an external mutex.
 class SimpleOperationAdapter final : public Operation
 {
   public:
     /// Constructs the adapter taking ownership of the wrapped SimpleOperation.
     explicit SimpleOperationAdapter(std::unique_ptr<SimpleOperation> op) noexcept
-        : op_{std::move(op)}
+        : wrapped_operation_{std::move(op)}
     {}
 
     /// Execute the operation.
     ///
-    /// @note The provided @p control reference must remain valid until the returned
-    ///       ExecutionHandle::future has been invoked (C++ lifetime requirement equivalent
-    ///       to Rust's Box<dyn ExecutionControl> ownership transfer).
-    Result<ExecutionHandle> execute(ExecuteArguments input, ExecutionControl& control) override;
+    /// @note Both the @p control reference AND this adapter instance MUST remain valid
+    ///       until the returned ExecutionHandle::future has been invoked.
+    [[nodiscard]] Result<ExecutionHandle> execute(ExecuteArguments input, ExecutionControl& control) override
+    {
+        if (active_exec_id_.has_value())
+        {
+            return Result<ExecutionHandle>{
+                score::unexpect,
+                Error::from_error(sovd::GenericError::from_code(
+                    sovd::ErrorCode::PreconditionNotFulfilled,
+                    "operation is already executing"))};
+        }
+
+        auto start_result = wrapped_operation_->start(std::move(input));
+        if (!start_result.has_value())
+        {
+            return Result<ExecutionHandle>{score::unexpect, start_result.error()};
+        }
+
+        active_exec_id_ = control.exec_id();
+        ExecutionHandle outer_handle{};
+        ExecutionHandle inner_handle = std::move(start_result.value());
+
+        outer_handle.future = [this, inner_handle = std::move(inner_handle),
+                                &control]() mutable -> ExecutionResult
+        {
+            std::vector<Error> accumulated_errors;
+
+            while (true)
+            {
+                ExecutionEvent event = control.next_exec_event();
+
+                if (event.kind == ExecutionEventKind::ControlGone)
+                {
+                    if (!accumulated_errors.empty())
+                    {
+                        event.status_reporter.put(
+                            ExecutionStatus::Failed,
+                            ExecutionStatusDetails{}
+                                .with_exec_errors(std::move(accumulated_errors)));
+                    }
+                    active_exec_id_ = std::nullopt;
+                    return inner_handle.future();
+                }
+
+                if (event.kind == ExecutionEventKind::Stop)
+                {
+                    auto stop_result = wrapped_operation_->stop(std::move(event.args));
+                    event.status_reporter.put(ExecutionStatus::Stopped, ExecutionStatusDetails{});
+                    active_exec_id_ = std::nullopt;
+                    (void)stop_result;
+                    return Result<DiagnosticReply>{
+                        score::unexpect,
+                        Error::from_error(sovd::GenericError::from_code(
+                            sovd::ErrorCode::ErrorResponse, "operation stopped"))};
+                }
+
+                if (event.kind == ExecutionEventKind::ReportStatus)
+                {
+                    auto pct = wrapped_operation_->completion_percentage();
+                    ExecutionStatusDetails details{};
+                    if (pct.has_value())
+                    {
+                        details = std::move(details).with_completion_percentage(*pct);
+                    }
+                    event.status_reporter.put(ExecutionStatus::Running, std::move(details));
+                    continue;
+                }
+
+                if (event.kind == ExecutionEventKind::Error)
+                {
+                    if (event.error_payload.has_value())
+                    {
+                        accumulated_errors.push_back(std::move(*event.error_payload));
+                    }
+                    continue;
+                }
+
+                // All other kinds → UnsupportedCapability
+                ExecutionStatusDetails unsupported{};
+                unsupported.last_executed_capability =
+                    event.capability_name.value_or(std::string{to_string(event.kind)});
+                event.status_reporter.put(ExecutionStatus::UnsupportedCapability,
+                                          std::move(unsupported));
+            }
+        };
+
+        return outer_handle;
+    }
 
     SimpleOperationAdapter(const SimpleOperationAdapter&)           = delete;
     SimpleOperationAdapter(SimpleOperationAdapter&&) noexcept       = delete;
@@ -116,105 +211,9 @@ class SimpleOperationAdapter final : public Operation
     ~SimpleOperationAdapter() noexcept override                     = default;
 
   private:
-    std::unique_ptr<SimpleOperation> op_;
+    std::unique_ptr<SimpleOperation> wrapped_operation_;
     std::optional<ExecutionId>       active_exec_id_;
 };
-
-/************************************/
-/* SimpleOperationAdapter impl      */
-/************************************/
-
-inline Result<ExecutionHandle> SimpleOperationAdapter::execute(
-    ExecuteArguments input, ExecutionControl& control)
-{
-    // Exclusive execution: reject if already running
-    if (active_exec_id_.has_value())
-    {
-        return Result<ExecutionHandle>{score::unexpect,
-                Error::from_error(sovd::GenericError::from_code(
-                    sovd::ErrorCode::PreconditionNotFulfilled,
-                    "operation is already executing"))};
-    }
-    active_exec_id_ = control.exec_id();
-
-    // Delegate start to the wrapped SimpleOperation
-    auto handle_result = op_->start(std::move(input));
-    if (!handle_result.has_value())
-    {
-        active_exec_id_.reset();
-        return handle_result;
-    }
-
-    ExecutionHandle exec_handle = std::move(*handle_result);
-
-    // Wrap the op's future with a synchronous event-processing loop.
-    // The lambda captures: control by reference (must outlive this future),
-    // op_ by raw pointer (owned by this adapter which outlives the future),
-    // active_exec_id_ by pointer (ditto).
-    SimpleOperation*             op_raw  = op_.get();
-    std::optional<ExecutionId>*  exec_id = &active_exec_id_;
-    std::function<ExecutionResult()> op_future = std::move(exec_handle.future);
-
-    exec_handle.future = [op_raw, exec_id, &control,
-                          fut = std::move(op_future)]() mutable -> ExecutionResult
-    {
-        while (true)
-        {
-            ExecutionEvent event = control.next_exec_event();
-
-            switch (event.kind)
-            {
-                case ExecutionEventKind::ControlGone:
-                {
-                    exec_id->reset();
-                    return fut();
-                }
-
-                case ExecutionEventKind::Stop:
-                {
-                    auto stop_result = op_raw->stop(std::move(event.args));
-                    exec_id->reset();
-                    if (!stop_result.has_value())
-                    {
-                        return ExecutionResult{score::unexpect, stop_result.error()};
-                    }
-                    DiagnosticReply reply{};
-                    if (stop_result->has_value())
-                    {
-                        reply = std::move(**stop_result);
-                    }
-                    event.status_reporter.put(ExecutionStatus::Stopped,
-                        ExecutionStatusDetails{}.with_reply_data(std::move(reply)));
-                    return ExecutionResult{score::unexpect,
-                            Error::from_error(sovd::GenericError::from_code(
-                                sovd::ErrorCode::ErrorResponse,
-                                "operation was stopped"))};
-                }
-
-                case ExecutionEventKind::ReportStatus:
-                {
-                    auto details = ExecutionStatusDetails{};
-                    const auto pct = op_raw->completion_percentage();
-                    if (pct.has_value())
-                    {
-                        details = std::move(details).with_completion_percentage(*pct);
-                    }
-                    event.status_reporter.put(ExecutionStatus::Running, std::move(details));
-                    break;
-                }
-
-                default:
-                {
-                    event.status_reporter.put(ExecutionStatus::UnsupportedCapability,
-                                              ExecutionStatusDetails{});
-                    break;
-                }
-            }
-        }
-    };
-
-    return exec_handle;
-}
 
 }  // namespace diag
 }  // namespace mw

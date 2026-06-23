@@ -190,8 +190,8 @@ TEST(DataResourceTest, WriteValueArgsWithBinaryData)
     WriteValueArgs args{};
     args.user_data = RequestMessagePayload::from_bytes({std::byte{0x01}, std::byte{0x02}});
     ASSERT_TRUE(args.user_data.has_value());
-    EXPECT_EQ(args.user_data->kind, RequestMessagePayload::Kind::Binary);
-    EXPECT_EQ(args.user_data->binary_data.size(), 2U);
+    ASSERT_TRUE(std::holds_alternative<ByteVector>(*args.user_data));
+    EXPECT_EQ(std::get<ByteVector>(*args.user_data).size(), 2U);
 }
 
 // ── DataResource default write ────────────────────────────────────────────
