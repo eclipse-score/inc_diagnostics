@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # *******************************************************************************
 # Copyright (c) 2026 Contributors to the Eclipse Foundation
 #
@@ -10,11 +11,5 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-# Needed for Dash tool to check python dependency licenses.
-filegroup(
-    name = "cargo_lock",
-    srcs = [
-        "Cargo.lock",
-    ],
-    visibility = ["//visibility:public"],
-)
+set -e
+bazel run //:docs_link_check > linkcheck_output.txt || true
