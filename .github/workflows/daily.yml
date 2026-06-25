@@ -1,0 +1,86 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+name: Daily Maintenance Tasks
+
+# This workflow is designed to run daily and perform maintenance tasks such as
+# marking and closing stale pull requests and cleaning up old documentation.
+# An example how to use the workflow can be found in ./_local_daily.yml
+
+on:
+  workflow_call:
+
+jobs:
+  stale-prs:
+    name: Mark and close stale pull requests
+    runs-on: ${{ vars.runner_labels_ghub_standard_x64 && fromJSON(vars.runner_labels_ghub_standard_x64) || vars.REPO_RUNNER_LABELS && fromJSON(vars.REPO_RUNNER_LABELS) || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Review inactive pull requests
+        uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10.2.0
+        with:
+          days-before-issue-stale: -1 # Don't mark issues as stale, only pull requests
+          days-before-issue-close: -1 # Don't close issues, only pull requests
+          days-before-pr-stale: 30 # 30 days idle → stale
+          days-before-pr-close: 10 # 10 days after stale → close
+          stale-pr-label: stale
+          close-pr-label: autoclosed
+          exempt-pr-labels: keep-open,do-not-close,pinned,feature_request # list to be refined
+          stale-pr-message: >-
+            Thanks for the pull request. This thread has been quiet for 30 days, so we are marking it
+            as stale for now. Please take a quick look and let us know whether it is still up to date,
+            still relevant, needs review, or is ready to merge. Any new activity will remove the stale
+            label automatically. If nothing changes in the next 10 days, we will close it to keep the
+            backlog current.
+          close-pr-message: >-
+            We are closing this pull request because it stayed stale for 10 more days without any new
+            activity. If this is still relevant, please reopen it or open a fresh pull request when you
+            are ready, and we will pick it up from there.
+  detect-repo-capabilities:
+    name: Detect repository capabilities
+    runs-on: ${{ vars.runner_labels_ghub_standard_x64 && fromJSON(vars.runner_labels_ghub_standard_x64) || vars.REPO_RUNNER_LABELS && fromJSON(vars.REPO_RUNNER_LABELS) || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      should_run_docs_cleanup: ${{ steps.pages.outputs.should_run_docs_cleanup }}
+    steps:
+      - name: Detect whether GitHub Pages is enabled for this repository
+        id: pages
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            let pages = null;
+            try {
+              const response = await github.rest.repos.getPages(context.repo);
+              pages = response.data;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+            core.setOutput("should_run_docs_cleanup", Boolean(pages) ? "true" : "false");
+
+  docs-cleanup:
+    name: Cleanup old documentation
+    needs: detect-repo-capabilities
+    if: needs.detect-repo-capabilities.outputs.should_run_docs_cleanup == 'true'
+    uses: ./.github/workflows/docs-cleanup.yml
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
