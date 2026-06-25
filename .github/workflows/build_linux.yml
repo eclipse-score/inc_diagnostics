@@ -42,6 +42,8 @@ jobs:
           unique-cache-name: ${{ github.workflow }}-${{ github.job }}
 
       - name: Bazel Build
+        env:
+          CARGO_BAZEL_REPIN: "true"
         run: |
           TARGETS=(//examples/... //src/... //tests/...)
 
@@ -51,4 +53,4 @@ jobs:
             TARGETS+=(//score/...)
           fi
 
-          bazel build --config=bl-x86_64-linux -- "${TARGETS[@]}"
+          bazel build --config=bl-x86_64-linux --features=-warnings_as_errors -- "${TARGETS[@]}"
