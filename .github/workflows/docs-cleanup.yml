@@ -18,6 +18,7 @@ permissions:
   id-token: write
 
 on:
+  workflow_call:
   schedule:
     - cron: '0 0 * * *' # Runs every day at midnight UTC
 
