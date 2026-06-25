@@ -83,3 +83,6 @@ single_version_override(
     module_name = "grpc-java",
     version = "1.70.0",
 )
+
+# Provide the tools from the devcontainer to Bazel
+bazel_dep(name = "score_devcontainer", version = "1.7.0")
