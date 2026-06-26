@@ -10,7 +10,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 // *******************************************************************************
-#[test]
-fn test_hello() {
-    assert_eq!(2 + 2, 4);
+
+
+/// SCORE opensovd-gateway binary.
+///
+/// MVP stub: links opensovd-core and parks the thread indefinitely.
+/// Cross-cutting concerns (logging, persistency, config) are wired in later iterations.
+fn main() {
+    // Stub: keeps the process running without any logic.
+    // Replace with async fn main + tokio runtime once SCORE cross-cutting concerns are wired.
+    std::thread::park();
 }

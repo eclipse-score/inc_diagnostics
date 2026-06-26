@@ -15,7 +15,27 @@ module(
     version = "1.0",
 )
 
-bazel_dep(name = "rules_python", version = "1.4.1")
+bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.1", dev_dependency = True)
+bazel_dep(name = "score_toolchains_rust", version = "0.8.0", dev_dependency = True)
+
+gcc = use_extension("@score_bazel_cpp_toolchains//extensions:gcc.bzl", "gcc", dev_dependency = True)
+gcc.toolchain(
+    name = "score_gcc_x86_64_toolchain",
+    target_cpu = "x86_64",
+    target_os = "linux",
+    use_default_package = True,
+    version = "12.2.0",
+)
+gcc.toolchain(
+    name = "score_gcc_aarch64_toolchain",
+    target_cpu = "aarch64",
+    target_os = "linux",
+    use_default_package = True,
+    version = "12.2.0",
+)
+use_repo(gcc, "score_gcc_aarch64_toolchain", "score_gcc_x86_64_toolchain")
+
+bazel_dep(name = "rules_python", version = "1.5.1")
 
 PYTHON_VERSION = "3.12"
 
@@ -24,16 +44,15 @@ python.toolchain(
     is_default = True,
     python_version = PYTHON_VERSION,
 )
-use_repo(python)
 
 # Add GoogleTest dependency
-bazel_dep(name = "googletest", version = "1.17.0")
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # Rust rules for Bazel
-bazel_dep(name = "rules_rust", version = "0.63.0")
+bazel_dep(name = "rules_rust", version = "0.70.0")
 
 # C/C++ rules for Bazel
-bazel_dep(name = "rules_cc", version = "0.2.1")
+bazel_dep(name = "rules_cc", version = "0.2.17")
 
 # LLVM Toolchains Rules - host configuration
 bazel_dep(name = "toolchains_llvm", version = "1.4.0")
@@ -49,9 +68,44 @@ use_repo(llvm, "llvm_toolchain_llvm")
 register_toolchains("@llvm_toolchain//:all")
 
 # tooling
-bazel_dep(name = "score_tooling", version = "1.0.1")
-bazel_dep(name = "aspect_rules_lint", version = "1.5.3")
-bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2")
+bazel_dep(name = "score_tooling", version = "1.1.2")
+bazel_dep(name = "aspect_rules_lint", version = "2.3.0")
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1")
 
 #docs-as-code
-bazel_dep(name = "score_docs_as_code", version = "1.1.0")
+bazel_dep(name = "score_docs_as_code", version = "2.0.3")
+bazel_dep(name = "score_baselibs", version = "0.2.8")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
+
+# FIXME: To be removed after https://github.com/eclipse-score/baselibs/issues/266 is resolved
+single_version_override(
+    module_name = "grpc-java",
+    version = "1.70.0",
+)
+
+# ---------------------------------------------------------------------------
+# OpenSOVD upstream dependencies (pinned to Bazel-capable commits)
+#
+# opensovd-core  – gateway/server library
+#   Tracked by: https://github.com/eclipse-opensovd/opensovd-core/pull/90
+#   Pinned commit: accdb704cef8043a1b1b195da0b8845ce22a95be
+#
+# classic-diagnostic-adapter (CDA) – SOVD<->UDS adapter library
+#   Tracked by: https://github.com/eclipse-opensovd/classic-diagnostic-adapter/pull/348
+#   Pinned commit: 0656ae80ebf04b42329b41b47ce3947166753f92
+# ---------------------------------------------------------------------------
+
+bazel_dep(name = "opensovd_core")
+git_override(
+    module_name = "opensovd_core",
+    commit = "accdb704cef8043a1b1b195da0b8845ce22a95be",
+    remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
+)
+
+bazel_dep(name = "classic-diagnostic-adapter")
+git_override(
+    module_name = "classic-diagnostic-adapter",
+    commit = "0656ae80ebf04b42329b41b47ce3947166753f92",
+    remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
+)

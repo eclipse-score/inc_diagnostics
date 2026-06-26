@@ -7,3 +7,36 @@ test --test_output=errors
 
 common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
 common --registry=https://bcr.bazel.build
+# Required for classic-diagnostic-adapter and opensovd-core which use
+# isolated extension usages in their MODULE.bazel files.
+common --experimental_isolated_extension_usages
+common --http_connector_attempts=10
+common --http_connector_retry_max_timeout=1s
+common --http_timeout_scaling=2.0
+
+# Ferrocene must be common compiler for host to keep proc-macro metadata compatible.
+common --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+common --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
+
+build:_bl_stub --@score_baselibs//score/json:base_library=nlohmann
+build:_bl_stub --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
+
+build:_bl_stub --features=minimal_warnings
+build:_bl_stub --features=-strict_warnings
+build:_bl_stub --features=warnings_as_errors
+
+test:_bl_common --build_tests_only
+test:_bl_common --test_tag_filters=-manual
+test:_bl_common --test_output=errors
+
+build:_bl_toolchain_common --incompatible_strict_action_env
+build:_bl_toolchain_common --host_platform=@score_bazel_platforms//:x86_64-linux
+
+# BaseLibs Linux target toolchain config.
+build:bl-x86_64-linux --config=_bl_stub
+build:bl-x86_64-linux --config=_bl_toolchain_common
+build:bl-x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+build:bl-x86_64-linux --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+build:bl-x86_64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
+build:bl-x86_64-linux --@classic-diagnostic-adapter//:tls_backend=mbedtls
+test:bl-x86_64-linux --config=_bl_common

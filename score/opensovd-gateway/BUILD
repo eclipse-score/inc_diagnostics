@@ -10,11 +10,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-# Needed for Dash tool to check python dependency licenses.
-filegroup(
-    name = "cargo_lock",
-    srcs = [
-        "Cargo.lock",
+
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+
+rust_binary(
+    name = "opensovd-gateway",
+    srcs = ["src/main.rs"],
+    edition = "2021",
+    deps = [
+        "@opensovd_core//:opensovd-core",
     ],
     visibility = ["//visibility:public"],
 )
