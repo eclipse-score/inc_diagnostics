@@ -17,11 +17,36 @@ _VISIBILITY = [
     "//score:__subpackages__",
 ]
 
+# ---------------------------------------------------------------------------
+# Libraries
+# ---------------------------------------------------------------------------
+
 cc_library(
-    name = "diag",
+    name = "byte_types",
+    hdrs = ["byte_types.h"],
+    include_prefix = "score/mw/diag",
     visibility = _VISIBILITY,
     deps = [
-        "//score/mw/diag/api_cpp/common",
-        "//score/mw/diag/api_cpp/uds",
+        "@score_baselibs//score/language/futurecpp",
+    ],
+)
+
+cc_library(
+    name = "diag_result",
+    hdrs = ["diag_result.h"],
+    include_prefix = "score/mw/diag",
+    visibility = _VISIBILITY,
+    deps = [
+        "//score/mw/diag/api_cpp/uds:negative_response_code",
+        "@score_baselibs//score/result",
+    ],
+)
+
+cc_library(
+    name = "common",
+    visibility = _VISIBILITY,
+    deps = [
+        ":byte_types",
+        ":diag_result",
     ],
 )
