@@ -11,24 +11,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-name: On PR
+name: On PR Target
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, synchronize]
-  merge_group:
-    types: [checks_requested]
 
 permissions:
-  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
-  pre-commit:
-    name: 🔬 Pre-Commit
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Check out
-        uses: actions/checkout@v6
-      - name: 🛠️ Install pre-commit
-        run: pip install pre-commit
-      - name: ✅ Run pre-commit
-        run: pre-commit run --all-files
+  license-check:
+    uses: eclipse-score/cicd-workflows/.github/workflows/license-check.yml@93aac16ada7d247bbb6ae926509ddea74cf5213a # v0.0.2
+    with:
+      repo-url: "${{ github.server_url }}/${{ github.repository }}"
+      bazel-target: "run --lockfile_mode=error //:license-check"
+    secrets:
+      dash-api-token: ${{ secrets.ECLIPSE_GITLAB_API_TOKEN }}
