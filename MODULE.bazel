@@ -1,5 +1,5 @@
 # *******************************************************************************
-# Copyright (c) 2025 Contributors to the Eclipse Foundation
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
 #
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -12,33 +12,54 @@
 # *******************************************************************************
 module(
     name = "cpp_rust_template_repository",
-    version = "1.0",
 )
 
-bazel_dep(name = "rules_python", version = "1.4.1")
+bazel_dep(name = "rules_python", version = "1.8.3", dev_dependency = True)
 
+# Python 3.12: Required for testing infrastructure and code generation tools
 PYTHON_VERSION = "3.12"
 
-python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python = use_extension(
+    "@rules_python//python/extensions:python.bzl",
+    "python",
+    dev_dependency = True,
+)
 python.toolchain(
     is_default = True,
     python_version = PYTHON_VERSION,
 )
-use_repo(python)
+
+pip = use_extension(
+    "@rules_python//python/extensions:pip.bzl",
+    "pip",
+    dev_dependency = True,
+)
+pip.parse(
+    envsubst = ["PIP_INDEX_URL"],
+    extra_pip_args = ["--index-url=${PIP_INDEX_URL:-https://pypi.org/simple/}"],
+    hub_name = "module_template_docs_hub_env",
+    python_version = PYTHON_VERSION,
+    requirements_lock = "@score_docs_as_code//src:requirements.txt",
+)
+use_repo(pip, "module_template_docs_hub_env")
 
 # Add GoogleTest dependency
-bazel_dep(name = "googletest", version = "1.17.0")
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
 # Rust rules for Bazel
-bazel_dep(name = "rules_rust", version = "0.63.0")
+bazel_dep(name = "rules_rust", version = "0.70.0")
 
 # C/C++ rules for Bazel
-bazel_dep(name = "rules_cc", version = "0.2.1")
+bazel_dep(name = "rules_cc", version = "0.2.18")
 
 # LLVM Toolchains Rules - host configuration
-bazel_dep(name = "toolchains_llvm", version = "1.4.0")
+bazel_dep(name = "toolchains_llvm", version = "1.7.0", dev_dependency = True)
 
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm = use_extension(
+    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
+    "llvm",
+    dev_dependency = True,
+)
 llvm.toolchain(
     cxx_standard = {"": "c++17"},
     llvm_version = "19.1.0",
@@ -49,9 +70,17 @@ use_repo(llvm, "llvm_toolchain_llvm")
 register_toolchains("@llvm_toolchain//:all")
 
 # tooling
-bazel_dep(name = "score_tooling", version = "1.0.1")
-bazel_dep(name = "aspect_rules_lint", version = "1.5.3")
-bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2")
+bazel_dep(name = "score_tooling", version = "1.2.0", dev_dependency = True)
+bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 
 #docs-as-code
-bazel_dep(name = "score_docs_as_code", version = "1.1.0")
+bazel_dep(name = "score_docs_as_code", version = "4.6.0", dev_dependency = True)
+bazel_dep(name = "score_process", version = "1.6.0", dev_dependency = True)
+
+# grpc-java 1.66.0 imports a grpc extension repo removed in newer grpc versions.
+# Force a compatible grpc-java version until upstream dependencies converge.
+single_version_override(
+    module_name = "grpc-java",
+    version = "1.70.0",
+)
