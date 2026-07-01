@@ -21,6 +21,10 @@ test --test_output=errors
 common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
 common --registry=https://bcr.bazel.build
 
+# Configuration for x86_64 Linux builds
+common:bl-x86_64-linux --cpu=k8
+common:bl-x86_64-linux --cxxopt=-std=c++17
+
 # Import custom user settings
 # Can be used to enable e.g. sanitizers or other features without modifying the main .bazelrc
 try-import %workspace%/user.bazelrc
