@@ -37,16 +37,15 @@ class GenericService
   public:
     /// Handle a raw UDS message.
     /// @param input  Raw request payload bytes (service identifier + data).
-    /// @return Ok(ByteVector) containing the raw response bytes on success,
-    ///         Err(NegativeResponseCode) on failure.
-    [[nodiscard]] virtual Result<ByteVector> HandleMessage(ByteView input);
+    /// @return ResultWithData on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual ResultWithData HandleMessage(ByteView input);
 
     GenericService() = default;
+    virtual ~GenericService() noexcept = default;
     GenericService(const GenericService&) = delete;
     GenericService(GenericService&&) noexcept = delete;
     GenericService& operator=(const GenericService&) & = delete;
     GenericService& operator=(GenericService&&) & noexcept = delete;
-    virtual ~GenericService() noexcept;
 };
 
 }  // namespace score::mw::diag::uds

@@ -28,10 +28,7 @@ namespace score::mw::diag::uds
 class GenericDataIdentifierMock : public GenericDataIdentifier
 {
   public:
-    // Alias to avoid preprocessor confusion with the comma inside std::variant.
-    using ReadResult = Result<ByteVector>;
-
-    MOCK_METHOD(ReadResult, Read, (), (override));
+    MOCK_METHOD(ResultWithData, Read, (), (override));
     MOCK_METHOD(ResultBlank, Write, (ByteView input), (override));
 };
 

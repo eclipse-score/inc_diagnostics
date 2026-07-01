@@ -37,6 +37,7 @@ cc_library(
     include_prefix = "score/mw/diag",
     visibility = _VISIBILITY,
     deps = [
+        ":byte_types",
         "//score/mw/diag/api_cpp/uds:negative_response_code",
         "@score_baselibs//score/result",
     ],

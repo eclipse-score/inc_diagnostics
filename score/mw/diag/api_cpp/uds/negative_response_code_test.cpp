@@ -65,8 +65,8 @@ TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCEqualityOperators)
     const auto a = VehicleManufacturerSpecificCNC::from(VehicleManufacturerSpecificCNC::kRangeMin + 1U);
     const auto b = VehicleManufacturerSpecificCNC::from(VehicleManufacturerSpecificCNC::kRangeMin + 1U);
     const auto c = VehicleManufacturerSpecificCNC::from(VehicleManufacturerSpecificCNC::kRangeMin + 2U);
-    EXPECT_EQ(a, b);
-    EXPECT_NE(a, c);
+    EXPECT_EQ(a.value(), b.value());
+    EXPECT_NE(a.value(), c.value());
 }
 
 }  // namespace score::mw::diag::uds

@@ -28,9 +28,7 @@ namespace score::mw::diag::uds
 class GenericServiceMock : public GenericService
 {
   public:
-    using HandleResult = Result<ByteVector>;
-
-    MOCK_METHOD(HandleResult, HandleMessage, (ByteView input), (override));
+    MOCK_METHOD(ResultWithData, HandleMessage, (ByteView input), (override));
 };
 
 }  // namespace score::mw::diag::uds

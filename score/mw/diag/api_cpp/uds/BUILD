@@ -33,11 +33,7 @@ cc_library(
 cc_library(
     name = "uds",
     srcs = [
-        "generic_data_identifier.cpp",
         "generic_service.cpp",
-        "read_data_by_identifier.cpp",
-        "routine_control.cpp",
-        "write_data_by_identifier.cpp",
     ],
     hdrs = [
         "generic_data_identifier.h",

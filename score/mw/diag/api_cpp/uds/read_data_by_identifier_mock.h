@@ -28,10 +28,7 @@ namespace score::mw::diag::uds
 class ReadDataByIdentifierMock : public ReadDataByIdentifier
 {
   public:
-    // Alias to avoid preprocessor confusion with the comma inside std::variant.
-    using ReadResult = Result<ByteVector>;
-
-    MOCK_METHOD(ReadResult, Read, (), (override));
+    MOCK_METHOD(ResultWithData, Read, (), (override));
 };
 
 }  // namespace score::mw::diag::uds

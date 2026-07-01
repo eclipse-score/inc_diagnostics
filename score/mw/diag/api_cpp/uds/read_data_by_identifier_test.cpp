@@ -28,7 +28,7 @@ namespace score::mw::diag::uds
 TEST(ReadDataByIdentifierTest, ReadReturnsSuccessBytes)
 {
     ReadDataByIdentifierMock mock{};
-    EXPECT_CALL(mock, Read()).WillOnce(Return(Result<ByteVector>{ByteVector{std::byte{0xDE}, std::byte{0xAD}}}));
+    EXPECT_CALL(mock, Read()).WillOnce(Return(ResultWithData{ByteVector{std::byte{0xDE}, std::byte{0xAD}}}));
 
     const auto result = mock.Read();
     ASSERT_TRUE(result.has_value());
@@ -40,7 +40,7 @@ TEST(ReadDataByIdentifierTest, ReadReturnsError)
 {
     ReadDataByIdentifierMock mock{};
     EXPECT_CALL(mock, Read())
-        .WillOnce(Return(Result<ByteVector>{score::unexpect, NegativeResponseCode::SecurityAccessDenied}));
+        .WillOnce(Return(ResultWithData{score::unexpect, NegativeResponseCode::SecurityAccessDenied}));
 
     const auto result = mock.Read();
     EXPECT_FALSE(result.has_value());
@@ -50,7 +50,7 @@ TEST(ReadDataByIdentifierTest, ReadReturnsError)
 TEST(ReadDataByIdentifierTest, ReadCalledMultipleTimes)
 {
     ReadDataByIdentifierMock mock{};
-    EXPECT_CALL(mock, Read()).Times(3).WillRepeatedly(Return(Result<ByteVector>{ByteVector{std::byte{0x01}}}));
+    EXPECT_CALL(mock, Read()).Times(3).WillRepeatedly(Return(ResultWithData{ByteVector{std::byte{0x01}}}));
 
     for (int i = 0; i < 3; ++i)
     {

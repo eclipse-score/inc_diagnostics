@@ -47,9 +47,8 @@ struct StartRoutine
 
     /// Callable that produces the final routine result.
     /// The runtime invokes this and delivers the result via the execution status mechanism.
-    /// Returns: Ok(Some(bytes)) on success with result data,
-    ///          Ok(None)        on success without result data,
-    ///          Err(Error)      on failure.
+    /// @return Ok(optional<ByteVector>) on success with result data, Ok(std::nullopt) on success without data,
+    ///         NegativeResponseCode on failure.
     std::function<Result<std::optional<ByteVector>>()> result_provider;
 };
 
@@ -67,28 +66,28 @@ class RoutineControl
   public:
     /// Start the routine (sub-function 0x01).
     /// @param input  Optional input data accompanying the start request.
-    /// @return Ok(StartRoutine) on success, Err(Error) on failure.
+    /// @return Ok(StartRoutine) on success, NegativeResponseCode on failure.
     [[nodiscard]] virtual Result<StartRoutine> Start(std::optional<ByteView> input) = 0;
 
     /// Stop the routine (sub-function 0x02).
     /// @param input  Optional input data accompanying the stop request.
     /// @return Ok(optional<ByteVector>) on success (byte vector is the stop reply data),
-    ///         Err(Error) on failure.
+    ///         NegativeResponseCode on failure.
     [[nodiscard]] virtual Result<std::optional<ByteVector>> Stop(std::optional<ByteView> input) = 0;
 
     /// Optionally provide the current routine completion percentage (0..100).
     /// Returns std::nullopt if completion percentage is not available.
-    virtual std::optional<std::uint8_t> CompletionPercentage() const noexcept
+    [[nodiscard]] virtual std::optional<std::uint8_t> CompletionPercentage() const noexcept
     {
         return std::nullopt;
     }
 
     RoutineControl() = default;
+    virtual ~RoutineControl() noexcept = default;
     RoutineControl(const RoutineControl&) = delete;
     RoutineControl(RoutineControl&&) noexcept = delete;
     RoutineControl& operator=(const RoutineControl&) & = delete;
     RoutineControl& operator=(RoutineControl&&) & noexcept = delete;
-    virtual ~RoutineControl() noexcept;
 };
 
 }  // namespace score::mw::diag::uds

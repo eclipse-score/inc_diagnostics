@@ -29,7 +29,7 @@ namespace score::mw::diag::uds
 TEST(GenericDataIdentifierTest, ReadReturnsSuccessBytes)
 {
     GenericDataIdentifierMock mock{};
-    EXPECT_CALL(mock, Read()).WillOnce(Return(Result<ByteVector>{ByteVector{std::byte{0xDE}, std::byte{0xAD}}}));
+    EXPECT_CALL(mock, Read()).WillOnce(Return(ResultWithData{ByteVector{std::byte{0xDE}, std::byte{0xAD}}}));
 
     const auto result = mock.Read();
     ASSERT_TRUE(result.has_value());
@@ -41,7 +41,7 @@ TEST(GenericDataIdentifierTest, ReadReturnsError)
 {
     GenericDataIdentifierMock mock{};
     EXPECT_CALL(mock, Read())
-        .WillOnce(Return(Result<ByteVector>{score::unexpect, NegativeResponseCode::RequestOutOfRange}));
+        .WillOnce(Return(ResultWithData{score::unexpect, NegativeResponseCode::RequestOutOfRange}));
 
     const auto result = mock.Read();
     EXPECT_FALSE(result.has_value());

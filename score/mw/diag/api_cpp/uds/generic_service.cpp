@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 /// @file generic_service.cpp
-/// @brief Default handle_message implementation and destructor for GenericService.
+/// @brief Default HandleMessage implementation for GenericService.
 
 #include "score/mw/diag/generic_service.h"
 
@@ -20,11 +20,9 @@ namespace score::mw::diag::uds
 {
 
 // Default implementation rejects with SubFunctionNotSupported.
-Result<ByteVector> GenericService::HandleMessage(ByteView /*input*/)
+ResultWithData GenericService::HandleMessage(ByteView /*input*/)
 {
-    return Result<ByteVector>{score::unexpect, NegativeResponseCode::SubFunctionNotSupported};
+    return ResultWithData{score::unexpect, NegativeResponseCode::SubFunctionNotSupported};
 }
-
-GenericService::~GenericService() noexcept = default;
 
 }  // namespace score::mw::diag::uds

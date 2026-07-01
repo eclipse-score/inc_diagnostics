@@ -28,15 +28,15 @@ class ReadDataByIdentifier
 {
   public:
     /// Read raw bytes for the data identifier.
-    /// Returns Ok(ByteVector) on success, Err(Error) on failure.
-    [[nodiscard]] virtual Result<ByteVector> Read() = 0;
+    /// @return ResultWithData on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual ResultWithData Read() = 0;
 
     ReadDataByIdentifier() = default;
     ReadDataByIdentifier(const ReadDataByIdentifier&) = delete;
     ReadDataByIdentifier(ReadDataByIdentifier&&) noexcept = delete;
     ReadDataByIdentifier& operator=(const ReadDataByIdentifier&) & = delete;
     ReadDataByIdentifier& operator=(ReadDataByIdentifier&&) & noexcept = delete;
-    virtual ~ReadDataByIdentifier() noexcept;
+    virtual ~ReadDataByIdentifier() noexcept = default;
 };
 
 }  // namespace score::mw::diag::uds

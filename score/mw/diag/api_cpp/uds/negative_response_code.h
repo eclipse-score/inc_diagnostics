@@ -102,31 +102,21 @@ class VehicleManufacturerSpecificCNC
 
     /// Factory: construct from a validated byte value.
     /// Precondition: value must be in [kRangeMin, kRangeMax].
-    static VehicleManufacturerSpecificCNC from(std::uint8_t value) noexcept
+    [[nodiscard]] static constexpr VehicleManufacturerSpecificCNC from(std::uint8_t value) noexcept
     {
         assert(value >= kRangeMin && value <= kRangeMax && "VehicleManufacturerSpecificCNC out of range");
         return VehicleManufacturerSpecificCNC{value};
     }
 
-    std::uint8_t value() const noexcept
+    [[nodiscard]] constexpr std::uint8_t value() const noexcept
     {
         return value_;
     }
 
-    bool operator==(const VehicleManufacturerSpecificCNC& other) const noexcept
-    {
-        return value_ == other.value_;
-    }
-
-    bool operator!=(const VehicleManufacturerSpecificCNC& other) const noexcept
-    {
-        return !(*this == other);
-    }
-
   private:
-    explicit VehicleManufacturerSpecificCNC(std::uint8_t v) noexcept : value_{v} {}
+    explicit constexpr VehicleManufacturerSpecificCNC(std::uint8_t v) noexcept : value_{v} {}
 
-    std::uint8_t value_{kRangeMin};
+    std::uint8_t value_{};
 };
 
 }  // namespace score::mw::diag::uds
