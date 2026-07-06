@@ -11,26 +11,4 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-/// @file generic_service_mock.h
-/// @brief GMock implementation of score::mw::diag::uds::GenericService.
-
-#ifndef SCORE_MW_DIAG_UDS_GENERIC_SERVICE_MOCK_H
-#define SCORE_MW_DIAG_UDS_GENERIC_SERVICE_MOCK_H
-
 #include "score/mw/diag/uds/generic_service.h"
-
-#include <gmock/gmock.h>
-
-namespace score::mw::diag::uds::test
-{
-
-/// Mock for score::mw::diag::uds::GenericService (raw vendor-specific UDS services).
-class GenericServiceMock : public GenericService
-{
-  public:
-    MOCK_METHOD(Result<ByteVector>, HandleMessage, (ByteView input), (override));
-};
-
-}  // namespace score::mw::diag::uds::test
-
-#endif  // SCORE_MW_DIAG_UDS_GENERIC_SERVICE_MOCK_H

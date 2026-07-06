@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 /// @file diag_result.h
-/// @brief Result<T>, ResultBlank and ResultWithData type aliases for the diagnostic API.
+/// @brief Result<T> type alias for the diagnostic API.
 ///
 /// The error type is uds::NegativeResponseCode.
 /// A richer error variant (e.g. SOVD codes) can be introduced later by
@@ -23,20 +23,14 @@
 
 #include "score/mw/diag/byte_types.h"
 #include "score/mw/diag/uds/negative_response_code.h"
-#include "score/result/result.h"  // score::details::expected
+#include <score/expected.hpp>  // score::cpp::expected — public futurecpp API
 
 namespace score::mw::diag
 {
 
 /// Result type: either a value T or a UDS NegativeResponseCode.
 template <typename T>
-using Result = score::details::expected<T, uds::NegativeResponseCode>;
-
-/// Result type for operations that succeed without producing a value.
-using ResultBlank = Result<void>;
-
-/// Result type for operations that return a data payload.
-using ResultWithData = Result<ByteVector>;
+using Result = score::cpp::expected<T, uds::NegativeResponseCode>;
 
 }  // namespace score::mw::diag
 

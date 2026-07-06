@@ -28,15 +28,16 @@ class WriteDataByIdentifier
 {
   public:
     /// Write raw bytes for the data identifier.
-    /// @return ResultBlank on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual ResultBlank Write(ByteView input) = 0;
+    /// @return Result<void> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<void> Write(ByteView input) = 0;
 
-    WriteDataByIdentifier() = default;
+    constexpr WriteDataByIdentifier() = default;
     virtual ~WriteDataByIdentifier() noexcept = default;
+
     WriteDataByIdentifier(const WriteDataByIdentifier&) = delete;
     WriteDataByIdentifier(WriteDataByIdentifier&&) noexcept = delete;
-    WriteDataByIdentifier& operator=(const WriteDataByIdentifier&) & = delete;
-    WriteDataByIdentifier& operator=(WriteDataByIdentifier&&) & noexcept = delete;
+    WriteDataByIdentifier& operator=(const WriteDataByIdentifier&) = delete;
+    WriteDataByIdentifier& operator=(WriteDataByIdentifier&&) noexcept = delete;
 };
 
 }  // namespace score::mw::diag::uds

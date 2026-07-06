@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 /// @file generic_data_identifier_mock.h
-/// @brief GMock implementation of score::mw::diag::GenericDataIdentifier.
+/// @brief GMock implementation of score::mw::diag::uds::GenericDataIdentifier.
 
 #ifndef SCORE_MW_DIAG_UDS_GENERIC_DATA_IDENTIFIER_MOCK_H
 #define SCORE_MW_DIAG_UDS_GENERIC_DATA_IDENTIFIER_MOCK_H
@@ -21,17 +21,17 @@
 
 #include <gmock/gmock.h>
 
-namespace score::mw::diag::uds
+namespace score::mw::diag::uds::test
 {
 
 /// Mock for score::mw::diag::uds::GenericDataIdentifier (Services 0x22 + 0x2E combined).
 class GenericDataIdentifierMock : public GenericDataIdentifier
 {
   public:
-    MOCK_METHOD(ResultWithData, Read, (), (override));
-    MOCK_METHOD(ResultBlank, Write, (ByteView input), (override));
+    MOCK_METHOD(Result<ByteVector>, Read, (), (override));
+    MOCK_METHOD(Result<void>, Write, (ByteView input), (override));
 };
 
-}  // namespace score::mw::diag::uds
+}  // namespace score::mw::diag::uds::test
 
 #endif  // SCORE_MW_DIAG_UDS_GENERIC_DATA_IDENTIFIER_MOCK_H

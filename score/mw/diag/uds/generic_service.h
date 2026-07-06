@@ -20,8 +20,6 @@
 
 #include "score/mw/diag/byte_types.h"
 #include "score/mw/diag/diag_result.h"
-#include "score/mw/diag/uds/negative_response_code.h"
-#include "score/result/result.h"  // score::unexpect
 
 namespace score::mw::diag::uds
 {
@@ -30,27 +28,24 @@ namespace score::mw::diag::uds
 /// ReadDataByIdentifier, WriteDataByIdentifier or RoutineControl.
 /// See ISO 14229-1:2020 — vendor-specific service identifiers.
 ///
-/// The default implementation rejects all messages with
-/// NegativeResponseCode::SubFunctionNotSupported, indicating that the
-/// specific sub-function is not handled. Implementors override HandleMessage()
-/// to process the raw byte payload and return the response bytes.
+/// Implementors override HandleMessage() to process the raw byte payload
+/// and return the response bytes. The diagnostic runtime is responsible for
+/// sending a rejection response when no suitable handler is registered.
 class GenericService
 {
   public:
     /// Handle a raw UDS message.
     /// @param input  Raw request payload bytes (service identifier + data).
-    /// @return ResultWithData on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual ResultWithData HandleMessage(ByteView /*input*/)
-    {
-        return ResultWithData{score::unexpect, NegativeResponseCode::SubFunctionNotSupported};
-    }
+    /// @return Result<ByteVector> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<ByteVector> HandleMessage(ByteView input) = 0;
 
-    GenericService() = default;
+    constexpr GenericService() = default;
     virtual ~GenericService() noexcept = default;
+
     GenericService(const GenericService&) = delete;
     GenericService(GenericService&&) noexcept = delete;
-    GenericService& operator=(const GenericService&) & = delete;
-    GenericService& operator=(GenericService&&) & noexcept = delete;
+    GenericService& operator=(const GenericService&) = delete;
+    GenericService& operator=(GenericService&&) noexcept = delete;
 };
 
 }  // namespace score::mw::diag::uds

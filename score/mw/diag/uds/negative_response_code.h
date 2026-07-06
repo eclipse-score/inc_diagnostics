@@ -12,13 +12,14 @@
  ********************************************************************************/
 
 /// @file negative_response_code.h
-/// @brief UDS Negative Response Code (See ISO 14229-1:2020, Table A.1) and
-///        VehicleManufacturerSpecificCNC wrapper.
+/// @brief UDS Negative Response Code (See ISO 14229-1:2020, Table A.1),
+///        RangedNrc template and VehicleManufacturerSpecificCNC alias.
 
 #ifndef SCORE_MW_DIAG_UDS_NEGATIVE_RESPONSE_CODE_H
 #define SCORE_MW_DIAG_UDS_NEGATIVE_RESPONSE_CODE_H
 
 #include <cstdint>
+#include <optional>
 
 namespace score::mw::diag::uds
 {
@@ -33,9 +34,8 @@ enum class NegativeResponseCode : std::uint8_t
     ResponseTooLong = 0x14,
     BusyRepeatRequest = 0x21,
     ConditionsNotCorrect = 0x22,
-    NoResponseFromSubnetComponent = 0x23,
     RequestSequenceError = 0x24,
-    NoResponseFromSubNetComponent = 0x25,
+    NoResponseFromSubnetComponent = 0x25,
     FailurePreventsExecutionOfRequestedAction = 0x26,
     RequestOutOfRange = 0x31,
     SecurityAccessDenied = 0x33,
@@ -89,34 +89,66 @@ enum class NegativeResponseCode : std::uint8_t
     NoProcessingNoResponse = 0xFF,
 };
 
-/// See ISO 14229-1:2020, Table A.1 (vehicleManufacturerSpecificConditionsNotCorrect).
-/// Wraps an NRC byte in the manufacturer-specific range 0xF0–0xFE.
-class VehicleManufacturerSpecificCNC
+/// Generic wrapper for an NRC byte constrained to the compile-time range [kMin, kMax].
+/// Use the named aliases below rather than instantiating this template directly.
+template <std::uint8_t kMin, std::uint8_t kMax>
+class RangedNrc
 {
-  public:
-    /// Inclusive lower bound of the manufacturer-specific NRC range (ISO 14229-1:2020).
-    static constexpr std::uint8_t kRangeMin{0xF0U};
-    /// Inclusive upper bound of the manufacturer-specific NRC range (ISO 14229-1:2020).
-    static constexpr std::uint8_t kRangeMax{0xFEU};
+    static_assert(kMin <= kMax, "RangedNrc: kMin must be <= kMax");
 
-    /// Value must be in [kRangeMin, kRangeMax] — enforced at compile time.
-    template <std::uint8_t Val>
-    [[nodiscard]] static constexpr VehicleManufacturerSpecificCNC from() noexcept
+  public:
+    /// Inclusive lower bound of this NRC range.
+    static constexpr std::uint8_t kRangeMin{kMin};
+    /// Inclusive upper bound of this NRC range.
+    static constexpr std::uint8_t kRangeMax{kMax};
+
+    /// kVal must be in [kRangeMin, kRangeMax] — enforced at compile time.
+    template <std::uint8_t kVal>
+    [[nodiscard]] static constexpr RangedNrc FromValue() noexcept
     {
-        static_assert(Val >= kRangeMin && Val <= kRangeMax, "VehicleManufacturerSpecificCNC out of range");
-        return VehicleManufacturerSpecificCNC{Val};
+        static_assert(kVal >= kRangeMin && kVal <= kRangeMax, "RangedNrc value out of range");
+        return RangedNrc{kVal};
     }
 
-    [[nodiscard]] constexpr std::uint8_t value() const noexcept
+    /// Runtime overload: returns std::nullopt if val is outside [kRangeMin, kRangeMax].
+    [[nodiscard]] static constexpr std::optional<RangedNrc> FromValue(std::uint8_t val) noexcept
+    {
+        if (val < kRangeMin || val > kRangeMax)
+        {
+            return std::nullopt;
+        }
+        return RangedNrc{val};
+    }
+
+    /// Returns the raw byte value of this NRC.
+    [[nodiscard]] constexpr std::uint8_t Value() const noexcept
     {
         return value_;
     }
 
+    /// Implicit conversion to NegativeResponseCode.
+    /// Safe because [kRangeMin, kRangeMax] is verified at compile time to lie within the enum's value range.
+    // NOLINTNEXTLINE(google-explicit-constructor) implicit conversion to `NegativeResponseCode` is always safe
+    constexpr operator NegativeResponseCode() const noexcept
+    {
+        // According to 7.2/6 of the C++ standard, permitted values for an enumeration are all possible values
+        // in the range [emin, emax] whereby emin and emax denote the smallest respectively largest enumerator
+        // value. That's why the `static_cast` as performed below is safe and also well-defined behavior.
+        static_assert(kRangeMax <= static_cast<std::uint8_t>(NegativeResponseCode::NoProcessingNoResponse),
+                      "RangedNrc upper bound exceeds NegativeResponseCode range");
+        static_assert(kRangeMin >= static_cast<std::uint8_t>(NegativeResponseCode::GeneralReject),
+                      "RangedNrc lower bound is below NegativeResponseCode range");
+        return static_cast<NegativeResponseCode>(value_);
+    }
+
   private:
-    explicit constexpr VehicleManufacturerSpecificCNC(std::uint8_t v) noexcept : value_{v} {}
+    constexpr explicit RangedNrc(std::uint8_t val) noexcept : value_{val} {}
 
     std::uint8_t value_{};
 };
+
+/// See ISO 14229-1:2020, Table A.1 — vehicleManufacturerSpecificConditionsNotCorrect (0xF0–0xFE).
+using VehicleManufacturerSpecificCNC = RangedNrc<0xF0U, 0xFEU>;
 
 }  // namespace score::mw::diag::uds
 

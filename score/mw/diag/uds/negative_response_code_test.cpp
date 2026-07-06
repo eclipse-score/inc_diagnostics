@@ -12,7 +12,7 @@
  ********************************************************************************/
 
 /// @file negative_response_code_test.cpp
-/// @brief Unit tests for score/mw/diag/negative_response_code.h
+/// @brief Unit tests for score/mw/diag/uds/negative_response_code.h
 ///        Covers: NegativeResponseCode enum values, VehicleManufacturerSpecificCNC.
 
 #include "score/mw/diag/uds/negative_response_code.h"
@@ -50,27 +50,59 @@ TEST(UdsResponseCodeTest, NrcFullIso14229Coverage)
 
 TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCValue)
 {
-    const auto cnc = VehicleManufacturerSpecificCNC::from<VehicleManufacturerSpecificCNC::kRangeMin>();
-    EXPECT_EQ(cnc.value(), VehicleManufacturerSpecificCNC::kRangeMin);
+    const auto cnc = VehicleManufacturerSpecificCNC::FromValue<VehicleManufacturerSpecificCNC::kRangeMin>();
+    EXPECT_EQ(cnc.Value(), VehicleManufacturerSpecificCNC::kRangeMin);
 }
 
 TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCMaxValue)
 {
-    const auto cnc = VehicleManufacturerSpecificCNC::from<VehicleManufacturerSpecificCNC::kRangeMax>();
-    EXPECT_EQ(cnc.value(), VehicleManufacturerSpecificCNC::kRangeMax);
+    const auto cnc = VehicleManufacturerSpecificCNC::FromValue<VehicleManufacturerSpecificCNC::kRangeMax>();
+    EXPECT_EQ(cnc.Value(), VehicleManufacturerSpecificCNC::kRangeMax);
 }
 
-TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCEqualityOperators)
+TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCValueAccessor)
 {
-    constexpr static auto kCustomError = std::uint8_t{VehicleManufacturerSpecificCNC::kRangeMin + 1U};
-    constexpr static auto kSomeError = std::uint8_t{VehicleManufacturerSpecificCNC::kRangeMin + 2U};
+    static constexpr auto kCustomError = std::uint8_t{VehicleManufacturerSpecificCNC::kRangeMin + 1U};
+    static constexpr auto kSomeError = std::uint8_t{VehicleManufacturerSpecificCNC::kRangeMin + 2U};
 
-    const auto custom_error_a = VehicleManufacturerSpecificCNC::from<kCustomError>();
-    const auto custom_error_b = VehicleManufacturerSpecificCNC::from<kCustomError>();
-    const auto some_error = VehicleManufacturerSpecificCNC::from<kSomeError>();
+    const auto custom_error_a = VehicleManufacturerSpecificCNC::FromValue<kCustomError>();
+    const auto custom_error_b = VehicleManufacturerSpecificCNC::FromValue<kCustomError>();
+    const auto some_error = VehicleManufacturerSpecificCNC::FromValue<kSomeError>();
 
-    EXPECT_EQ(custom_error_a.value(), custom_error_b.value());
-    EXPECT_NE(custom_error_a.value(), some_error.value());
+    EXPECT_EQ(custom_error_a.Value(), custom_error_b.Value());
+    EXPECT_NE(custom_error_a.Value(), some_error.Value());
+}
+
+// ── RangedNrc runtime FromValue() ──────────────────────────────────────────
+
+TEST(UdsResponseCodeTest, RuntimeFromInRangeReturnsValue)
+{
+    const auto result = VehicleManufacturerSpecificCNC::FromValue(VehicleManufacturerSpecificCNC::kRangeMin);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->Value(), VehicleManufacturerSpecificCNC::kRangeMin);
+}
+
+TEST(UdsResponseCodeTest, RuntimeFromBelowRangeReturnsNullopt)
+{
+    const auto result = VehicleManufacturerSpecificCNC::FromValue(
+        static_cast<std::uint8_t>(VehicleManufacturerSpecificCNC::kRangeMin - 1U));
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(UdsResponseCodeTest, RuntimeFromAboveRangeReturnsNullopt)
+{
+    const auto result = VehicleManufacturerSpecificCNC::FromValue(
+        static_cast<std::uint8_t>(VehicleManufacturerSpecificCNC::kRangeMax + 1U));
+    EXPECT_FALSE(result.has_value());
+}
+
+// ── RangedNrc implicit conversion ──────────────────────────────────────────
+
+TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCImplicitlyConvertsToNrc)
+{
+    const VehicleManufacturerSpecificCNC cnc = VehicleManufacturerSpecificCNC::FromValue<0xF0U>();
+    const NegativeResponseCode nrc = cnc;  // implicit conversion
+    EXPECT_EQ(static_cast<std::uint8_t>(nrc), 0xF0U);
 }
 
 }  // namespace score::mw::diag::uds

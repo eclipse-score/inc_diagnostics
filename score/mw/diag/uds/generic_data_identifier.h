@@ -30,16 +30,20 @@ namespace score::mw::diag::uds
 /// Use this when a DID must handle both read and write requests.
 /// For read-only or write-only DIDs, implement ReadDataByIdentifier or
 /// WriteDataByIdentifier directly.
-// NOLINTBEGIN(fuchsia-multiple-inheritance)
+// NOLINTBEGIN(fuchsia-multiple-inheritance): GenericDataIdentifier intentionally
+// inherits from both ReadDataByIdentifier and WriteDataByIdentifier to combine
+// two pure-interface bases. There is no shared state or virtual diamond — both
+// bases are stateless abstract interfaces, so this is safe multiple inheritance.
 class GenericDataIdentifier : public ReadDataByIdentifier, public WriteDataByIdentifier
 {
   public:
-    GenericDataIdentifier() = default;
+    constexpr GenericDataIdentifier() = default;
     ~GenericDataIdentifier() noexcept override = default;
+
     GenericDataIdentifier(const GenericDataIdentifier&) = delete;
     GenericDataIdentifier(GenericDataIdentifier&&) noexcept = delete;
-    GenericDataIdentifier& operator=(const GenericDataIdentifier&) & = delete;
-    GenericDataIdentifier& operator=(GenericDataIdentifier&&) & noexcept = delete;
+    GenericDataIdentifier& operator=(const GenericDataIdentifier&) = delete;
+    GenericDataIdentifier& operator=(GenericDataIdentifier&&) noexcept = delete;
 };
 // NOLINTEND(fuchsia-multiple-inheritance)
 

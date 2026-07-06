@@ -28,38 +28,22 @@
 namespace score::mw::diag::uds
 {
 
-/// Result type for RoutineControl::Stop() and the async result_provider.
-using StopResult = Result<std::optional<ByteVector>>;
-
-/************************************/
-/* StartRoutine                     */
-/************************************/
-
-/// Returned by RoutineControl::start().
+/// Returned by RoutineControl::Start().
 /// Contains the synchronous reply to the start request (optional) and a
 /// callable that will be invoked asynchronously to await the routine result.
 ///
-/// @note The async result is modelled as a score::cpp::move_only_function returning StopResult,
-///       which the diagnostic runtime invokes at its discretion.
+/// @note The async result is modelled as a score::cpp::move_only_function returning
+///       Result<std::optional<ByteVector>>, invoked by the diagnostic runtime.
 struct StartRoutine
 {
-    /// Optional synchronous reply payload to be returned as the response to
-    /// the RoutineControl Start request (sub-function 0x01).
+    /// Optional synchronous reply payload for the RoutineControl Start request (sub-function 0x01).
     std::optional<ByteVector> reply;
 
     /// Callable that produces the final routine result.
-    /// The runtime invokes this and delivers the result via the execution status mechanism.
-    /// @return StopResult: Some(bytes) on success with data, std::nullopt on success without data,
-    ///         NegativeResponseCode on failure.
-    score::cpp::move_only_function<StopResult()> result_provider;
+    /// @return Result<std::optional<ByteVector>>: Some(bytes) on success with data,
+    ///         std::nullopt on success without data, NegativeResponseCode on failure.
+    score::cpp::move_only_function<Result<std::optional<ByteVector>>()> result_provider;
 };
-
-/// Result type for RoutineControl::Start().
-using StartResult = Result<StartRoutine>;
-
-/************************************/
-/* RoutineControl                   */
-/************************************/
 
 /// UDS RoutineControl service (See ISO 14229-1:2020, Service 0x31).
 ///
@@ -71,28 +55,32 @@ class RoutineControl
   public:
     /// Start the routine (sub-function 0x01).
     /// @param input  Optional input data accompanying the start request.
-    /// @return StartResult on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual StartResult Start(std::optional<ByteView> input) = 0;
+    /// @return Result<StartRoutine> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<StartRoutine> Start(std::optional<ByteView> input) = 0;
 
     /// Stop the routine (sub-function 0x02).
     /// @param input  Optional input data accompanying the stop request.
-    /// @return StopResult on success (byte vector is the stop reply data),
+    /// @return Result<std::optional<ByteVector>> on success (byte vector is the stop reply data),
     ///         NegativeResponseCode on failure.
-    [[nodiscard]] virtual StopResult Stop(std::optional<ByteView> input) = 0;
+    [[nodiscard]] virtual Result<std::optional<ByteVector>> Stop(std::optional<ByteView> input) = 0;
 
     /// Optionally provide the current routine completion percentage (0..100).
     /// Returns std::nullopt if completion percentage is not available.
+    ///
+    /// @note Required once an SOVD-capable diagnostic stack is available
+    ///       that wraps legacy uds::RoutineControl implementations for backward compatibility.
     [[nodiscard]] virtual std::optional<std::uint8_t> CompletionPercentage() const noexcept
     {
         return std::nullopt;
     }
 
-    RoutineControl() = default;
+    constexpr RoutineControl() = default;
     virtual ~RoutineControl() noexcept = default;
+
     RoutineControl(const RoutineControl&) = delete;
     RoutineControl(RoutineControl&&) noexcept = delete;
-    RoutineControl& operator=(const RoutineControl&) & = delete;
-    RoutineControl& operator=(RoutineControl&&) & noexcept = delete;
+    RoutineControl& operator=(const RoutineControl&) = delete;
+    RoutineControl& operator=(RoutineControl&&) noexcept = delete;
 };
 
 }  // namespace score::mw::diag::uds
