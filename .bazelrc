@@ -22,7 +22,7 @@ common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry
 common --registry=https://bcr.bazel.build
 
 # Configuration for x86_64 Linux builds
-common:bl-x86_64-linux --cpu=k8
+common:bl-x86_64-linux
 common:bl-x86_64-linux --cxxopt=-std=c++17
 
 # Import custom user settings
