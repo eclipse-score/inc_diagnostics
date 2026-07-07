@@ -10,10 +10,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-cc_test(
-    name = "cpp_test_main",
-    srcs = ["test_main.cpp"],
-    deps = [
-        "@googletest//:gtest_main",  # GoogleTest dependency via Bazel Modules
-    ],
-)
+
+name: Daily
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs every day at midnight UTC
+
+jobs:
+  docs-cleanup:
+    uses: eclipse-score/cicd-workflows/.github/workflows/daily.yml@dfc6ffae7b8db630dbf49865314df6c46802d385 # v2026-06-10
