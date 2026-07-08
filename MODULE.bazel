@@ -10,14 +10,30 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-module(
-    name = "cpp_rust_template_repository",
+module(name = "score_diagnostics")
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
+
+bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.4", dev_dependency = True)
+
+gcc = use_extension("@score_bazel_cpp_toolchains//extensions:gcc.bzl", "gcc", dev_dependency = True)
+gcc.toolchain(
+    name = "score_gcc_x86_64_toolchain",
+    target_cpu = "x86_64",
+    target_os = "linux",
+    use_default_package = True,
+    version = "12.2.0",
+)
+use_repo(
+    gcc,
+    "score_gcc_x86_64_toolchain",
 )
 
 bazel_dep(name = "rules_python", version = "1.8.3", dev_dependency = True)
 
 # Python 3.12: Required for testing infrastructure and code generation tools
-PYTHON_VERSION = "3.12"
+_PYTHON_VERSION = "3.12"
 
 python = use_extension(
     "@rules_python//python/extensions:python.bzl",
@@ -26,7 +42,7 @@ python = use_extension(
 )
 python.toolchain(
     is_default = True,
-    python_version = PYTHON_VERSION,
+    python_version = _PYTHON_VERSION,
 )
 
 pip = use_extension(
@@ -38,7 +54,7 @@ pip.parse(
     envsubst = ["PIP_INDEX_URL"],
     extra_pip_args = ["--index-url=${PIP_INDEX_URL:-https://pypi.org/simple/}"],
     hub_name = "module_template_docs_hub_env",
-    python_version = PYTHON_VERSION,
+    python_version = _PYTHON_VERSION,
     requirements_lock = "@score_docs_as_code//src:requirements.txt",
 )
 use_repo(pip, "module_template_docs_hub_env")
@@ -47,41 +63,39 @@ use_repo(pip, "module_template_docs_hub_env")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
 # Rust rules for Bazel
-bazel_dep(name = "rules_rust", version = "0.70.0")
+bazel_dep(name = "rules_rust", version = "0.68.1-score")
+bazel_dep(name = "score_crates", version = "0.0.10")
+
+bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
+
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+
+# any further required individual rust creates shall get added below
+crate.spec(
+    package = "indexmap",
+    version = "2.11.4",
+)
+crate.from_specs(
+    name = "score_crate_index",
+    supported_platform_triples = [
+        "aarch64-unknown-linux-gnu",
+        "aarch64-unknown-nto-qnx800",
+        "x86_64-pc-nto-qnx800",
+        "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-none",
+    ],
+)
+use_repo(crate, "score_crate_index")
 
 # C/C++ rules for Bazel
 bazel_dep(name = "rules_cc", version = "0.2.18")
 
-# LLVM Toolchains Rules - host configuration
-bazel_dep(name = "toolchains_llvm", version = "1.7.0", dev_dependency = True)
-
-llvm = use_extension(
-    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
-    "llvm",
-    dev_dependency = True,
-)
-llvm.toolchain(
-    cxx_standard = {"": "c++17"},
-    llvm_version = "19.1.0",
-)
-use_repo(llvm, "llvm_toolchain")
-use_repo(llvm, "llvm_toolchain_llvm")
-
-register_toolchains("@llvm_toolchain//:all")
-
 # tooling
-bazel_dep(name = "score_tooling", version = "1.2.0", dev_dependency = True)
+bazel_dep(name = "score_tooling", version = "1.1.2", dev_dependency = True)
 bazel_dep(name = "score_devcontainer", version = "1.7.0", dev_dependency = True)
-bazel_dep(name = "aspect_rules_lint", version = "1.10.2", dev_dependency = True)
+bazel_dep(name = "aspect_rules_lint", version = "2.3.0", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 
-#docs-as-code
+# docs-as-code
 bazel_dep(name = "score_docs_as_code", version = "4.6.0", dev_dependency = True)
 bazel_dep(name = "score_process", version = "1.6.0", dev_dependency = True)
-
-# grpc-java 1.66.0 imports a grpc extension repo removed in newer grpc versions.
-# Force a compatible grpc-java version until upstream dependencies converge.
-single_version_override(
-    module_name = "grpc-java",
-    version = "1.70.0",
-)

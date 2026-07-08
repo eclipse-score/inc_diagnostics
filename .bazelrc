@@ -11,20 +11,45 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
+common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
+common --registry=https://bcr.bazel.build
+
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
 build --tool_java_runtime_version=remotejdk_17
 
+test --build_tests_only
 test --test_output=errors
+test --test_tag_filters=-manual
 
-common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
-common --registry=https://bcr.bazel.build
+# Do not use any auto-detected C++ toolchains, only our explicitly specified ones as below
+build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+
+# Use the GCC C++ toolchain for x86-64 linux host by default for `bazel run`
+run --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+run --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+
+# Basic build settings
+build:_score_diag_common_build_settings --cxxopt=-std=c++17  # TODO: why is this not enabled via toolchain features instead?! Wouldn't that one conflict with rustc?
+build:_score_diag_common_build_settings --features=minimal_warnings
+build:_score_diag_common_build_settings --features=strict_warnings
+build:_score_diag_common_build_settings --features=warnings_as_errors
+build:_score_diag_common_build_settings --incompatible_strict_action_env
+
+# Base configuration for building on x86-64 linux host
+common:_score_diag_use_gcc_based_host_platform --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+
+# Base configuration for compiling for x86-64 linux as target platform
+common:_score_diag_build_for_x86_64_linux_target_platform --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 
 # Configuration for x86_64 Linux builds
-common:bl-x86_64-linux
-common:bl-x86_64-linux --cxxopt=-std=c++17
+common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
+common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
+common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
 
 # Import custom user settings
-# Can be used to enable e.g. sanitizers or other features without modifying the main .bazelrc
+# Can be used to e.g. enable custom features without modifying this main .bazelrc
 try-import %workspace%/user.bazelrc
