@@ -29,7 +29,7 @@ on:
 
 jobs:
   linux-build:
-    name: Build with bl-x86_64-linux
+    name: Build & test on host for target platform x86_64-linux
     runs-on: ubuntu-24.04
 
     steps:
@@ -43,24 +43,22 @@ jobs:
 
       - name: Bazel Build
         run: |
-          TARGETS=(//examples/... //src/... //tests/...)
+          TARGETS=(//examples/... //tests/...)
 
-          # During migration to baselibs-like layout, include score targets only
-          # when score/ actually contains Bazel packages.
+          # consider //score/... targets only in case such directory actually contains any Bazel packages.
           if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
             TARGETS+=(//score/...)
           fi
 
-          bazel build --config=bl-x86_64-linux -- "${TARGETS[@]}"
+          bazel build --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
 
       - name: Bazel Test
         run: |
-          TARGETS=(//examples/... //src/... //tests/...)
+          TARGETS=(//examples/... //tests/...)
 
-          # During migration to baselibs-like layout, include score targets only
-          # when score/ actually contains Bazel packages.
+          # consider //score/... targets only in case such directory actually contains any Bazel packages.
           if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
             TARGETS+=(//score/...)
           fi
 
-          bazel test --config=bl-x86_64-linux -- "${TARGETS[@]}"
+          bazel test --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
