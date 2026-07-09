@@ -4,6 +4,10 @@
     "url": "https://eclipse-score.github.io/inc_diagnostics/main/"
   },
   {
+    "version": "pr-10",
+    "url": "https://eclipse-score.github.io/inc_diagnostics/pr-10/"
+  },
+  {
     "version": "pr-2",
     "url": "https://eclipse-score.github.io/inc_diagnostics/pr-2/"
   },
@@ -22,17 +26,5 @@
   {
     "version": "pr-8",
     "url": "https://eclipse-score.github.io/inc_diagnostics/pr-8/"
-  },
-  {
-    "version": "pr-9",
-    "url": "https://eclipse-score.github.io/inc_diagnostics/pr-9/"
-  },
-  {
-    "version": "pr-10",
-    "url": "https://eclipse-score.github.io/inc_diagnostics/pr-10/"
-  },
-  {
-    "version": "pr-11",
-    "url": "https://eclipse-score.github.io/inc_diagnostics/pr-11/"
   }
 ]
