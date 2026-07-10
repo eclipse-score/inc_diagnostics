@@ -72,8 +72,26 @@ crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
 # any further required individual rust creates shall get added below
 crate.spec(
+    package = "futures",
+    version = "0.3.31",
+)
+crate.spec(
     package = "indexmap",
     version = "2.11.4",
+)
+crate.spec(
+    package = "serde_json",
+    version = "1.0.143",
+)
+crate.spec(
+    features = [
+        "macros",
+        "rt",
+        "sync",
+        "time",
+    ],
+    package = "tokio",
+    version = "1.47.1",
 )
 crate.from_specs(
     name = "score_crate_index",
