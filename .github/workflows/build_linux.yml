@@ -29,7 +29,7 @@ on:
 
 jobs:
   linux-build:
-    name: Build with bl-x86_64-linux
+    name: Build & test on host for target platform x86_64-linux
     runs-on: ubuntu-24.04
 
     steps:
@@ -42,17 +42,23 @@ jobs:
           unique-cache-name: ${{ github.workflow }}-${{ github.job }}
 
       - name: Bazel Build
-        env:
-          CARGO_BAZEL_REPIN: "true"
         run: |
-          TARGETS=(//examples/... //src/... //tests/...)
+          TARGETS=(//examples/... //tests/...)
 
-          # During migration to baselibs-like layout, include score targets only
-          # when score/ actually contains Bazel packages.
+          # consider //score/... targets only in case such directory actually contains any Bazel packages.
           if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
-            # Temporary: opensovd-cda currently fails in upstream CDA mbedtls
-            # foreign_cc wiring (missing ed25519_extract.h include path).
-            TARGETS+=(//score/... -//score/opensovd-cda/...)
+            TARGETS+=(//score/...)
           fi
 
-          bazel build --config=bl-x86_64-linux --features=-warnings_as_errors -- "${TARGETS[@]}"
+          bazel build --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
+
+      - name: Bazel Test
+        run: |
+          TARGETS=(//examples/... //tests/...)
+
+          # consider //score/... targets only in case such directory actually contains any Bazel packages.
+          if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
+            TARGETS+=(//score/...)
+          fi
+
+          bazel test --config=score_diag_x86_64_linux -- "${TARGETS[@]}"

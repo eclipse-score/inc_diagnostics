@@ -1,42 +1,55 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
+common --registry=https://bcr.bazel.build
+
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
 build --tool_java_runtime_version=remotejdk_17
 
+test --build_tests_only
 test --test_output=errors
+test --test_tag_filters=-manual
 
-common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
-common --registry=https://bcr.bazel.build
-# Required for classic-diagnostic-adapter and opensovd-core which use
-# isolated extension usages in their MODULE.bazel files.
-common --experimental_isolated_extension_usages
-common --http_connector_attempts=10
-common --http_connector_retry_max_timeout=1s
-common --http_timeout_scaling=2.0
+# Do not use any auto-detected C++ toolchains, only our explicitly specified ones as below
+build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
-# Ferrocene must be common compiler for host to keep proc-macro metadata compatible.
-common --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
-common --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
+# Use the GCC C++ toolchain for x86-64 linux host by default for `bazel run`
+run --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+run --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
 
-build:_bl_stub --@score_baselibs//score/json:base_library=nlohmann
-build:_bl_stub --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
+# Basic build settings
+build:_score_diag_common_build_settings --cxxopt=-std=c++17  # TODO: why is this not enabled via toolchain features instead?! Wouldn't that one conflict with rustc?
+build:_score_diag_common_build_settings --features=minimal_warnings
+build:_score_diag_common_build_settings --features=strict_warnings
+build:_score_diag_common_build_settings --features=warnings_as_errors
+build:_score_diag_common_build_settings --incompatible_strict_action_env
 
-build:_bl_stub --features=minimal_warnings
-build:_bl_stub --features=-strict_warnings
-build:_bl_stub --features=warnings_as_errors
+# Base configuration for building on x86-64 linux host
+common:_score_diag_use_gcc_based_host_platform --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
 
-test:_bl_common --build_tests_only
-test:_bl_common --test_tag_filters=-manual
-test:_bl_common --test_output=errors
+# Base configuration for compiling for x86-64 linux as target platform
+common:_score_diag_build_for_x86_64_linux_target_platform --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 
-build:_bl_toolchain_common --incompatible_strict_action_env
-build:_bl_toolchain_common --host_platform=@score_bazel_platforms//:x86_64-linux
+# Configuration for x86_64 Linux builds
+common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
+common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
+common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
 
-# BaseLibs Linux target toolchain config.
-build:bl-x86_64-linux --config=_bl_stub
-build:bl-x86_64-linux --config=_bl_toolchain_common
-build:bl-x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
-build:bl-x86_64-linux --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
-build:bl-x86_64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
-build:bl-x86_64-linux --@classic-diagnostic-adapter//:tls_backend=mbedtls
-test:bl-x86_64-linux --config=_bl_common
+# Import custom user settings
+# Can be used to e.g. enable custom features without modifying this main .bazelrc
+try-import %workspace%/user.bazelrc
