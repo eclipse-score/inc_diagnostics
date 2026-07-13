@@ -12,13 +12,11 @@
  ********************************************************************************/
 
 /// @file routine_control.h
-/// @brief UDS RoutineControl service interface and StartRoutine result type
-///        (See ISO 14229-1:2020, Service 0x31).
+/// @brief UDS RoutineControl service interface (See ISO 14229-1:2020, Service 0x31).
 
 #ifndef SCORE_MW_DIAG_UDS_ROUTINE_CONTROL_H
 #define SCORE_MW_DIAG_UDS_ROUTINE_CONTROL_H
 
-#include "score/move_only_function.hpp"
 #include "score/mw/diag/byte_types.h"
 #include "score/mw/diag/diag_result.h"
 
@@ -28,44 +26,33 @@
 namespace score::mw::diag::uds
 {
 
-/// Returned by RoutineControl::Start().
-/// Contains the synchronous reply to the start request (optional) and a
-/// callable that will be invoked asynchronously to await the routine result.
-///
-/// @note The async result is modelled as a score::cpp::move_only_function returning
-///       Result<std::optional<ByteVector>>, invoked by the diagnostic runtime.
-struct StartRoutine
-{
-    /// Optional synchronous reply payload for the RoutineControl Start request (sub-function 0x01).
-    std::optional<ByteVector> reply;
-
-    /// Callable that produces the final routine result.
-    /// @return Result<std::optional<ByteVector>>: Some(bytes) on success with data,
-    ///         std::nullopt on success without data, NegativeResponseCode on failure.
-    score::cpp::move_only_function<Result<std::optional<ByteVector>>()> result_provider;
-};
-
 /// UDS RoutineControl service (See ISO 14229-1:2020, Service 0x31).
 ///
-/// NOTE: RequestResults (sub-function 0x03) is handled implicitly by the
-///       diagnostic runtime via the execution status reporting mechanism —
-///       implementors do not need to override it.
+/// Implement `Start()`, `Stop()`, and `RequestResults()` for every routine.
 class RoutineControl
 {
   public:
     /// Start the routine (sub-function 0x01).
-    /// @param input  Optional input data accompanying the start request.
-    /// @return Result<StartRoutine> on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<StartRoutine> Start(std::optional<ByteView> input) = 0;
+    /// @param input  Non-owning view of the raw input bytes accompanying the start request.
+    /// @return Serialized routineStatusRecord bytes on success (empty if the routine
+    ///         produces no start reply data); NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<ByteVector> Start(ByteView input) = 0;
 
     /// Stop the routine (sub-function 0x02).
-    /// @param input  Optional input data accompanying the stop request.
-    /// @return Result<std::optional<ByteVector>> on success (byte vector is the stop reply data),
-    ///         NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<std::optional<ByteVector>> Stop(std::optional<ByteView> input) = 0;
+    /// @param input  Non-owning view of the raw input bytes accompanying the stop request.
+    /// @return Serialized routineStatusRecord bytes on success (empty if the routine
+    ///         produces no stop reply data); NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<ByteVector> Stop(ByteView input) = 0;
 
-    /// Optionally provide the current routine completion percentage (0..100).
-    /// Returns std::nullopt if completion percentage is not available.
+    /// Request the routine results (sub-function 0x03).
+    /// @param input  Non-owning view of the raw input bytes accompanying the request.
+    /// @return Serialized routineStatusRecord bytes on success (empty if no result data);
+    ///         NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<ByteVector> RequestResults(ByteView input) = 0;
+
+    /// Optionally provide the current routine completion percentage.
+    /// @return A value in [0, 100] representing the completion percentage,
+    ///         or `std::nullopt` if the routine does not support progress reporting.
     ///
     /// @note Required once an SOVD-capable diagnostic stack is available
     ///       that wraps legacy uds::RoutineControl implementations for backward compatibility.
@@ -74,13 +61,7 @@ class RoutineControl
         return std::nullopt;
     }
 
-    constexpr RoutineControl() = default;
     virtual ~RoutineControl() noexcept = default;
-
-    RoutineControl(const RoutineControl&) = delete;
-    RoutineControl(RoutineControl&&) noexcept = delete;
-    RoutineControl& operator=(const RoutineControl&) = delete;
-    RoutineControl& operator=(RoutineControl&&) noexcept = delete;
 };
 
 }  // namespace score::mw::diag::uds

@@ -20,6 +20,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 cc_library(
     name = "byte_types",
     hdrs = ["byte_types.h"],
+    srcs = ["byte_types.cpp"],
     visibility = ["//score:__subpackages__"],
     deps = [
         "@score_baselibs//score/language/futurecpp",
@@ -29,6 +30,7 @@ cc_library(
 cc_library(
     name = "diag_result",
     hdrs = ["diag_result.h"],
+    srcs = ["diag_result.cpp"],
     visibility = ["//score:__subpackages__"],
     deps = [
         ":byte_types",

@@ -28,7 +28,7 @@ namespace score::mw::diag::uds::test
 class WriteDataByIdentifierMock : public WriteDataByIdentifier
 {
   public:
-    MOCK_METHOD(Result<void>, Write, (ByteView input), (override));
+    MOCK_METHOD(Result<score::cpp::blank>, Write, (ByteView input), (override));
 };
 
 }  // namespace score::mw::diag::uds::test

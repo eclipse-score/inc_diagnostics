@@ -11,8 +11,4 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#include "score/mw/diag/uds/generic_data_identifier_mock.h"
-#include "score/mw/diag/uds/generic_service_mock.h"
-#include "score/mw/diag/uds/read_data_by_identifier_mock.h"
-#include "score/mw/diag/uds/routine_control_mock.h"
-#include "score/mw/diag/uds/write_data_by_identifier_mock.h"
+#include "score/mw/diag/diag_result.h"

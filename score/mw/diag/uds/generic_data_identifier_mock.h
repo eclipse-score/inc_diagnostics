@@ -29,7 +29,7 @@ class GenericDataIdentifierMock : public GenericDataIdentifier
 {
   public:
     MOCK_METHOD(Result<ByteVector>, Read, (), (override));
-    MOCK_METHOD(Result<void>, Write, (ByteView input), (override));
+    MOCK_METHOD(Result<score::cpp::blank>, Write, (ByteView input), (override));
 };
 
 }  // namespace score::mw::diag::uds::test

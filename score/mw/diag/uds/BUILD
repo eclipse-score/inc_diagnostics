@@ -86,7 +86,6 @@ cc_library(
 # the full UDS interface set, or as a migration path from the old monolithic target.
 cc_library(
     name = "uds",
-    srcs = ["uds.cpp"],
     visibility = ["//score:__subpackages__"],
     deps = [
         ":generic_data_identifier",
