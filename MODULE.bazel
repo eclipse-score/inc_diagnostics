@@ -14,6 +14,7 @@ module(name = "score_diagnostics")
 
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
+bazel_dep(name = "score_baselibs", version = "0.2.9")
 
 bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.4", dev_dependency = True)
 
