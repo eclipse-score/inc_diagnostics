@@ -24,8 +24,30 @@
 namespace score::mw::diag::uds::test
 {
 
-/// Mock for score::mw::diag::uds::RoutineControl (Service 0x31).
+/// Mock for for the full context-aware score::mw::diag::uds::RoutineControl (Service 0x31).
 class RoutineControlMock : public RoutineControl
+{
+  public:
+    MOCK_METHOD(Result<ByteVector>,
+                Start,
+                (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
+                (override));
+
+    MOCK_METHOD(Result<ByteVector>,
+                Stop,
+                (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
+                (override));
+
+    MOCK_METHOD(Result<ByteVector>,
+                RequestResults,
+                (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
+                (override));
+
+    MOCK_METHOD(std::optional<std::uint8_t>, CompletionPercentage, (), (const, noexcept, override));
+};
+
+/// Mock for the context-free score::mw::diag::uds::SimpleRoutineControl (Service 0x31).
+class SimpleRoutineControlMock : public SimpleRoutineControl
 {
   public:
     MOCK_METHOD(Result<ByteVector>, Start, (ByteView input), (override));

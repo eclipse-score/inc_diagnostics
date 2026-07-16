@@ -24,8 +24,18 @@
 namespace score::mw::diag::uds::test
 {
 
-/// Mock for score::mw::diag::uds::GenericService (raw vendor-specific UDS services).
+/// Mock for the full context-aware score::mw::diag::uds::GenericService.
 class GenericServiceMock : public GenericService
+{
+  public:
+    MOCK_METHOD(Result<ByteVector>,
+                HandleMessage,
+                (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
+                (override));
+};
+
+/// Mock for the context-free score::mw::diag::uds::SimpleGenericService.
+class SimpleGenericServiceMock : public SimpleGenericService
 {
   public:
     MOCK_METHOD(Result<ByteVector>, HandleMessage, (ByteView input), (override));

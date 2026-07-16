@@ -24,8 +24,20 @@
 namespace score::mw::diag::uds::test
 {
 
-/// Mock for score::mw::diag::uds::GenericDataIdentifier (Services 0x22 + 0x2E combined).
+/// Mock for the full context-aware score::mw::diag::uds::GenericDataIdentifier (Services 0x22 + 0x2E combined).
 class GenericDataIdentifierMock : public GenericDataIdentifier
+{
+  public:
+    MOCK_METHOD(Result<ByteVector>, Read, (const MetaData& meta_data, score::cpp::stop_token stop_token), (override));
+
+    MOCK_METHOD(Result<score::cpp::blank>,
+                Write,
+                (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
+                (override));
+};
+
+/// Mock for the context-free score::mw::diag::uds::SimpleGenericDataIdentifier (Services 0x22 + 0x2E combined).
+class SimpleGenericDataIdentifierMock : public SimpleGenericDataIdentifier
 {
   public:
     MOCK_METHOD(Result<ByteVector>, Read, (), (override));

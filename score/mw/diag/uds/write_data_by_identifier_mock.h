@@ -24,8 +24,18 @@
 namespace score::mw::diag::uds::test
 {
 
-/// Mock for score::mw::diag::uds::WriteDataByIdentifier (Service 0x2E).
+/// Mock for the full context-aware score::mw::diag::uds::WriteDataByIdentifier (Service 0x2E).
 class WriteDataByIdentifierMock : public WriteDataByIdentifier
+{
+  public:
+    MOCK_METHOD(Result<score::cpp::blank>,
+                Write,
+                (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
+                (override));
+};
+
+/// Mock for the context-free score::mw::diag::uds::SimpleWriteDataByIdentifier (Service 0x2E).
+class SimpleWriteDataByIdentifierMock : public SimpleWriteDataByIdentifier
 {
   public:
     MOCK_METHOD(Result<score::cpp::blank>, Write, (ByteView input), (override));

@@ -27,6 +27,13 @@ cc_library(
 )
 
 cc_library(
+    name = "meta_data",
+    hdrs = ["meta_data.h"],
+    srcs = ["meta_data.cpp"],
+    visibility = ["//score:__subpackages__"],
+)
+
+cc_library(
     name = "generic_service",
     hdrs = ["generic_service.h"],
     srcs = ["generic_service.cpp"],
@@ -34,6 +41,7 @@ cc_library(
     deps = [
         "//score/mw/diag:byte_types",
         "//score/mw/diag:diag_result",
+        ":meta_data",
     ],
 )
 
@@ -45,6 +53,7 @@ cc_library(
     deps = [
         "//score/mw/diag:byte_types",
         "//score/mw/diag:diag_result",
+        ":meta_data",
     ],
 )
 
@@ -56,6 +65,7 @@ cc_library(
     deps = [
         "//score/mw/diag:byte_types",
         "//score/mw/diag:diag_result",
+        ":meta_data",
     ],
 )
 
@@ -67,6 +77,7 @@ cc_library(
     deps = [
         ":read_data_by_identifier",
         ":write_data_by_identifier",
+        ":meta_data",
     ],
 )
 
@@ -78,7 +89,7 @@ cc_library(
     deps = [
         "//score/mw/diag:byte_types",
         "//score/mw/diag:diag_result",
-        "@score_baselibs//score/language/futurecpp",
+        ":meta_data",
     ],
 )
 
@@ -90,7 +101,9 @@ cc_library(
     deps = [
         ":generic_data_identifier",
         ":generic_service",
+        ":read_data_by_identifier",
         ":routine_control",
+        ":write_data_by_identifier",
     ],
 )
 
@@ -111,7 +124,11 @@ cc_library(
     srcs = ["mocks.cpp"],
     visibility = ["//score:__subpackages__"],
     deps = [
-        ":uds",
+        ":generic_data_identifier",
+        ":generic_service",
+        ":read_data_by_identifier",
+        ":routine_control",
+        ":write_data_by_identifier",
         "@googletest//:gtest",
     ],
 )

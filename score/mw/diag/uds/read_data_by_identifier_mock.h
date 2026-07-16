@@ -24,8 +24,15 @@
 namespace score::mw::diag::uds::test
 {
 
-/// Mock for score::mw::diag::uds::ReadDataByIdentifier (Service 0x22).
+/// Mock for the full context-aware score::mw::diag::uds::ReadDataByIdentifier (Service 0x22).
 class ReadDataByIdentifierMock : public ReadDataByIdentifier
+{
+  public:
+    MOCK_METHOD(Result<ByteVector>, Read, (const MetaData& meta_data, score::cpp::stop_token stop_token), (override));
+};
+
+/// Mock for the context-free score::mw::diag::uds::SimpleReadDataByIdentifier (Service 0x22).
+class SimpleReadDataByIdentifierMock : public SimpleReadDataByIdentifier
 {
   public:
     MOCK_METHOD(Result<ByteVector>, Read, (), (override));

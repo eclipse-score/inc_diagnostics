@@ -14,6 +14,10 @@
 /// @file generic_data_identifier.h
 /// @brief Combined UDS DataIdentifier supporting both ReadDataByIdentifier (Service 0x22)
 ///        and WriteDataByIdentifier (Service 0x2E) through a single implementation class.
+///
+/// Provides two levels of abstraction:
+///   - `GenericDataIdentifier`       — full interface combining RDBI and WDBI with context support.
+///   - `SimpleGenericDataIdentifier` — simplified adapter for non-blocking, context-free read/write DIDs.
 
 #ifndef SCORE_MW_DIAG_UDS_GENERIC_DATA_IDENTIFIER_H
 #define SCORE_MW_DIAG_UDS_GENERIC_DATA_IDENTIFIER_H
@@ -27,17 +31,29 @@ namespace score::mw::diag::uds
 /// Combined UDS DataIdentifier — supports both ReadDataByIdentifier (Service 0x22)
 /// and WriteDataByIdentifier (Service 0x2E) through a single implementation class.
 ///
-/// Use this when a DID must handle both read and write requests.
-/// For read-only or write-only DIDs, implement ReadDataByIdentifier or
-/// WriteDataByIdentifier directly.
-// NOLINTBEGIN(fuchsia-multiple-inheritance): GenericDataIdentifier intentionally
-// inherits from both ReadDataByIdentifier and WriteDataByIdentifier to combine
-// two pure-interface bases. There is no shared state or virtual diamond — both
-// bases are stateless abstract interfaces, so this is safe multiple inheritance.
+/// Full interface — receives request `MetaData` and `stop_token` for both operations.
+// NOLINTBEGIN(fuchsia-multiple-inheritance): GenericDataIdentifier intentionally inherits from
+// both ReadDataByIdentifier and WriteDataByIdentifier. Both bases are stateless abstract interfaces,
+// making multiple inheritance safe.
 class GenericDataIdentifier : public ReadDataByIdentifier, public WriteDataByIdentifier
 {
   public:
     ~GenericDataIdentifier() noexcept override = default;
+};
+// NOLINTEND(fuchsia-multiple-inheritance)
+
+/// Simplified adapter for `GenericDataIdentifier` (must be non-blocking!)
+///
+/// Use this when a DID must handle both read and write requests in a fast, context-free manner.
+/// Implementors override the parameterless `Read()` and single-parameter `Write()`.
+// NOLINTBEGIN(fuchsia-multiple-inheritance): SimpleGenericDataIdentifier inherits from
+// GenericDataIdentifier and the simple variants to properly route interface adapters.
+class SimpleGenericDataIdentifier : public GenericDataIdentifier,
+                                    public SimpleReadDataByIdentifier,
+                                    public SimpleWriteDataByIdentifier
+{
+  public:
+    ~SimpleGenericDataIdentifier() noexcept override = default;
 };
 // NOLINTEND(fuchsia-multiple-inheritance)
 
