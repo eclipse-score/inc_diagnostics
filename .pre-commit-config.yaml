@@ -19,10 +19,13 @@ repos:
       - id: check-json
         exclude: ^\.vscode/ # those are actually jsonc files
       - id: end-of-file-fixer
+        exclude: \.patch$
       - id: trailing-whitespace
+        exclude: \.patch$
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: mixed-line-ending
+        exclude: \.patch$
       - id: detect-private-key
       - id: check-added-large-files
         args: ["--maxkb=150"]

@@ -12,7 +12,28 @@
 # *******************************************************************************
 module(name = "score_diagnostics")
 
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0")
+git_override(
+    module_name = "classic-diagnostic-adapter",
+    commit = "04fad499fc9e2137c2d2919a1e9384c593720b73",
+    patch_strip = 1,
+    patches = ["//patches:classic-diagnostic-adapter-expose-tokio.patch"],
+    remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
+)
+
+bazel_dep(name = "opensovd_core", version = "0.0.0")
+git_override(
+    module_name = "opensovd_core",
+    commit = "0cb4b250643164d678389385aa94b6a92bb7f0c7",
+    patch_strip = 1,
+    patches = [
+        "//patches:opensovd-core-cargo-bazel-lock.patch",
+        "//patches:opensovd-core-expose-tokio.patch",
+    ],
+    remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
+)
+
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
 
 bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.4", dev_dependency = True)
@@ -63,10 +84,19 @@ use_repo(pip, "module_template_docs_hub_env")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
 # Rust rules for Bazel
-bazel_dep(name = "rules_rust", version = "0.68.1-score")
+bazel_dep(name = "rules_rust", version = "0.70.0")
 bazel_dep(name = "score_crates", version = "0.0.10")
 
 bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    versions = ["1.88.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
@@ -84,8 +114,23 @@ crate.spec(
     version = "1.0.143",
 )
 crate.spec(
+    package = "tracing",
+    version = "=0.1.41",
+)
+crate.spec(
+    features = [
+        "ansi",
+        "env-filter",
+        "fmt",
+        "std",
+    ],
+    package = "tracing-subscriber",
+    version = "=0.3.19",
+)
+crate.spec(
     features = [
         "macros",
+        "net",
         "rt",
         "sync",
         "time",
@@ -97,8 +142,6 @@ crate.from_specs(
     name = "score_crate_index",
     supported_platform_triples = [
         "aarch64-unknown-linux-gnu",
-        "aarch64-unknown-nto-qnx800",
-        "x86_64-pc-nto-qnx800",
         "x86_64-unknown-linux-gnu",
         "x86_64-unknown-none",
     ],

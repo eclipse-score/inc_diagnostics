@@ -1,0 +1,9 @@
+--- a/cargo-bazel-lock.json
++++ b/cargo-bazel-lock.json
+@@ -1,5 +1,5 @@
+ {
+-  "checksum": "05fd3517bb47a99a2a5d0b0b81e36683f3f3bc74b7883b8a30ba987537f32bdc",
++  "checksum": "421f7ad3489869d00a797c15db03bcff2830c75dcbef3836383a5f2902a3666e",
+   "crates": {
+     "aho-corasick 1.1.4": {
+       "name": "aho-corasick",

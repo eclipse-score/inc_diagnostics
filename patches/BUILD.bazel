@@ -10,7 +10,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-
-formatter:
-  type: basic
-  retain_line_breaks: true
+exports_files([
+    "classic-diagnostic-adapter-expose-tokio.patch",
+    "opensovd-core-cargo-bazel-lock.patch",
+    "opensovd-core-expose-tokio.patch",
+])
