@@ -75,6 +75,6 @@ repos:
 
   # Ensure every file has a copyright header as per the Eclipse Foundation's requirements
   - repo: https://github.com/eclipse-score/tooling
-    rev: 31ff8eee214e4e97ef8f5cb46e443273515b63ec
+    rev: 92421c2008dcdb93d128c97425cc28f4e8dcc735
     hooks:
       - id: copyright
