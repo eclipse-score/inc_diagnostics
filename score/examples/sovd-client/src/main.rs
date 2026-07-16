@@ -12,30 +12,36 @@
 // *******************************************************************************
 
 use opensovd_client::Client;
+use tracing_subscriber::EnvFilter;
 
 const DEFAULT_URL: &str = "http://127.0.0.1:7690/sovd/v1";
+
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+}
 
 async fn run(client: &Client) -> Result<(), opensovd_client::Error> {
     let components = client.list_components().send().await?;
     for component in &components.data.items {
-        println!("component: {} ({})", component.id, component.name);
+        tracing::info!("component: {} ({})", component.id, component.name);
     }
 
     if let Some(component) = components.data.items.first() {
         let data = client.component(&component.id).list_data().send().await?;
         for item in &data.data.items {
-            println!("  data: {} ({})", item.id, item.name);
+            tracing::info!("  data: {} ({})", item.id, item.name);
         }
     }
 
     let apps = client.list_apps().send().await?;
     for app in &apps.data.items {
-        println!("app: {} ({})", app.id, app.name);
+        tracing::info!("app: {} ({})", app.id, app.name);
     }
 
     let areas = client.list_areas().send().await?;
     for area in &areas.data.items {
-        println!("area: {} ({})", area.id, area.name);
+        tracing::info!("area: {} ({})", area.id, area.name);
     }
 
     Ok(())
@@ -43,6 +49,7 @@ async fn run(client: &Client) -> Result<(), opensovd_client::Error> {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_tracing();
     let url = std::env::args()
         .nth(1)
         .or_else(|| std::env::var("SOVD_BASE_URL").ok())

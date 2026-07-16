@@ -114,6 +114,20 @@ crate.spec(
     version = "1.0.143",
 )
 crate.spec(
+    package = "tracing",
+    version = "=0.1.41",
+)
+crate.spec(
+    features = [
+        "ansi",
+        "env-filter",
+        "fmt",
+        "std",
+    ],
+    package = "tracing-subscriber",
+    version = "=0.3.19",
+)
+crate.spec(
     features = [
         "macros",
         "net",

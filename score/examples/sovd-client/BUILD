@@ -20,6 +20,8 @@ rust_binary(
     deps = [
         "@opensovd_core//:opensovd-client",
         "@score_crate_index//:tokio",
+        "@score_crate_index//:tracing",
+        "@score_crate_index//:tracing-subscriber",
     ],
     visibility = ["//visibility:public"],
 )
