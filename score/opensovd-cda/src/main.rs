@@ -12,12 +12,7 @@
 // *******************************************************************************
 
 
-/// SCORE opensovd-cda binary.
-///
-/// MVP stub: links classic-diagnostic-adapter and parks the thread indefinitely.
-/// Cross-cutting concerns (logging, persistency, config) are wired in later iterations.
-fn main() {
-    // Stub: keeps the process running without any logic.
-    // Replace with async fn main + tokio runtime once SCORE cross-cutting concerns are wired.
-    std::thread::park();
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), opensovd_cda_lib::AppError> {
+    opensovd_cda_lib::run_from_cli().await
 }

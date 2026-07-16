@@ -65,7 +65,8 @@ jobs:
         run: |
           bazel build --config=score_diag_x86_64_linux_qm -- \
             //score/opensovd-cda \
-            //score/opensovd-gateway
+            //score/opensovd-gateway \
+            //score/examples/sovd-client
 
       - name: Bazel Test QM diagnostics
         run: |
@@ -73,7 +74,7 @@ jobs:
           while IFS= read -r target; do
             TEST_TARGETS+=("${target}")
           done < <(bazel query \
-            'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-gateway/...)')
+            'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-gateway/... + //score/examples/...)')
 
           if ((${#TEST_TARGETS[@]} == 0)); then
             echo "No QM diagnostic test targets found; build verification is covered above."

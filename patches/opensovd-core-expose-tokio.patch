@@ -5,13 +5,25 @@
 # information regarding copyright ownership.
 #
 # This program and the accompanying materials are made available under the
-# terms of the Apache License Version 2.0 which is available at
+# terms of the Apache License 2.0 which is available at
 # https://www.apache.org/licenses/LICENSE-2.0
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-exports_files([
-    "classic-diagnostic-adapter-expose-tokio.patch",
-    "opensovd-core-cargo-bazel-lock.patch",
-    "opensovd-core-expose-tokio.patch",
-])
+
+diff --git a/BUILD.bazel b/BUILD.bazel
+index ab0e6f7..5b8f04e 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -3,6 +3,11 @@
+ 
+ package(default_visibility = ["//visibility:public"])
+ 
++alias(
++    name = "tokio",
++    actual = "@crate_index//:tokio",
++)
++
+ exports_files([
+     "Cargo.lock",
+     "Cargo.toml",

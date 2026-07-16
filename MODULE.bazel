@@ -16,6 +16,8 @@ bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0")
 git_override(
     module_name = "classic-diagnostic-adapter",
     commit = "04fad499fc9e2137c2d2919a1e9384c593720b73",
+    patch_strip = 1,
+    patches = ["//patches:classic-diagnostic-adapter-expose-tokio.patch"],
     remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
 )
 
@@ -24,7 +26,10 @@ git_override(
     module_name = "opensovd_core",
     commit = "0cb4b250643164d678389385aa94b6a92bb7f0c7",
     patch_strip = 1,
-    patches = ["//patches:opensovd-core-cargo-bazel-lock.patch"],
+    patches = [
+        "//patches:opensovd-core-cargo-bazel-lock.patch",
+        "//patches:opensovd-core-expose-tokio.patch",
+    ],
     remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
 )
 
@@ -111,6 +116,7 @@ crate.spec(
 crate.spec(
     features = [
         "macros",
+        "net",
         "rt",
         "sync",
         "time",

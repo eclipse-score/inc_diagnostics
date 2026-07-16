@@ -12,12 +12,52 @@
 // *******************************************************************************
 
 
-/// SCORE opensovd-gateway binary.
-///
-/// MVP stub: links opensovd-core and parks the thread indefinitely.
-/// Cross-cutting concerns (logging, persistency, config) are wired in later iterations.
-fn main() {
-    // Stub: keeps the process running without any logic.
-    // Replace with async fn main + tokio runtime once SCORE cross-cutting concerns are wired.
-    std::thread::park();
+use opensovd_core::Component;
+use opensovd_models::data::DataCategory;
+use opensovd_providers::data::{Constant, DataProviderBuilder};
+use opensovd_server::{Server, Topology};
+use tokio::net::TcpListener;
+
+const DEFAULT_ADDRESS: &str = "127.0.0.1:7690";
+
+fn address() -> String {
+    std::env::var("SCORE_GATEWAY_ADDRESS").unwrap_or_else(|_| DEFAULT_ADDRESS.to_owned())
+}
+
+async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
+    let provider = DataProviderBuilder::new()
+        .read_data(
+            "demo.version",
+            "Demo Version",
+            &DataCategory::IdentData,
+            Constant::new("1.0.0")?,
+        )
+        .read_data(
+            "demo.status",
+            "Demo Status",
+            &DataCategory::CurrentData,
+            Constant::new("ready")?,
+        )
+        .build()?;
+
+    let topology = Topology::new();
+    topology
+        .write()
+        .await
+        .add_component(Component::new("score-demo", "SCORE Demo").with_data_provider(provider));
+    Ok(topology)
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let address = address();
+    let listener = TcpListener::bind(&address).await?;
+    let topology = topology().await?;
+    let server = Server::builder()
+        .base_uri(format!("http://{address}/sovd"))?
+        .listener(listener)
+        .topology(topology)
+        .build()?;
+    server.serve().await?;
+    Ok(())
 }
