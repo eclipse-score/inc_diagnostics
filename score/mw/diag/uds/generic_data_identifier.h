@@ -48,9 +48,7 @@ class GenericDataIdentifier : public ReadDataByIdentifier, public WriteDataByIde
 /// Implementors override the parameterless `Read()` and single-parameter `Write()`.
 // NOLINTBEGIN(fuchsia-multiple-inheritance): SimpleGenericDataIdentifier inherits from
 // GenericDataIdentifier and the simple variants to properly route interface adapters.
-class SimpleGenericDataIdentifier : public GenericDataIdentifier,
-                                    public SimpleReadDataByIdentifier,
-                                    public SimpleWriteDataByIdentifier
+class SimpleGenericDataIdentifier : public SimpleReadDataByIdentifier, public SimpleWriteDataByIdentifier
 {
   public:
     ~SimpleGenericDataIdentifier() noexcept override = default;

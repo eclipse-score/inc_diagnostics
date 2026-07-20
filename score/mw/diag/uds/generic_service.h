@@ -28,6 +28,8 @@
 
 #include <score/stop_token.hpp>
 
+#include <future>
+
 namespace score::mw::diag::uds
 {
 
@@ -44,10 +46,10 @@ class GenericService
     /// @param input       Raw request payload bytes (service identifier + data).
     /// @param meta_data   Context provided by the diagnostic runtime for this request.
     /// @param stop_token  Token that becomes stopped if the runtime cancels the request.
-    /// @return Result<ByteVector> on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<ByteVector> HandleMessage(ByteView input,
-                                                           const MetaData& meta_data,
-                                                           score::cpp::stop_token stop_token) = 0;
+    /// @return std::future<Result<ByteVector>> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual std::future<Result<ByteVector>> HandleMessage(ByteView input,
+                                                                        const MetaData& meta_data,
+                                                                        score::cpp::stop_token stop_token) = 0;
 
     virtual ~GenericService() noexcept = default;
 };
@@ -68,11 +70,13 @@ class SimpleGenericService : public GenericService
     virtual ~SimpleGenericService() noexcept = default;
 
   private:
-    Result<ByteVector> HandleMessage(ByteView input,
+    std::future<Result<ByteVector>> HandleMessage(ByteView input,
                                      const MetaData& /*meta_data*/,
                                      score::cpp::stop_token /*stop_token*/) final
     {
-        return HandleMessage(input);
+        std::promise<Result<ByteVector>> promise;
+        promise.set_value(HandleMessage(input));
+        return promise.get_future();
     }
 };
 

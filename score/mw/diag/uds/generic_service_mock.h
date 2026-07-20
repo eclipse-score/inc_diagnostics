@@ -28,7 +28,7 @@ namespace score::mw::diag::uds::test
 class GenericServiceMock : public GenericService
 {
   public:
-    MOCK_METHOD(Result<ByteVector>,
+    MOCK_METHOD(std::future<Result<ByteVector>>,
                 HandleMessage,
                 (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
                 (override));

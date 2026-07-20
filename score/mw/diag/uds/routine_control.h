@@ -26,8 +26,10 @@
 #include "score/mw/diag/uds/meta_data.h"
 
 #include <score/stop_token.hpp>
+
 #include <cstdint>
 #include <optional>
+#include <future>
 
 namespace score::mw::diag::uds
 {
@@ -45,31 +47,31 @@ class RoutineControl
     /// @param input       Non-owning view of the raw input bytes accompanying the start request.
     /// @param meta_data   Context provided by the diagnostic runtime for this request.
     /// @param stop_token  Token that becomes stopped if the runtime cancels the request.
-    /// @return Serialized routineStatusRecord bytes on success (empty if the routine
-    ///         produces no start reply data); NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<ByteVector> Start(ByteView input,
-                                                   const MetaData& meta_data,
-                                                   score::cpp::stop_token stop_token) = 0;
+    /// @return std::future<Result<ByteVector>> wrapping serialized routineStatusRecord bytes on success
+    ///         (empty if the routine produces no start reply data); NegativeResponseCode on failure.
+    [[nodiscard]] virtual std::future<Result<ByteVector>> Start(ByteView input,
+                                                                const MetaData& meta_data,
+                                                                score::cpp::stop_token stop_token) = 0;
 
     /// Stop the routine (sub-function 0x02).
     /// @param input       Non-owning view of the raw input bytes accompanying the stop request.
     /// @param meta_data   Context provided by the diagnostic runtime for this request.
     /// @param stop_token  Token that becomes stopped if the runtime cancels the request.
-    /// @return Serialized routineStatusRecord bytes on success (empty if the routine
-    ///         produces no stop reply data); NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<ByteVector> Stop(ByteView input,
-                                                  const MetaData& meta_data,
-                                                  score::cpp::stop_token stop_token) = 0;
+    /// @return std::future<Result<ByteVector>> wrapping serialized routineStatusRecord bytes on success
+    ///         (empty if the routine produces no stop reply data); NegativeResponseCode on failure.
+    [[nodiscard]] virtual std::future<Result<ByteVector>> Stop(ByteView input,
+                                                               const MetaData& meta_data,
+                                                               score::cpp::stop_token stop_token) = 0;
 
     /// Request the routine results (sub-function 0x03).
     /// @param input       Non-owning view of the raw input bytes accompanying the request.
     /// @param meta_data   Context provided by the diagnostic runtime for this request.
     /// @param stop_token  Token that becomes stopped if the runtime cancels the request.
-    /// @return Serialized routineStatusRecord bytes on success (empty if no result data);
-    ///         NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<ByteVector> RequestResults(ByteView input,
-                                                            const MetaData& meta_data,
-                                                            score::cpp::stop_token stop_token) = 0;
+    /// @return std::future<Result<ByteVector>> wrapping serialized routineStatusRecord bytes on success
+    ///         (empty if no result data); NegativeResponseCode on failure.
+    [[nodiscard]] virtual std::future<Result<ByteVector>> RequestResults(ByteView input,
+                                                                         const MetaData& meta_data,
+                                                                         score::cpp::stop_token stop_token) = 0;
 
     /// Optionally provide the current routine completion percentage.
     /// @return A value in [0, 100] representing the completion percentage,
@@ -93,32 +95,47 @@ class SimpleRoutineControl : public RoutineControl
 {
   public:
     /// Start the routine in a fast and non-blocking manner.
+    /// @param input  Non-owning view of the raw input bytes accompanying the start request.
+    /// @return Result<ByteVector> wrapping serialized routineStatusRecord bytes on success;
+    ///         NegativeResponseCode on failure.
     [[nodiscard]] virtual Result<ByteVector> Start(ByteView input) = 0;
 
     /// Stop the routine in a fast and non-blocking manner.
+    /// @param input  Non-owning view of the raw input bytes accompanying the stop request.
+    /// @return Result<ByteVector> wrapping serialized routineStatusRecord bytes on success;
+    ///         NegativeResponseCode on failure.
     [[nodiscard]] virtual Result<ByteVector> Stop(ByteView input) = 0;
 
     /// Request the routine results in a fast and non-blocking manner.
+    /// @param input  Non-owning view of the raw input bytes accompanying the request.
+    /// @return Result<ByteVector> wrapping serialized routineStatusRecord bytes on success;
+    ///         NegativeResponseCode on failure.
     [[nodiscard]] virtual Result<ByteVector> RequestResults(ByteView input) = 0;
 
     virtual ~SimpleRoutineControl() noexcept = default;
 
   private:
-    Result<ByteVector> Start(ByteView input, const MetaData& /*meta_data*/, score::cpp::stop_token /*stop_token*/) final
+    std::future<Result<ByteVector>> Start(ByteView input, const MetaData& /*meta_data*/, score::cpp::stop_token /*stop_token*/) final
     {
-        return Start(input);
+        std::promise<Result<ByteVector>> promise;
+        promise.set_value(Start(input));
+        return promise.get_future();
     }
 
-    Result<ByteVector> Stop(ByteView input, const MetaData& /*meta_data*/, score::cpp::stop_token /*stop_token*/) final
+    std::future<Result<ByteVector>> Stop(ByteView input, const MetaData& /*meta_data*/, score::cpp::stop_token /*stop_token*/) final
     {
-        return Stop(input);
+        std::promise<Result<ByteVector>> promise;
+        promise.set_value(Stop(input));
+        return promise.get_future();
     }
 
-    Result<ByteVector> RequestResults(ByteView input,
+    std::future<Result<ByteVector>> RequestResults(ByteView input,
                                       const MetaData& /*meta_data*/,
                                       score::cpp::stop_token /*stop_token*/) final
     {
-        return RequestResults(input);
+        std::promise<Result<ByteVector>> promise;
+        promise.set_value(RequestResults(input));
+        return promise.get_future();
     }
 };
 

@@ -27,6 +27,8 @@
 
 #include <score/stop_token.hpp>
 
+#include <future>
+
 namespace score::mw::diag::uds
 {
 
@@ -39,8 +41,9 @@ class ReadDataByIdentifier
   public:
     /// @param meta_data   Context provided by the diagnostic runtime for this request.
     /// @param stop_token  Token that becomes stopped if the runtime cancels the request.
-    /// @return Result<ByteVector> on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<ByteVector> Read(const MetaData& meta_data, score::cpp::stop_token stop_token) = 0;
+    /// @return std::future<Result<ByteVector>> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual std::future<Result<ByteVector>> Read(const MetaData& meta_data,
+                                                               score::cpp::stop_token stop_token) = 0;
 
     virtual ~ReadDataByIdentifier() noexcept = default;
 };
@@ -59,9 +62,11 @@ class SimpleReadDataByIdentifier : public ReadDataByIdentifier
     virtual ~SimpleReadDataByIdentifier() noexcept = default;
 
   private:
-    Result<ByteVector> Read(const MetaData& /*meta_data*/, score::cpp::stop_token /*stop_token*/) final
+    std::future<Result<ByteVector>> Read(const MetaData& /*meta_data*/, score::cpp::stop_token /*stop_token*/) final
     {
-        return Read();
+        std::promise<Result<ByteVector>> promise;
+        promise.set_value(Read());
+        return promise.get_future();
     }
 };
 

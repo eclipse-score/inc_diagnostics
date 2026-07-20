@@ -28,7 +28,10 @@ namespace score::mw::diag::uds::test
 class ReadDataByIdentifierMock : public ReadDataByIdentifier
 {
   public:
-    MOCK_METHOD(Result<ByteVector>, Read, (const MetaData& meta_data, score::cpp::stop_token stop_token), (override));
+    MOCK_METHOD((std::future<Result<ByteVector>>),
+                Read,
+                (const MetaData& meta_data, score::cpp::stop_token stop_token),
+                (override));
 };
 
 /// Mock for the context-free score::mw::diag::uds::SimpleReadDataByIdentifier (Service 0x22).

@@ -27,6 +27,8 @@
 
 #include <score/stop_token.hpp>
 
+#include <future>
+
 namespace score::mw::diag::uds
 {
 
@@ -40,10 +42,10 @@ class WriteDataByIdentifier
     /// @param input       Non-owning view of the raw bytes to write.
     /// @param meta_data   Context provided by the diagnostic runtime for this request.
     /// @param stop_token  Token that becomes stopped if the runtime cancels the request.
-    /// @return Result<score::cpp::blank> on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<score::cpp::blank> Write(ByteView input,
-                                                          const MetaData& meta_data,
-                                                          score::cpp::stop_token stop_token) = 0;
+    /// @return std::future<std::Result<score::cpp::blank>> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual std::future<Result<score::cpp::blank>> Write(ByteView input,
+                                                                       const MetaData& meta_data,
+                                                                       score::cpp::stop_token stop_token) = 0;
 
     virtual ~WriteDataByIdentifier() noexcept = default;
 };
@@ -63,11 +65,13 @@ class SimpleWriteDataByIdentifier : public WriteDataByIdentifier
     virtual ~SimpleWriteDataByIdentifier() noexcept = default;
 
   private:
-    Result<score::cpp::blank> Write(ByteView input,
+    std::future<Result<score::cpp::blank>> Write(ByteView input,
                                     const MetaData& /*meta_data*/,
                                     score::cpp::stop_token /*stop_token*/) final
     {
-        return Write(input);
+        std::promise<Result<score::cpp::blank>> promise;
+        promise.set_value(Write(input));
+        return promise.get_future();
     }
 };
 

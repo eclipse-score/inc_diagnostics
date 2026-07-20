@@ -28,7 +28,7 @@ namespace score::mw::diag::uds::test
 class WriteDataByIdentifierMock : public WriteDataByIdentifier
 {
   public:
-    MOCK_METHOD(Result<score::cpp::blank>,
+    MOCK_METHOD(std::future<Result<score::cpp::blank>>,
                 Write,
                 (ByteView input, const MetaData& meta_data, score::cpp::stop_token stop_token),
                 (override));
