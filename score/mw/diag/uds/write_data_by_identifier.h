@@ -42,10 +42,10 @@ class WriteDataByIdentifier
     /// @param input       Non-owning view of the raw bytes to write.
     /// @param meta_data   Context provided by the diagnostic runtime for this request.
     /// @param stop_token  Token that becomes stopped if the runtime cancels the request.
-    /// @return std::future<std::Result<score::cpp::blank>> on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual std::future<Result<score::cpp::blank>> Write(ByteView input,
-                                                                       const MetaData& meta_data,
-                                                                       score::cpp::stop_token stop_token) = 0;
+    /// @return std::future<Result<void>> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual std::future<Result<void>> Write(ByteView input,
+                                                         const MetaData& meta_data,
+                                                         score::cpp::stop_token stop_token) = 0;
 
     virtual ~WriteDataByIdentifier() noexcept = default;
 };
@@ -59,17 +59,17 @@ class SimpleWriteDataByIdentifier : public WriteDataByIdentifier
   public:
     /// Write raw bytes for the data identifier in a fast and non-blocking manner.
     /// @param input  Non-owning view of the raw bytes to write.
-    /// @return Result<score::cpp::blank> on success, NegativeResponseCode on failure.
-    [[nodiscard]] virtual Result<score::cpp::blank> Write(ByteView input) = 0;
+    /// @return Result<void> on success, NegativeResponseCode on failure.
+    [[nodiscard]] virtual Result<void> Write(ByteView input) = 0;
 
     virtual ~SimpleWriteDataByIdentifier() noexcept = default;
 
   private:
-    std::future<Result<score::cpp::blank>> Write(ByteView input,
-                                    const MetaData& /*meta_data*/,
-                                    score::cpp::stop_token /*stop_token*/) final
+    std::future<Result<void>> Write(ByteView input,
+                                   const MetaData& /*meta_data*/,
+                                   score::cpp::stop_token /*stop_token*/) final
     {
-        std::promise<Result<score::cpp::blank>> promise;
+        std::promise<Result<void>> promise;
         promise.set_value(Write(input));
         return promise.get_future();
     }

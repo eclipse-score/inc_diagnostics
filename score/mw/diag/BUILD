@@ -33,9 +33,7 @@ cc_library(
     srcs = ["diag_result.cpp"],
     visibility = ["//score:__subpackages__"],
     deps = [
-        ":byte_types",
-        "//score/mw/diag/uds:negative_response_code",
-        "@score_baselibs//score/language/futurecpp",
+        "@score_baselibs//score/result",
     ],
 )
 
