@@ -47,14 +47,14 @@
 
 # Bazel
 bazel-*
-#MODULE.bazel.lock
 user.bazelrc
 
 # Ruff
 .ruff_cache
 
 # docs:incremental and docs:ide_support build artifacts
-/_build
+_build
+ubproject.toml
 
 # Vale - editorial style guide
 .vale.ini
@@ -67,3 +67,6 @@ styles/
 .venv
 __pycache__/
 /.coverage
+
+# MacOS
+.DS_Store
