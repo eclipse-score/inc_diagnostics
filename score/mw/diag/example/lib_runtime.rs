@@ -15,8 +15,8 @@ use diag_api::sovd::data_resource::{
     DataResource, DataResourceMetadata, ReadValueArgs, ReadValueHandle, ReadValueReply,
 };
 use diag_api::sovd::operation::{
-    ExecuteArguments, ExecutionControl, ExecutionEvent, ExecutionEventKind, ExecutionResult,
-    ExecutionStatus, Operation, OperationMetadata,
+    ExecuteArguments, ExecutionControl, ExecutionEvent, ExecutionEventKind, ExecutionResult, ExecutionStatus,
+    Operation, OperationMetadata,
 };
 use diag_api::Error as DiagError;
 use diag_api::Result as DiagResult;
@@ -42,9 +42,7 @@ pub type ExecutionTimeout = Duration;
 static EXECUTION_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 fn issue_new_execution_id() -> ExecutionId {
-    EXECUTION_ID_COUNTER
-        .fetch_add(1, Ordering::Relaxed)
-        .to_string()
+    EXECUTION_ID_COUNTER.fetch_add(1, Ordering::Relaxed).to_string()
 }
 
 // this message type is for demonstration purposes only
@@ -88,10 +86,7 @@ struct ExecutionControlImpl {
 
 impl ExecutionControlImpl {
     fn new(exec_events: mpsc::Receiver<ExecutionEvent>, exec_id: ExecutionId) -> Self {
-        Self {
-            exec_events,
-            exec_id,
-        }
+        Self { exec_events, exec_id }
     }
 }
 
@@ -133,12 +128,10 @@ impl ActiveExecution {
             if handle.is_finished() {
                 let old = std::mem::replace(
                     self,
-                    ActiveExecution::Completed(Err(DiagError::from_error(
-                        sovd::GenericError::from_code(
-                            sovd::ErrorCode::SovdServerFailure,
-                            "execution result unavailable".to_string(),
-                        ),
-                    ))),
+                    ActiveExecution::Completed(Err(DiagError::from_error(sovd::GenericError::from_code(
+                        sovd::ErrorCode::SovdServerFailure,
+                        "execution result unavailable".to_string(),
+                    )))),
                 );
                 if let ActiveExecution::Running {
                     join_handle: Some(handle),
@@ -156,24 +149,20 @@ impl ActiveExecution {
     fn get_exec_control(&self) -> DiagResult<mpsc::Sender<ExecutionEvent>> {
         match self {
             ActiveExecution::Running { exec_control, .. } => Ok(exec_control.clone()),
-            ActiveExecution::Completed(_) => {
-                Err(DiagError::from_error(sovd::GenericError::from_code(
-                    sovd::ErrorCode::PreconditionNotFulfilled,
-                    "execution is already completed".to_string(),
-                )))
-            }
+            ActiveExecution::Completed(_) => Err(DiagError::from_error(sovd::GenericError::from_code(
+                sovd::ErrorCode::PreconditionNotFulfilled,
+                "execution is already completed".to_string(),
+            ))),
         }
     }
 
     fn get_result(&self) -> DiagResult<ExecutionResult> {
         match self {
             ActiveExecution::Completed(result) => Ok(result.clone()),
-            ActiveExecution::Running { .. } => {
-                Err(DiagError::from_error(sovd::GenericError::from_code(
-                    sovd::ErrorCode::PreconditionNotFulfilled,
-                    "execution is still running".to_string(),
-                )))
-            }
+            ActiveExecution::Running { .. } => Err(DiagError::from_error(sovd::GenericError::from_code(
+                sovd::ErrorCode::PreconditionNotFulfilled,
+                "execution is still running".to_string(),
+            ))),
         }
     }
 }
@@ -206,17 +195,11 @@ impl Runtime {
 
     // This method is for demonstration purposes only!
     pub fn send(&self, message: SOVDMessage) -> impl Future<Output = SOVDReply> {
-        self.inner
-            .lock()
-            .expect("mutex acquisition failed")
-            .send(message)
+        self.inner.lock().expect("mutex acquisition failed").send(message)
     }
 
     pub fn shutdown(&self) -> impl Future<Output = ()> {
-        self.inner
-            .lock()
-            .expect("mutex acquisition failed")
-            .shutdown()
+        self.inner.lock().expect("mutex acquisition failed").shutdown()
     }
 }
 
@@ -230,8 +213,7 @@ struct RuntimeImpl {
 
 impl RuntimeImpl {
     pub fn new() -> Self {
-        let (sovd_sender, sovd_receiver) =
-            mpsc::channel::<(SOVDMessage, oneshot::Sender<SOVDReply>)>(10);
+        let (sovd_sender, sovd_receiver) = mpsc::channel::<(SOVDMessage, oneshot::Sender<SOVDReply>)>(10);
         let (shutdown_sender, shutdown_receiver) = oneshot::channel();
         RuntimeImpl {
             entities: Arc::new(Mutex::new(IndexMap::<EntityId, Arc<Entity>>::new())),
@@ -243,14 +225,8 @@ impl RuntimeImpl {
     }
 
     pub fn run(&mut self) -> impl Future<Output = ()> {
-        let shutdown_requested = self
-            .shutdown_requested
-            .take()
-            .expect("Runtime got started already!");
-        let mut sovd_messages = self
-            .sovd_messages
-            .take()
-            .expect("Runtime got started already!");
+        let shutdown_requested = self.shutdown_requested.take().expect("Runtime got started already!");
+        let mut sovd_messages = self.sovd_messages.take().expect("Runtime got started already!");
         let entities = self.entities.clone();
 
         async move {
@@ -264,7 +240,7 @@ impl RuntimeImpl {
                         Some((message, reply_sender)) => {
                             let reply = Self::handle(&entities, message).await;
                             let _ = reply_sender.send(reply);
-                        }
+                        },
                         None => break,
                     }
                 }
@@ -277,24 +253,19 @@ impl RuntimeImpl {
         }
     }
 
-    async fn handle(
-        entities: &Mutex<IndexMap<EntityId, Arc<Entity>>>,
-        message: SOVDMessage,
-    ) -> SOVDReply {
+    async fn handle(entities: &Mutex<IndexMap<EntityId, Arc<Entity>>>, message: SOVDMessage) -> SOVDReply {
         match message {
             SOVDMessage::ListDataResources(entity_id) => {
-                let reply = Self::select_entity(entities, &entity_id, |entity| {
-                    Ok(entity.list_data_resources())
-                });
+                let reply = Self::select_entity(entities, &entity_id, |entity| Ok(entity.list_data_resources()));
                 SOVDReply::ListDataResources(reply)
-            }
+            },
 
             SOVDMessage::ReadDataResource(entity_id, data_resource_id, read_value_args) => {
                 let reply = Self::select_entity(entities, &entity_id, |entity| {
                     entity.read_data_resource(&data_resource_id, read_value_args)
                 });
                 SOVDReply::ReadDataResource(reply)
-            }
+            },
 
             SOVDMessage::ListOperations(entity_id) => {
                 let reply = if entity_id.is_empty() || entity_id == "*" {
@@ -315,21 +286,18 @@ impl RuntimeImpl {
                     Self::select_entity(entities, &entity_id, |entity| Ok(entity.list_operations()))
                 };
                 SOVDReply::ListOperations(reply)
-            }
+            },
 
             SOVDMessage::GetOperationMetadata((entity_id, op_id)) => {
-                let reply = Self::select_entity(entities, &entity_id, |entity| {
-                    entity.get_operation_info(&op_id)
-                });
+                let reply = Self::select_entity(entities, &entity_id, |entity| entity.get_operation_info(&op_id));
                 SOVDReply::GetOperationMetadata(reply)
-            }
+            },
 
             SOVDMessage::ExecuteOperation((entity_id, op_id, timeout)) => {
-                let reply = Self::select_entity(entities, &entity_id, |entity| {
-                    entity.execute_operation(&op_id, timeout)
-                });
+                let reply =
+                    Self::select_entity(entities, &entity_id, |entity| entity.execute_operation(&op_id, timeout));
                 SOVDReply::ExecuteOperation(reply)
-            }
+            },
 
             SOVDMessage::ExecuteOperationCapability((entity_id, op_id, exec_id, value)) => {
                 let exec_control = Self::select_entity(entities, &entity_id, |entity| {
@@ -337,19 +305,18 @@ impl RuntimeImpl {
                 });
                 let reply = match exec_control {
                     Ok(exec_control) => {
-                        let event =
-                            ExecutionEvent::new(ExecutionEventKind::HandleCustomCapability(value));
+                        let event = ExecutionEvent::new(ExecutionEventKind::HandleCustomCapability(value));
                         exec_control.send(event).await.map_err(|_| {
                             DiagError::from_error(sovd::GenericError::from_code(
                                 sovd::ErrorCode::ErrorResponse,
                                 "Execution is no longer active!".to_string(),
                             ))
                         })
-                    }
+                    },
                     Err(e) => Err(e),
                 };
                 SOVDReply::ExecuteOperationCapability(reply)
-            }
+            },
 
             SOVDMessage::GetOperationExecutionStatus((entity_id, op_id, exec_id)) => {
                 let exec_control = Self::select_entity(entities, &entity_id, |entity| {
@@ -358,10 +325,11 @@ impl RuntimeImpl {
                 let reply = match exec_control {
                     Ok(exec_control) => {
                         let (status_tx, status_rx) = oneshot::channel::<ExecutionStatus>();
-                        let event = ExecutionEvent::new(ExecutionEventKind::ReportStatus)
-                            .with_status_reporter(move |status: ExecutionStatus, _| {
+                        let event = ExecutionEvent::new(ExecutionEventKind::ReportStatus).with_status_reporter(
+                            move |status: ExecutionStatus, _| {
                                 let _ = status_tx.send(status);
-                            });
+                            },
+                        );
                         if exec_control.send(event).await.is_err() {
                             Err(DiagError::from_error(sovd::GenericError::from_code(
                                 sovd::ErrorCode::ErrorResponse,
@@ -375,18 +343,18 @@ impl RuntimeImpl {
                                 ))
                             })
                         }
-                    }
+                    },
                     Err(e) => Err(e),
                 };
                 SOVDReply::GetOperationExecutionStatus(reply)
-            }
+            },
 
             SOVDMessage::GetOperationExecutionResult((entity_id, op_id, exec_id)) => {
                 let reply = Self::select_entity(entities, &entity_id, |entity| {
                     entity.get_execution_result(&op_id, &exec_id)
                 });
                 SOVDReply::GetOperationExecutionResult(reply)
-            }
+            },
 
             SOVDMessage::StopOperationExecution((entity_id, op_id, exec_id)) => {
                 let exec_control = Self::select_entity(entities, &entity_id, |entity| {
@@ -405,14 +373,13 @@ impl RuntimeImpl {
                     Err(e) => Err(e),
                 };
                 SOVDReply::StopOperationExecution(reply)
-            }
+            },
 
             SOVDMessage::RemoveOperationExecution((entity_id, op_id, exec_id)) => {
-                let reply = Self::select_entity(entities, &entity_id, |entity| {
-                    entity.remove_execution(&op_id, &exec_id)
-                });
+                let reply =
+                    Self::select_entity(entities, &entity_id, |entity| entity.remove_execution(&op_id, &exec_id));
                 SOVDReply::RemoveOperationExecution(reply)
-            }
+            },
         }
     }
 
@@ -421,11 +388,7 @@ impl RuntimeImpl {
         entity_id: &EntityId,
         invoker: impl FnOnce(&Entity) -> DiagResult<T>,
     ) -> DiagResult<T> {
-        match entities
-            .lock()
-            .map_err(|_| DiagError::mutex_poisoned())?
-            .get(entity_id)
-        {
+        match entities.lock().map_err(|_| DiagError::mutex_poisoned())?.get(entity_id) {
             Some(entity) => invoker(entity),
             None => Err(DiagError::from_error(sovd::GenericError::from_code(
                 sovd::ErrorCode::ErrorResponse,
@@ -461,10 +424,7 @@ impl RuntimeImpl {
     // FIXME: implement unregister_entity(&self, id: EntityId)
 
     pub fn shutdown(&mut self) -> impl Future<Output = ()> {
-        let request_shutdown = self
-            .request_shutdown
-            .take()
-            .expect("runtime got shut down already");
+        let request_shutdown = self.request_shutdown.take().expect("runtime got shut down already");
         async move {
             let _ = request_shutdown.send(());
         }
@@ -483,7 +443,7 @@ impl Entity {
         Self {
             data_resources: Mutex::new(IndexMap::<DataResourceId, DataResourceHolder>::new()),
             operations: Mutex::new(IndexMap::<OperationId, OperationHolder>::new()),
-            id: id,
+            id,
         }
     }
 
@@ -493,18 +453,11 @@ impl Entity {
         resource_id: DataResourceId,
         resource_metadata: DataResourceMetadata,
     ) {
-        match self
-            .data_resources
-            .lock()
-            .expect("mutex acquisition failed")
-            .insert(
-                resource_id.clone(),
-                DataResourceHolder::new(resource, resource_metadata),
-            ) {
-            Some(_) => panic!(
-                "A data resource with id '{}' got already registered!",
-                resource_id
-            ),
+        match self.data_resources.lock().expect("mutex acquisition failed").insert(
+            resource_id.clone(),
+            DataResourceHolder::new(resource, resource_metadata),
+        ) {
+            Some(_) => panic!("A data resource with id '{}' got already registered!", resource_id),
             None => (),
         }
     }
@@ -539,11 +492,7 @@ impl Entity {
             .collect()
     }
 
-    pub fn read_data_resource(
-        &self,
-        id: &DataResourceId,
-        args: ReadValueArgs,
-    ) -> DiagResult<ReadValueReply> {
+    pub fn read_data_resource(&self, id: &DataResourceId, args: ReadValueArgs) -> DiagResult<ReadValueReply> {
         let handle = self
             .data_resources
             .lock()
@@ -552,23 +501,17 @@ impl Entity {
             .ok_or_else(|| {
                 DiagError::from_error(sovd::GenericError::from_code(
                     sovd::ErrorCode::ErrorResponse,
-                    format!(
-                        "Data resource with id '{}' not found in entity '{}'",
-                        id, self.id
-                    ),
+                    format!("Data resource with id '{}' not found in entity '{}'", id, self.id),
                 ))
             })?
             .instance
             .read(args);
         match handle {
             ReadValueHandle::Ready(result) => result,
-            ReadValueHandle::Pending(_) => {
-                Err(DiagError::from_error(sovd::GenericError::from_code(
-                    sovd::ErrorCode::PreconditionNotFulfilled,
-                    "Async data resource reads are not supported in this synchronous context"
-                        .to_string(),
-                )))
-            }
+            ReadValueHandle::Pending(_) => Err(DiagError::from_error(sovd::GenericError::from_code(
+                sovd::ErrorCode::PreconditionNotFulfilled,
+                "Async data resource reads are not supported in this synchronous context".to_string(),
+            ))),
         }
     }
 
@@ -590,30 +533,17 @@ impl Entity {
             .ok_or_else(|| {
                 DiagError::from_error(sovd::GenericError::from_code(
                     sovd::ErrorCode::ErrorResponse,
-                    format!(
-                        "Operation with id '{}' not found in entity '{}'",
-                        op_id, self.id
-                    ),
+                    format!("Operation with id '{}' not found in entity '{}'", op_id, self.id),
                 ))
             })
     }
 
-    pub fn execute_operation(
-        &self,
-        op_id: &OperationId,
-        timeout: Option<ExecutionTimeout>,
-    ) -> DiagResult<ExecutionId> {
-        let mut operations = self
-            .operations
-            .lock()
-            .map_err(|_| DiagError::mutex_poisoned())?;
+    pub fn execute_operation(&self, op_id: &OperationId, timeout: Option<ExecutionTimeout>) -> DiagResult<ExecutionId> {
+        let mut operations = self.operations.lock().map_err(|_| DiagError::mutex_poisoned())?;
         let operation = operations.get_mut(op_id).ok_or_else(|| {
             DiagError::from_error(sovd::GenericError::from_code(
                 sovd::ErrorCode::ErrorResponse,
-                format!(
-                    "Operation with id '{}' not found in entity '{}'",
-                    op_id, self.id
-                ),
+                format!("Operation with id '{}' not found in entity '{}'", op_id, self.id),
             ))
         })?;
 
@@ -629,10 +559,8 @@ impl Entity {
 
         let (exec_event_sender, exec_event_receiver) = mpsc::channel(10);
         let exec_id = issue_new_execution_id();
-        let exec_control: Box<dyn ExecutionControl> = Box::new(ExecutionControlImpl::new(
-            exec_event_receiver,
-            exec_id.clone(),
-        ));
+        let exec_control: Box<dyn ExecutionControl> =
+            Box::new(ExecutionControlImpl::new(exec_event_receiver, exec_id.clone()));
         let exec_control_for_timeout = if timeout.is_some() {
             Some(exec_event_sender.clone())
         } else {
@@ -663,7 +591,7 @@ impl Entity {
                             )))
                         }
                     }
-                }
+                },
                 None => exec_future.await,
             }
         };
@@ -678,10 +606,7 @@ impl Entity {
             );
             drop(operations); // for unlocking the mutex
             let result = futures::executor::block_on(exec_future_with_timeout);
-            let mut operations = self
-                .operations
-                .lock()
-                .map_err(|_| DiagError::mutex_poisoned())?;
+            let mut operations = self.operations.lock().map_err(|_| DiagError::mutex_poisoned())?;
             let operation = operations.get_mut(op_id).expect("operation must exist");
             if let Some(execution) = operation.executions.get_mut(&exec_id) {
                 *execution = ActiveExecution::Completed(result);
@@ -704,17 +629,11 @@ impl Entity {
         op_id: &OperationId,
         exec_id: &ExecutionId,
     ) -> DiagResult<mpsc::Sender<ExecutionEvent>> {
-        let operations = self
-            .operations
-            .lock()
-            .map_err(|_| DiagError::mutex_poisoned())?;
+        let operations = self.operations.lock().map_err(|_| DiagError::mutex_poisoned())?;
         let operation = operations.get(op_id).ok_or_else(|| {
             DiagError::from_error(sovd::GenericError::from_code(
                 sovd::ErrorCode::ErrorResponse,
-                format!(
-                    "Operation with id '{}' not found in entity '{}'",
-                    op_id, self.id
-                ),
+                format!("Operation with id '{}' not found in entity '{}'", op_id, self.id),
             ))
         })?;
         let execution = operation.executions.get(exec_id).ok_or_else(|| {
@@ -729,22 +648,12 @@ impl Entity {
         execution.get_exec_control()
     }
 
-    pub fn get_execution_result(
-        &self,
-        op_id: &OperationId,
-        exec_id: &ExecutionId,
-    ) -> DiagResult<ExecutionResult> {
-        let mut operations = self
-            .operations
-            .lock()
-            .map_err(|_| DiagError::mutex_poisoned())?;
+    pub fn get_execution_result(&self, op_id: &OperationId, exec_id: &ExecutionId) -> DiagResult<ExecutionResult> {
+        let mut operations = self.operations.lock().map_err(|_| DiagError::mutex_poisoned())?;
         let operation = operations.get_mut(op_id).ok_or_else(|| {
             DiagError::from_error(sovd::GenericError::from_code(
                 sovd::ErrorCode::ErrorResponse,
-                format!(
-                    "Operation with id '{}' not found in entity '{}'",
-                    op_id, self.id
-                ),
+                format!("Operation with id '{}' not found in entity '{}'", op_id, self.id),
             ))
         })?;
         let execution = operation.executions.get_mut(exec_id).ok_or_else(|| {
@@ -761,17 +670,11 @@ impl Entity {
     }
 
     pub fn remove_execution(&self, op_id: &OperationId, exec_id: &ExecutionId) -> DiagResult<()> {
-        let mut operations = self
-            .operations
-            .lock()
-            .map_err(|_| DiagError::mutex_poisoned())?;
+        let mut operations = self.operations.lock().map_err(|_| DiagError::mutex_poisoned())?;
         let operation = operations.get_mut(op_id).ok_or_else(|| {
             DiagError::from_error(sovd::GenericError::from_code(
                 sovd::ErrorCode::ErrorResponse,
-                format!(
-                    "Operation with id '{}' not found in entity '{}'",
-                    op_id, self.id
-                ),
+                format!("Operation with id '{}' not found in entity '{}'", op_id, self.id),
             ))
         })?;
         let execution = operation.executions.get_mut(exec_id).ok_or_else(|| {
@@ -804,10 +707,7 @@ struct DataResourceHolder {
 }
 
 impl DataResourceHolder {
-    fn new(
-        resource: impl DataResource + Send + 'static,
-        resource_metadata: DataResourceMetadata,
-    ) -> Self {
+    fn new(resource: impl DataResource + Send + 'static, resource_metadata: DataResourceMetadata) -> Self {
         Self {
             metadata: resource_metadata,
             instance: Box::new(resource),

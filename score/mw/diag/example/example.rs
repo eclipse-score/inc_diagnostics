@@ -86,11 +86,7 @@ impl DataResource for MyDataResource {
 struct MySyncOperation {}
 
 impl Operation for MySyncOperation {
-    fn execute(
-        &mut self,
-        input: ExecuteArguments,
-        _control: Box<dyn ExecutionControl>,
-    ) -> DiagResult<ExecutionHandle> {
+    fn execute(&mut self, input: ExecuteArguments, _control: Box<dyn ExecutionControl>) -> DiagResult<ExecutionHandle> {
         assert_eq!(input.reply_encoding, ReplyMessageEncoding::UTF8);
         Ok(ExecutionHandle::from_closure(move || {
             println!("Sync operation execution got initiated ...");
@@ -107,10 +103,7 @@ impl Operation for MySyncOperation {
 struct MyAsyncOperation {}
 
 impl MyAsyncOperation {
-    async fn user_code(
-        _input: ExecuteArguments,
-        mut notification: mpsc::Receiver<()>,
-    ) -> ExecutionResult {
+    async fn user_code(_input: ExecuteArguments, mut notification: mpsc::Receiver<()>) -> ExecutionResult {
         println!("Async operation execution got initiated ...");
 
         /* some complex long-running business logic here */
@@ -138,7 +131,7 @@ impl MyAsyncOperation {
                     println!("Async operation's execution received custom capability event!");
                     assert_eq!("An OEM specific capability", custom_capability);
                     exec_status = ExecutionStatus::UnsupportedCapability(custom_capability);
-                }
+                },
 
                 ExecutionEventKind::ReportStatus => {
                     println!("Async operation's execution received report status event!");
@@ -148,21 +141,19 @@ impl MyAsyncOperation {
                     match exec_status {
                         ExecutionStatus::Scheduled => {
                             exec_status = ExecutionStatus::Running;
-                        }
+                        },
                         _other => {
                             exec_status = ExecutionStatus::Running;
-                            notifier
-                                .send(())
-                                .await
-                                .expect("Signalling user code failed!") // wakeup above business logic
-                        }
+                            notifier.send(()).await.expect("Signalling user code failed!")
+                            // wakeup above business logic
+                        },
                     }
-                }
+                },
 
                 ExecutionEventKind::ControlGone => {
                     println!("Async operation's execution control channel is gone, terminating execution!");
                     break;
-                }
+                },
 
                 ExecutionEventKind::Stop => {
                     println!("Async operation execution received stop event!");
@@ -170,7 +161,7 @@ impl MyAsyncOperation {
                         .status_reporter
                         .put(ExecutionStatus::Stopped, ExecutionStatusDetails::default());
                     break;
-                }
+                },
 
                 _other => panic!("Unsupported ExecutionEventKind!"),
             }
@@ -179,11 +170,7 @@ impl MyAsyncOperation {
 }
 
 impl Operation for MyAsyncOperation {
-    fn execute(
-        &mut self,
-        input: ExecuteArguments,
-        control: Box<dyn ExecutionControl>,
-    ) -> DiagResult<ExecutionHandle> {
+    fn execute(&mut self, input: ExecuteArguments, control: Box<dyn ExecutionControl>) -> DiagResult<ExecutionHandle> {
         let (notifier, notification) = mpsc::channel(10);
         Ok(ExecutionHandle::from_future(async move {
             tokio::select! {
@@ -288,7 +275,7 @@ mod tests {
                 assert_eq!(resources[1].id, UDS_DATA_RESOURCE_ID);
                 assert_eq!(resources[1].name, "My UDS Data Resource");
                 assert_eq!(resources[1].category, DataCategory::StoredData);
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -307,7 +294,7 @@ mod tests {
                     ReplyMessagePayload::UTF8("This is an SOVD data resource value.".to_string())
                 );
                 assert!(read_value.errors.is_none());
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -338,13 +325,12 @@ mod tests {
                     ReplyMessagePayload::Binary(vec![0xDE, 0xAD, 0xBE, 0xEF])
                 );
                 assert!(read_value.errors.is_none());
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
         // verify error upon write (RDBI does not support write)
-        let mut rdbi_resource =
-            diag_api::uds::DataResourceAdapter::new().with_rdbi(MyReadDataByIdentifier {});
+        let mut rdbi_resource = diag_api::uds::DataResourceAdapter::new().with_rdbi(MyReadDataByIdentifier {});
         let write_handle = rdbi_resource.write(WriteValueArgs {
             user_data_signature: None,
             user_data: None,
@@ -354,10 +340,7 @@ mod tests {
             WriteValueHandle::Ready(result) => result.unwrap_err(),
             WriteValueHandle::Pending(_) => panic!("expected Ready, got Pending"),
         };
-        assert_eq!(
-            err.error.as_ref().unwrap().sovd_error,
-            "precondition-not-fulfilled"
-        );
+        assert_eq!(err.error.as_ref().unwrap().sovd_error, "precondition-not-fulfilled");
 
         runtime.shutdown().await;
         let _ = runtime_join_handle.await;
@@ -405,7 +388,7 @@ mod tests {
                         additional_attrs: None,
                     })
                 );
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -449,7 +432,7 @@ mod tests {
         {
             SOVDReply::StopOperationExecution(Ok(())) => {
                 println!("Async operation execution stopped successfully!");
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -474,7 +457,7 @@ mod tests {
                         "execution got stopped".to_string(),
                     ))
                 );
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -506,10 +489,7 @@ mod tests {
             SOVDReply::ExecuteOperation(Ok(id)) => id,
             other => panic!("Unexpected reply: {:?}", other),
         };
-        println!(
-            "Async operation executed with 3s timeout, execution id: {}",
-            exec_id
-        );
+        println!("Async operation executed with 3s timeout, execution id: {}", exec_id);
 
         // wait for the timeout to expire (+ a small margin)
         tokio::time::sleep(std::time::Duration::from_millis(3250)).await;
@@ -532,7 +512,7 @@ mod tests {
                         "execution got stopped due to timeout".to_string(),
                     ))
                 );
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -577,7 +557,7 @@ mod tests {
             SOVDReply::GetOperationExecutionStatus(Ok(status)) => {
                 assert_eq!(status, ExecutionStatus::Scheduled);
                 println!("Execution status: {:?}", status);
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -593,7 +573,7 @@ mod tests {
         {
             SOVDReply::ExecuteOperationCapability(Ok(())) => {
                 println!("Custom capability processed!");
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -609,12 +589,10 @@ mod tests {
             SOVDReply::GetOperationExecutionStatus(Ok(status)) => {
                 assert_eq!(
                     status,
-                    ExecutionStatus::UnsupportedCapability(
-                        "An OEM specific capability".to_string()
-                    )
+                    ExecutionStatus::UnsupportedCapability("An OEM specific capability".to_string())
                 );
                 println!("Execution status: {:?}", status);
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -630,11 +608,11 @@ mod tests {
             SOVDReply::GetOperationExecutionStatus(Ok(status)) => {
                 assert_eq!(status, ExecutionStatus::Running);
                 println!("Execution status: {:?}", status);
-            }
+            },
             // execution may have already finished
             SOVDReply::GetOperationExecutionStatus(Err(_)) => {
                 println!("Execution already finished");
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -660,7 +638,7 @@ mod tests {
                         additional_attrs: None,
                     })
                 );
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -723,7 +701,7 @@ mod tests {
             SOVDReply::GetOperationExecutionStatus(Ok(status)) => {
                 assert_eq!(status, ExecutionStatus::Running);
                 println!("Execution status: {:?}", status);
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -738,7 +716,7 @@ mod tests {
         {
             SOVDReply::StopOperationExecution(Ok(())) => {
                 println!("UDS routine execution stopped successfully!");
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 
@@ -762,7 +740,7 @@ mod tests {
                         additional_attrs: None,
                     })
                 );
-            }
+            },
             other => panic!("Unexpected reply: {:?}", other),
         }
 

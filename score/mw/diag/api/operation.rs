@@ -170,7 +170,7 @@ impl ExecutionEvent {
     #[must_use]
     pub fn new(kind: ExecutionEventKind) -> Self {
         Self {
-            kind: kind,
+            kind,
             args: None,
             status_reporter: StatusReporter::default(),
         }
@@ -267,11 +267,7 @@ pub trait Operation {
     ///
     /// NOTE: This method is conceptually async since the returned `ExecutionHandle`
     ///       contains (in case of success) the respective `Future` object.
-    fn execute(
-        &mut self,
-        input: ExecuteArguments,
-        control: Box<dyn ExecutionControl>,
-    ) -> DiagResult<ExecutionHandle>;
+    fn execute(&mut self, input: ExecuteArguments, control: Box<dyn ExecutionControl>) -> DiagResult<ExecutionHandle>;
 }
 
 /*******************/
@@ -444,10 +440,7 @@ mod tests {
         let reporter = StatusReporter::new(move |status, _details| {
             *received_clone.lock().unwrap() = Some(status);
         });
-        reporter.put(
-            ExecutionStatus::Completed,
-            ExecutionStatusDetails::default(),
-        );
+        reporter.put(ExecutionStatus::Completed, ExecutionStatusDetails::default());
         assert_eq!(*received.lock().unwrap(), Some(ExecutionStatus::Completed));
     }
 
@@ -459,8 +452,7 @@ mod tests {
         let reporter = StatusReporter::new(move |_status, details| {
             *pct_clone.lock().unwrap() = details.completion_percentage;
         });
-        let details =
-            ExecutionStatusDetails::new(ExecutionEventKind::Resume).with_completion_percentage(42);
+        let details = ExecutionStatusDetails::new(ExecutionEventKind::Resume).with_completion_percentage(42);
         reporter.put(ExecutionStatus::Running, details);
         assert_eq!(*received_pct.lock().unwrap(), Some(42));
     }
@@ -473,12 +465,10 @@ mod tests {
         let reporter = StatusReporter::new(move |_status, details| {
             *recv_clone.lock().unwrap() = details.event_result;
         });
-        let details = ExecutionStatusDetails::new(ExecutionEventKind::Resume).with_reply_data(
-            DiagnosticReply {
-                message_payload: Some(ReplyMessagePayload::from_string("payload".to_string())),
-                additional_attrs: None,
-            },
-        );
+        let details = ExecutionStatusDetails::new(ExecutionEventKind::Resume).with_reply_data(DiagnosticReply {
+            message_payload: Some(ReplyMessagePayload::from_string("payload".to_string())),
+            additional_attrs: None,
+        });
         reporter.put(ExecutionStatus::Running, details);
         assert!(received.lock().unwrap().is_some());
     }
@@ -486,10 +476,7 @@ mod tests {
     #[test]
     fn status_reporter_default_does_not_panic() {
         let reporter = StatusReporter::default();
-        reporter.put(
-            ExecutionStatus::Completed,
-            ExecutionStatusDetails::default(),
-        );
+        reporter.put(ExecutionStatus::Completed, ExecutionStatusDetails::default());
     }
 
     // ── ExecutionEventKind ────────────────────────────────────────────
@@ -570,9 +557,7 @@ mod tests {
 
     #[test]
     fn execution_event_from_kind_handle_custom_capability() {
-        let event = ExecutionEvent::new(ExecutionEventKind::HandleCustomCapability(
-            "my_cap".to_string(),
-        ));
+        let event = ExecutionEvent::new(ExecutionEventKind::HandleCustomCapability("my_cap".to_string()));
         if let ExecutionEventKind::HandleCustomCapability(val) = event.kind {
             assert_eq!(val, "my_cap");
         } else {
@@ -585,11 +570,10 @@ mod tests {
         use std::sync::{Arc, Mutex};
         let called = Arc::new(Mutex::new(false));
         let called_clone = called.clone();
-        let event = ExecutionEvent::new(ExecutionEventKind::ReportStatus).with_status_reporter(
-            move |_status, _details| {
+        let event =
+            ExecutionEvent::new(ExecutionEventKind::ReportStatus).with_status_reporter(move |_status, _details| {
                 *called_clone.lock().unwrap() = true;
-            },
-        );
+            });
         assert!(event.args.is_none());
         assert!(matches!(event.kind, ExecutionEventKind::ReportStatus));
         event
@@ -626,15 +610,13 @@ mod tests {
         use std::sync::{Arc, Mutex};
         let called = Arc::new(Mutex::new(false));
         let called_clone = called.clone();
-        let event = ExecutionEvent::new(ExecutionEventKind::Interrupt).with_status_reporter(
-            move |_status, _details| {
+        let event =
+            ExecutionEvent::new(ExecutionEventKind::Interrupt).with_status_reporter(move |_status, _details| {
                 *called_clone.lock().unwrap() = true;
-            },
-        );
-        event.status_reporter.put(
-            ExecutionStatus::Interrupted,
-            ExecutionStatusDetails::default(),
-        );
+            });
+        event
+            .status_reporter
+            .put(ExecutionStatus::Interrupted, ExecutionStatusDetails::default());
         assert!(*called.lock().unwrap());
     }
 
@@ -675,10 +657,7 @@ mod tests {
             panic!("expected SOVD error code")
         };
         assert_eq!(sovd_err.sovd_error, "sovd-server-failure");
-        assert_eq!(
-            sovd_err.message_text,
-            "mutex acquisition failed unexpectedly"
-        );
+        assert_eq!(sovd_err.message_text, "mutex acquisition failed unexpectedly");
     }
 
     #[tokio::test]
@@ -691,8 +670,7 @@ mod tests {
             message_payload: Some(ReplyMessagePayload::from_string("final".to_string())),
             additional_attrs: None,
         };
-        let handle =
-            ExecutionHandle::from_closure(move || Ok(final_reply)).with_reply(initial_reply);
+        let handle = ExecutionHandle::from_closure(move || Ok(final_reply)).with_reply(initial_reply);
         assert!(handle.reply.is_some());
         assert_eq!(
             handle.reply.unwrap().message_payload,
@@ -769,12 +747,10 @@ mod tests {
     #[tokio::test]
     async fn execution_handle_from_closure_stopped() {
         let handle = ExecutionHandle::from_closure(|| {
-            Err(::common::Error::from_error(
-                ::common::sovd::GenericError::from_code(
-                    ::common::sovd::ErrorCode::ErrorResponse,
-                    "stopped".to_string(),
-                ),
-            ))
+            Err(::common::Error::from_error(::common::sovd::GenericError::from_code(
+                ::common::sovd::ErrorCode::ErrorResponse,
+                "stopped".to_string(),
+            )))
         });
         let result = handle.future.await;
         assert!(result.is_err());
@@ -790,10 +766,7 @@ mod tests {
     #[test]
     fn execution_handle_from_error() {
         let result: DiagResult<ExecutionHandle> = Err(::common::Error::from_error(
-            ::common::sovd::GenericError::from_code(
-                ::common::sovd::ErrorCode::ErrorResponse,
-                "test error".to_string(),
-            ),
+            ::common::sovd::GenericError::from_code(::common::sovd::ErrorCode::ErrorResponse, "test error".to_string()),
         ));
         assert!(result.is_err());
     }
@@ -817,10 +790,7 @@ mod tests {
     #[test]
     fn operation_metadata_with_modes() {
         let mut modes = IndexMap::<String, Vec<String>>::new();
-        modes.insert(
-            "mode_a".to_string(),
-            vec!["val1".to_string(), "val2".to_string()],
-        );
+        modes.insert("mode_a".to_string(), vec!["val1".to_string(), "val2".to_string()]);
         let meta = OperationMetadata {
             proximity_proof_required: true,
             synchronous_execution: true,
@@ -844,10 +814,7 @@ mod tests {
             supported_modes: None,
         };
         let cloned = meta.clone();
-        assert_eq!(
-            cloned.proximity_proof_required,
-            meta.proximity_proof_required
-        );
+        assert_eq!(cloned.proximity_proof_required, meta.proximity_proof_required);
         assert_eq!(cloned.synchronous_execution, meta.synchronous_execution);
         assert_eq!(cloned.exclusive_execution, meta.exclusive_execution);
     }
@@ -868,10 +835,7 @@ mod tests {
     fn operation_metadata_with_multiple_modes() {
         let mut modes = IndexMap::<String, Vec<String>>::new();
         modes.insert("mode_a".to_string(), vec!["v1".to_string()]);
-        modes.insert(
-            "mode_b".to_string(),
-            vec!["v2".to_string(), "v3".to_string()],
-        );
+        modes.insert("mode_b".to_string(), vec!["v2".to_string(), "v3".to_string()]);
         let meta = OperationMetadata {
             proximity_proof_required: false,
             synchronous_execution: true,
@@ -941,16 +905,14 @@ mod tests {
                     Poll::Ready(None)
                 } else {
                     this.sent = true;
-                    Poll::Ready(Some(
-                        ExecutionEvent::new(ExecutionEventKind::Resume).with_args(
-                            ExecuteArguments {
-                                reply_encoding: ReplyMessageEncoding::Binary,
-                                user_parameters: Some(RequestMessagePayload::Binary(vec![0xCD])),
-                                additional_attrs: None,
-                                proximity_response: None,
-                            },
-                        ),
-                    ))
+                    Poll::Ready(Some(ExecutionEvent::new(ExecutionEventKind::Resume).with_args(
+                        ExecuteArguments {
+                            reply_encoding: ReplyMessageEncoding::Binary,
+                            user_parameters: Some(RequestMessagePayload::Binary(vec![0xCD])),
+                            additional_attrs: None,
+                            proximity_response: None,
+                        },
+                    )))
                 }
             }
         }
@@ -968,10 +930,7 @@ mod tests {
         let event = ctrl.next().await.unwrap();
         assert!(matches!(event.kind, ExecutionEventKind::Resume));
         let args = event.args.unwrap();
-        assert_eq!(
-            args.user_parameters,
-            Some(RequestMessagePayload::Binary(vec![0xCD]))
-        );
+        assert_eq!(args.user_parameters, Some(RequestMessagePayload::Binary(vec![0xCD])));
     }
 
     #[tokio::test]

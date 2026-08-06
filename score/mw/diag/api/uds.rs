@@ -60,7 +60,7 @@ impl StartRoutine {
     {
         Ok(Self {
             future: Box::pin(async move { func() }),
-            reply: reply,
+            reply,
         })
     }
 
@@ -70,7 +70,7 @@ impl StartRoutine {
     {
         Ok(Self {
             future: Box::pin(future),
-            reply: reply,
+            reply,
         })
     }
 

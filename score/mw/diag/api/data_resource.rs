@@ -13,9 +13,7 @@
 
 use common::sovd::{DataError, GenericError};
 use common::Result as DiagResult;
-use common::{
-    KeyValueAttributes, ReplyMessageEncoding, ReplyMessagePayload, RequestMessagePayload,
-};
+use common::{KeyValueAttributes, ReplyMessageEncoding, ReplyMessagePayload, RequestMessagePayload};
 
 use std::future::Future;
 use std::pin::Pin;
@@ -253,10 +251,7 @@ mod tests {
 
     #[test]
     fn data_category_display_custom() {
-        assert_eq!(
-            DataCategory::Custom("myCustom".to_string()).to_string(),
-            "myCustom"
-        );
+        assert_eq!(DataCategory::Custom("myCustom".to_string()).to_string(), "myCustom");
     }
 
     // ── DataCategory from_str ──────────────────────────────────────────
@@ -264,14 +259,8 @@ mod tests {
     #[test]
     fn data_category_from_str_known_variants() {
         assert_eq!(DataCategory::from_str("identData"), DataCategory::IdentData);
-        assert_eq!(
-            DataCategory::from_str("currentData"),
-            DataCategory::CurrentData
-        );
-        assert_eq!(
-            DataCategory::from_str("storedData"),
-            DataCategory::StoredData
-        );
+        assert_eq!(DataCategory::from_str("currentData"), DataCategory::CurrentData);
+        assert_eq!(DataCategory::from_str("storedData"), DataCategory::StoredData);
         assert_eq!(DataCategory::from_str("sysInfo"), DataCategory::SysInfo);
     }
 
@@ -303,11 +292,8 @@ mod tests {
         let handle = res.write(WriteValueArgs::default());
         match handle {
             WriteValueHandle::Ready(Err(err)) => {
-                assert_eq!(
-                    err.error.as_ref().unwrap().sovd_error,
-                    "precondition-not-fulfilled"
-                );
-            }
+                assert_eq!(err.error.as_ref().unwrap().sovd_error, "precondition-not-fulfilled");
+            },
             _ => panic!("expected Ready(Err(..))"),
         }
     }
@@ -322,7 +308,7 @@ mod tests {
             ReadValueHandle::Ready(Ok(reply)) => {
                 assert_eq!(reply.data, ReplyMessagePayload::UTF8("foo".to_string()));
                 assert!(reply.errors.is_none());
-            }
+            },
             _ => panic!("expected Ready(Ok(..))"),
         }
     }
@@ -349,7 +335,7 @@ mod tests {
         let mut res = WritableResource;
         let handle = res.write(WriteValueArgs::default());
         match handle {
-            WriteValueHandle::Ready(Ok(())) => {}
+            WriteValueHandle::Ready(Ok(())) => {},
             _ => panic!("expected Ready(Ok(()))"),
         }
     }
@@ -364,7 +350,7 @@ mod tests {
                     reply.data,
                     ReplyMessagePayload::from_json(serde_json::json!({"val": 42}), None)
                 );
-            }
+            },
             _ => panic!("expected Ready(Ok(..))"),
         }
     }
