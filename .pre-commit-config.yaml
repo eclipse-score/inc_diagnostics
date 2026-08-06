@@ -15,6 +15,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-yaml
+        args: ["--allow-multiple-documents"]
       - id: check-toml
       - id: check-json
         exclude: ^\.vscode/ # those are actually jsonc files
@@ -78,3 +79,9 @@ repos:
     rev: 31ff8eee214e4e97ef8f5cb46e443273515b63ec
     hooks:
       - id: copyright
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-format
+        args: ["-i", "--style=file"]
+        files: \.(c|cpp|h|hpp)$
