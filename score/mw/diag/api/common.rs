@@ -118,10 +118,7 @@ pub mod sovd {
         /// According to ISO 17978-3:2025 Section 5.8.3 Table 17, `path` shall contain
         /// a "JSON Pointer describing which element of the response is erroneous".
         pub fn new(path: String) -> Self {
-            Self {
-                path: path,
-                error: None,
-            }
+            Self { path, error: None }
         }
 
         /// Convenience factory method to create a `DataError` just from `GenericError`.
@@ -428,10 +425,7 @@ mod tests {
 
     #[test]
     fn error_code_display_incomplete_request() {
-        assert_eq!(
-            sovd::ErrorCode::IncompleteRequest.to_string(),
-            "incomplete-request"
-        );
+        assert_eq!(sovd::ErrorCode::IncompleteRequest.to_string(), "incomplete-request");
     }
 
     #[test]
@@ -452,10 +446,7 @@ mod tests {
 
     #[test]
     fn error_code_display_invalid_signature() {
-        assert_eq!(
-            sovd::ErrorCode::InvalidSignature.to_string(),
-            "invalid-signature"
-        );
+        assert_eq!(sovd::ErrorCode::InvalidSignature.to_string(), "invalid-signature");
     }
 
     #[test]
@@ -478,10 +469,7 @@ mod tests {
 
     #[test]
     fn error_code_display_sovd_server_failure() {
-        assert_eq!(
-            sovd::ErrorCode::SovdServerFailure.to_string(),
-            "sovd-server-failure"
-        );
+        assert_eq!(sovd::ErrorCode::SovdServerFailure.to_string(), "sovd-server-failure");
     }
 
     #[test]
@@ -526,20 +514,14 @@ mod tests {
 
     #[test]
     fn error_code_display_vendor_specific() {
-        assert_eq!(
-            sovd::ErrorCode::VendorSpecific.to_string(),
-            "vendor-specific"
-        );
+        assert_eq!(sovd::ErrorCode::VendorSpecific.to_string(), "vendor-specific");
     }
 
     // ── sovd::GenericError constructors ────────────────────────────────
 
     #[test]
     fn generic_error_from_code() {
-        let err = sovd::GenericError::from_code(
-            sovd::ErrorCode::ErrorResponse,
-            "test message".to_string(),
-        );
+        let err = sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "test message".to_string());
         assert_eq!(err.sovd_error, "error-response");
         assert_eq!(err.message_text, "test message");
         assert!(err.vendor_error.is_none());
@@ -549,17 +531,15 @@ mod tests {
 
     #[test]
     fn generic_error_with_translation_id() {
-        let err =
-            sovd::GenericError::from_code(sovd::ErrorCode::NotResponding, "timeout".to_string())
-                .with_translation_id("tid_123".to_string());
+        let err = sovd::GenericError::from_code(sovd::ErrorCode::NotResponding, "timeout".to_string())
+            .with_translation_id("tid_123".to_string());
         assert_eq!(err.translation_id.as_deref(), Some("tid_123"));
     }
 
     #[test]
     fn generic_error_from_code_with_translation() {
-        let err =
-            sovd::GenericError::from_code(sovd::ErrorCode::IncompleteRequest, "msg".to_string())
-                .with_translation_id("trans_id".to_string());
+        let err = sovd::GenericError::from_code(sovd::ErrorCode::IncompleteRequest, "msg".to_string())
+            .with_translation_id("trans_id".to_string());
         assert_eq!(err.sovd_error, "incomplete-request");
         assert_eq!(err.message_text, "msg");
         assert!(err.vendor_error.is_none());
@@ -569,8 +549,7 @@ mod tests {
 
     #[test]
     fn generic_error_from_vendor_error() {
-        let err =
-            sovd::GenericError::from_vendor_error("custom-err".to_string(), "msg".to_string());
+        let err = sovd::GenericError::from_vendor_error("custom-err".to_string(), "msg".to_string());
         assert_eq!(err.sovd_error, "vendor-specific");
         assert_eq!(err.message_text, "msg");
         assert_eq!(err.vendor_error.as_deref(), Some("custom-err"));
@@ -580,9 +559,8 @@ mod tests {
 
     #[test]
     fn generic_error_from_vendor_error_with_translation() {
-        let err =
-            sovd::GenericError::from_vendor_error("custom-err".to_string(), "msg".to_string())
-                .with_translation_id("tid".to_string());
+        let err = sovd::GenericError::from_vendor_error("custom-err".to_string(), "msg".to_string())
+            .with_translation_id("tid".to_string());
         assert_eq!(err.sovd_error, "vendor-specific");
         assert_eq!(err.vendor_error.as_deref(), Some("custom-err"));
         assert_eq!(err.translation_id.as_deref(), Some("tid"));
@@ -656,23 +634,17 @@ mod tests {
 
     #[test]
     fn data_error_new_with_path_and_error() {
-        let generic_error =
-            sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "msg".to_string());
+        let generic_error = sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "msg".to_string());
         let data_err = sovd::DataError::new("/entity/data/1".to_string()).with_error(generic_error);
         assert_eq!(data_err.path, "/entity/data/1".to_string());
         assert!(data_err.error.is_some());
-        assert_eq!(
-            data_err.error.as_ref().unwrap().sovd_error,
-            "error-response"
-        );
+        assert_eq!(data_err.error.as_ref().unwrap().sovd_error, "error-response");
     }
 
     #[test]
     fn data_error_with_lock_broken() {
-        let generic_error =
-            sovd::GenericError::from_code(sovd::ErrorCode::LockBroken, "locked".to_string());
-        let data_err =
-            sovd::DataError::new("/entity/data/123".to_string()).with_error(generic_error);
+        let generic_error = sovd::GenericError::from_code(sovd::ErrorCode::LockBroken, "locked".to_string());
+        let data_err = sovd::DataError::new("/entity/data/123".to_string()).with_error(generic_error);
         assert_eq!(data_err.path, "/entity/data/123".to_string());
         assert!(data_err.error.is_some());
         assert_eq!(data_err.error.as_ref().unwrap().sovd_error, "lock-broken");
@@ -681,10 +653,8 @@ mod tests {
 
     #[test]
     fn data_error_clone() {
-        let generic_error =
-            sovd::GenericError::from_code(sovd::ErrorCode::LockBroken, "locked".to_string());
-        let data_err =
-            sovd::DataError::new("/entity/data/123".to_string()).with_error(generic_error);
+        let generic_error = sovd::GenericError::from_code(sovd::ErrorCode::LockBroken, "locked".to_string());
+        let data_err = sovd::DataError::new("/entity/data/123".to_string()).with_error(generic_error);
         let cloned = data_err.clone();
         assert_eq!(cloned.path, data_err.path);
         assert_eq!(cloned.error, data_err.error);
@@ -692,19 +662,12 @@ mod tests {
 
     #[test]
     fn data_error_with_error_builder() {
-        let initial_error =
-            sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "initial".to_string());
+        let initial_error = sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "initial".to_string());
         let data_err = sovd::DataError::new("/path".to_string()).with_error(initial_error);
-        let new_error = sovd::GenericError::from_code(
-            sovd::ErrorCode::PreconditionNotFulfilled,
-            "updated".to_string(),
-        );
+        let new_error = sovd::GenericError::from_code(sovd::ErrorCode::PreconditionNotFulfilled, "updated".to_string());
         let updated = data_err.with_error(new_error);
         assert_eq!(updated.path, "/path".to_string());
-        assert_eq!(
-            updated.error.as_ref().unwrap().sovd_error,
-            "precondition-not-fulfilled"
-        );
+        assert_eq!(updated.error.as_ref().unwrap().sovd_error, "precondition-not-fulfilled");
         assert_eq!(updated.error.as_ref().unwrap().message_text, "updated");
     }
 
@@ -720,16 +683,10 @@ mod tests {
 
     #[test]
     fn data_error_error_only() {
-        let error = sovd::GenericError::from_code(
-            sovd::ErrorCode::InvalidSignature,
-            "signature invalid".to_string(),
-        );
+        let error = sovd::GenericError::from_code(sovd::ErrorCode::InvalidSignature, "signature invalid".to_string());
         let data_err = sovd::DataError::from_error(error.clone());
         assert_eq!(data_err.path, String::default());
-        assert_eq!(
-            data_err.error.as_ref().unwrap().sovd_error,
-            "invalid-signature"
-        );
+        assert_eq!(data_err.error.as_ref().unwrap().sovd_error, "invalid-signature");
     }
 
     // ── uds::VehicleManufacturerSpecificCNC ───────────────────────────
@@ -791,10 +748,7 @@ mod tests {
     fn negative_response_code_from_vehicle_manufacturer_specific() {
         let cnc = uds::VehicleManufacturerSpecificCNC::from(0xF0);
         let nrc = uds::NegativeResponseCode::from(cnc.clone());
-        assert_eq!(
-            nrc,
-            uds::NegativeResponseCode::VehicleManufacturerSpecific(cnc)
-        );
+        assert_eq!(nrc, uds::NegativeResponseCode::VehicleManufacturerSpecific(cnc));
     }
 
     #[test]
@@ -805,10 +759,10 @@ mod tests {
         match &err.code {
             ErrorCode::UDS(uds::NegativeResponseCode::VehicleManufacturerSpecific(inner)) => {
                 assert_eq!(u8::from(inner.clone()), 0xF2);
-            }
+            },
             _ => {
                 panic!("expected UDS VehicleManufacturerSpecific error code");
-            }
+            },
         }
         assert!(err.payload.is_none());
     }
@@ -855,10 +809,7 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_no_response_from_subnet_component() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::NoResponseFromSubnetComponent),
-            0x23
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::NoResponseFromSubnetComponent), 0x23);
     }
 
     #[test]
@@ -868,10 +819,7 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_no_response_from_sub_net_component() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::NoResponseFromSubNetComponent),
-            0x25
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::NoResponseFromSubNetComponent), 0x25);
     }
 
     #[test]
@@ -909,10 +857,7 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_required_time_delay_not_expired() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::RequiredTimeDelayNotExpired),
-            0x37
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::RequiredTimeDelayNotExpired), 0x37);
     }
 
     #[test]
@@ -933,10 +878,7 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_secure_data_verification_failed() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::SecureDataVerificationFailed),
-            0x3A
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::SecureDataVerificationFailed), 0x3A);
     }
 
     #[test]
@@ -1005,26 +947,17 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_ownership_verification_failed() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::OwnershipVerificationFailed),
-            0x58
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::OwnershipVerificationFailed), 0x58);
     }
 
     #[test]
     fn nrc_to_u8_challenge_calculation_failed() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::ChallengeCalculationFailed),
-            0x59
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::ChallengeCalculationFailed), 0x59);
     }
 
     #[test]
     fn nrc_to_u8_setting_access_rights_failed() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::SettingAccessRightsFailed),
-            0x5A
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::SettingAccessRightsFailed), 0x5A);
     }
 
     #[test]
@@ -1037,10 +970,7 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_configuration_data_usage_failed() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::ConfigurationDataUsageFailed),
-            0x5C
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::ConfigurationDataUsageFailed), 0x5C);
     }
 
     #[test]
@@ -1050,10 +980,7 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_upload_download_not_accepted() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::UploadDownloadNotAccepted),
-            0x70
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::UploadDownloadNotAccepted), 0x70);
     }
 
     #[test]
@@ -1063,18 +990,12 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_general_programming_failure() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::GeneralProgrammingFailure),
-            0x72
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::GeneralProgrammingFailure), 0x72);
     }
 
     #[test]
     fn nrc_to_u8_wrong_block_sequence_counter() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::WrongBlockSequenceCounter),
-            0x73
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::WrongBlockSequenceCounter), 0x73);
     }
 
     #[test]
@@ -1158,18 +1079,12 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_transmission_range_not_in_neutral() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::TransmissionRangeNotInNeutral),
-            0x8C
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::TransmissionRangeNotInNeutral), 0x8C);
     }
 
     #[test]
     fn nrc_to_u8_transmission_range_not_in_gear() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::TransmissionRangeNotInGear),
-            0x8D
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::TransmissionRangeNotInGear), 0x8D);
     }
 
     #[test]
@@ -1187,10 +1102,7 @@ mod tests {
 
     #[test]
     fn nrc_to_u8_torque_converter_clutch_locked() {
-        assert_eq!(
-            u8::from(uds::NegativeResponseCode::TorqueConverterClutchLocked),
-            0x91
-        );
+        assert_eq!(u8::from(uds::NegativeResponseCode::TorqueConverterClutchLocked), 0x91);
     }
 
     #[test]
@@ -1403,10 +1315,7 @@ mod tests {
         let json_val = serde_json::json!({"result": true});
         let schema = serde_json::json!({"type": "object"});
         let reply = DiagnosticReply {
-            message_payload: Some(ReplyMessagePayload::JSON(
-                json_val.clone(),
-                Some(schema.clone()),
-            )),
+            message_payload: Some(ReplyMessagePayload::JSON(json_val.clone(), Some(schema.clone()))),
             additional_attrs: None,
         };
         assert_eq!(
@@ -1482,18 +1391,15 @@ mod tests {
 
     #[test]
     fn error_from_sovd_error() {
-        let sovd_err = sovd::GenericError::from_code(
-            sovd::ErrorCode::SovdServerFailure,
-            "server down".to_string(),
-        );
+        let sovd_err = sovd::GenericError::from_code(sovd::ErrorCode::SovdServerFailure, "server down".to_string());
         let err = Error::from_error(sovd_err);
         match err.code {
             ErrorCode::SOVD(inner) => {
                 assert_eq!(inner.sovd_error, "sovd-server-failure");
-            }
+            },
             _ => {
                 panic!("expected SOVD error code");
-            }
+            },
         };
         assert!(err.payload.is_none());
     }
@@ -1534,27 +1440,18 @@ mod tests {
 
     #[test]
     fn error_from_sovd_error_with_payload() {
-        let sovd_err =
-            sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "msg".to_string());
+        let sovd_err = sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "msg".to_string());
         let mut err = Error::from_error(sovd_err);
         assert!(err.payload.is_none());
         err.payload = Some(ReplyMessagePayload::UTF8("detail".to_string()));
-        assert_eq!(
-            err.payload,
-            Some(ReplyMessagePayload::UTF8("detail".to_string()))
-        );
+        assert_eq!(err.payload, Some(ReplyMessagePayload::UTF8("detail".to_string())));
     }
 
     #[test]
     fn error_with_payload_builder() {
-        let sovd_err =
-            sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "msg".to_string());
-        let err =
-            Error::from_error(sovd_err).with_payload(ReplyMessagePayload::Binary(vec![0xCA, 0xFE]));
-        assert_eq!(
-            err.payload,
-            Some(ReplyMessagePayload::Binary(vec![0xCA, 0xFE]))
-        );
+        let sovd_err = sovd::GenericError::from_code(sovd::ErrorCode::ErrorResponse, "msg".to_string());
+        let err = Error::from_error(sovd_err).with_payload(ReplyMessagePayload::Binary(vec![0xCA, 0xFE]));
+        assert_eq!(err.payload, Some(ReplyMessagePayload::Binary(vec![0xCA, 0xFE])));
     }
 
     #[test]
@@ -1564,10 +1461,10 @@ mod tests {
             ErrorCode::SOVD(inner) => {
                 assert_eq!(inner.sovd_error, "sovd-server-failure");
                 assert_eq!(inner.message_text, "mutex acquisition failed unexpectedly");
-            }
+            },
             _ => {
                 panic!("expected SOVD error code");
-            }
+            },
         }
         assert!(err.payload.is_none());
     }

@@ -13,9 +13,7 @@
 
 use common::Result as DiagResult;
 use common::*;
-use data_resource::{
-    DataResource, ReadValueArgs, ReadValueHandle, ReadValueReply, WriteValueArgs, WriteValueHandle,
-};
+use data_resource::{DataResource, ReadValueArgs, ReadValueHandle, ReadValueReply, WriteValueArgs, WriteValueHandle};
 use operation::{ExecuteArguments, ExecutionHandle};
 use simple_operation::SimpleOperation;
 
@@ -35,26 +33,17 @@ pub struct DataResourceAdapter {
 impl DataResourceAdapter {
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            rdbi: None,
-            wdbi: None,
-        }
+        Self { rdbi: None, wdbi: None }
     }
 
     #[must_use]
-    pub fn with_rdbi(
-        mut self,
-        rdbi: impl ::uds::ReadDataByIdentifier + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_rdbi(mut self, rdbi: impl ::uds::ReadDataByIdentifier + Send + Sync + 'static) -> Self {
         self.rdbi = Some(Box::new(rdbi));
         self
     }
 
     #[must_use]
-    pub fn with_wdbi(
-        mut self,
-        wdbi: impl ::uds::WriteDataByIdentifier + Send + Sync + 'static,
-    ) -> Self {
+    pub fn with_wdbi(mut self, wdbi: impl ::uds::WriteDataByIdentifier + Send + Sync + 'static) -> Self {
         self.wdbi = Some(Box::new(wdbi));
         self
     }
@@ -65,8 +54,7 @@ impl DataResource for DataResourceAdapter {
         let Some(rdbi) = &self.rdbi else {
             return ReadValueHandle::from_error(Error::from_error(sovd::GenericError::from_code(
                 sovd::ErrorCode::PreconditionNotFulfilled,
-                "No ReadDataByIdentifier service got registered for this data resource!"
-                    .to_string(),
+                "No ReadDataByIdentifier service got registered for this data resource!".to_string(),
             )));
         };
         match input.reply_encoding {
@@ -86,13 +74,10 @@ impl DataResource for DataResourceAdapter {
 
     fn write(&mut self, input: WriteValueArgs) -> WriteValueHandle {
         let Some(wdbi) = &mut self.wdbi else {
-            return WriteValueHandle::from_error(sovd::DataError::from_error(
-                sovd::GenericError::from_code(
-                    sovd::ErrorCode::PreconditionNotFulfilled,
-                    "No WriteDataByIdentifier service got registered for this data resource!"
-                        .to_string(),
-                ),
-            ));
+            return WriteValueHandle::from_error(sovd::DataError::from_error(sovd::GenericError::from_code(
+                sovd::ErrorCode::PreconditionNotFulfilled,
+                "No WriteDataByIdentifier service got registered for this data resource!".to_string(),
+            )));
         };
         if let Some(RequestMessagePayload::Binary(data)) = input.user_data {
             match wdbi.write(&data) {
@@ -109,12 +94,10 @@ impl DataResource for DataResourceAdapter {
                 }),
             }
         } else {
-            WriteValueHandle::from_error(sovd::DataError::from_error(
-                sovd::GenericError::from_code(
-                    sovd::ErrorCode::IncompleteRequest,
-                    "This data resource requires binary encoding for its input data!".to_string(),
-                ),
-            ))
+            WriteValueHandle::from_error(sovd::DataError::from_error(sovd::GenericError::from_code(
+                sovd::ErrorCode::IncompleteRequest,
+                "This data resource requires binary encoding for its input data!".to_string(),
+            )))
         }
     }
 }
@@ -146,7 +129,7 @@ impl SimpleOperation for RoutineControlAdapter {
                     sovd::ErrorCode::PreconditionNotFulfilled,
                     "UDS RoutineControl only supports binary encoding for its input!".to_string(),
                 )))
-            }
+            },
         };
         let start_routine = self.routine_control.start(byte_input.as_deref())?;
 
@@ -177,7 +160,7 @@ impl SimpleOperation for RoutineControlAdapter {
                     sovd::ErrorCode::PreconditionNotFulfilled,
                     "UDS RoutineControl only supports binary encoding for its input!".to_string(),
                 )))
-            }
+            },
         };
         let result = self.routine_control.stop(byte_input.as_deref())?;
         Ok(result.map(|bytes| DiagnosticReply {
@@ -210,9 +193,7 @@ mod tests {
     }
 
     /// Helper to extract the result from a WriteValueHandle::Ready variant in tests.
-    fn unwrap_write_value_handle(
-        handle: WriteValueHandle,
-    ) -> std::result::Result<(), sovd::DataError> {
+    fn unwrap_write_value_handle(handle: WriteValueHandle) -> std::result::Result<(), sovd::DataError> {
         match handle {
             WriteValueHandle::Ready(result) => result,
             WriteValueHandle::Pending(_) => panic!("expected Ready, got Pending"),
@@ -268,13 +249,8 @@ mod tests {
 
     #[test]
     fn uds_rdbi_read_returns_binary_payload() {
-        let resource = DataResourceAdapter::new().with_rdbi(RdbiForTest {
-            data: vec![0xDE, 0xAD],
-        });
-        let result = unwrap_read_value_handle(
-            resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary)),
-        )
-        .unwrap();
+        let resource = DataResourceAdapter::new().with_rdbi(RdbiForTest { data: vec![0xDE, 0xAD] });
+        let result = unwrap_read_value_handle(resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary))).unwrap();
         assert_eq!(result.data, ReplyMessagePayload::Binary(vec![0xDE, 0xAD]));
         assert!(result.errors.is_none());
     }
@@ -282,14 +258,12 @@ mod tests {
     #[test]
     fn uds_rdbi_read_propagates_error() {
         let resource = DataResourceAdapter::new().with_rdbi(FailingRdbi {});
-        let err = unwrap_read_value_handle(
-            resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary)),
-        )
-        .unwrap_err();
+        let err =
+            unwrap_read_value_handle(resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary))).unwrap_err();
         match err.code {
             ErrorCode::SOVD(ref e) => {
                 assert_eq!(e.sovd_error, "not-responding");
-            }
+            },
             _ => panic!("expected SOVD error code"),
         }
     }
@@ -299,14 +273,12 @@ mod tests {
     #[test]
     fn uds_wdbi_read_returns_error() {
         let resource = DataResourceAdapter::new().with_wdbi(WdbiForTest { written: None });
-        let err = unwrap_read_value_handle(
-            resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary)),
-        )
-        .unwrap_err();
+        let err =
+            unwrap_read_value_handle(resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary))).unwrap_err();
         match err.code {
             ErrorCode::SOVD(ref e) => {
                 assert_eq!(e.sovd_error, "precondition-not-fulfilled");
-            }
+            },
             _ => panic!("expected SOVD error code"),
         }
     }
@@ -322,10 +294,7 @@ mod tests {
             additional_attrs: None,
         }))
         .unwrap_err();
-        assert_eq!(
-            err.error.as_ref().unwrap().sovd_error,
-            "precondition-not-fulfilled"
-        );
+        assert_eq!(err.error.as_ref().unwrap().sovd_error, "precondition-not-fulfilled");
     }
 
     // ── UDS DataResourceAdapter::write via WDBI ──────────────────────────────
@@ -382,13 +351,11 @@ mod tests {
     #[test]
     fn uds_rdbi_read_rejects_non_binary_encoding() {
         let resource = DataResourceAdapter::new().with_rdbi(RdbiForTest { data: vec![0x01] });
-        let err =
-            unwrap_read_value_handle(resource.read(ReadValueArgs::new(ReplyMessageEncoding::UTF8)))
-                .unwrap_err();
+        let err = unwrap_read_value_handle(resource.read(ReadValueArgs::new(ReplyMessageEncoding::UTF8))).unwrap_err();
         match err.code {
             ErrorCode::SOVD(ref e) => {
                 assert_eq!(e.sovd_error, "precondition-not-fulfilled");
-            }
+            },
             _ => panic!("expected SOVD error code"),
         }
     }
@@ -398,19 +365,12 @@ mod tests {
     #[test]
     fn uds_combined_adapter_supports_read_and_write() {
         let mut resource = DataResourceAdapter::new()
-            .with_rdbi(RdbiForTest {
-                data: vec![0xAB, 0xCD],
-            })
+            .with_rdbi(RdbiForTest { data: vec![0xAB, 0xCD] })
             .with_wdbi(WdbiForTest { written: None });
 
-        let read_result = unwrap_read_value_handle(
-            resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary)),
-        )
-        .unwrap();
-        assert_eq!(
-            read_result.data,
-            ReplyMessagePayload::Binary(vec![0xAB, 0xCD])
-        );
+        let read_result =
+            unwrap_read_value_handle(resource.read(ReadValueArgs::new(ReplyMessageEncoding::Binary))).unwrap();
+        assert_eq!(read_result.data, ReplyMessagePayload::Binary(vec![0xAB, 0xCD]));
 
         let write_result = unwrap_write_value_handle(resource.write(WriteValueArgs {
             user_data: Some(RequestMessagePayload::Binary(vec![0xEF])),
@@ -506,10 +466,7 @@ mod tests {
             })
             .unwrap();
         let result = handle.future.await.unwrap();
-        assert_eq!(
-            result.message_payload,
-            Some(ReplyMessagePayload::Binary(vec![0xAB]))
-        );
+        assert_eq!(result.message_payload, Some(ReplyMessagePayload::Binary(vec![0xAB])));
     }
 
     #[tokio::test]
@@ -580,7 +537,7 @@ mod tests {
             Err(ref err) => match err.code {
                 ErrorCode::SOVD(ref e) => {
                     assert_eq!(e.sovd_error, "precondition-not-fulfilled");
-                }
+                },
                 _ => panic!("expected SOVD error code"),
             },
             Ok(_) => panic!("expected error"),
@@ -600,7 +557,7 @@ mod tests {
             Err(ref err) => match err.code {
                 ErrorCode::SOVD(ref e) => {
                     assert_eq!(e.sovd_error, "not-responding");
-                }
+                },
                 _ => panic!("expected SOVD error code"),
             },
             Ok(_) => panic!("expected error"),
@@ -702,7 +659,7 @@ mod tests {
         match err.code {
             ErrorCode::SOVD(ref e) => {
                 assert_eq!(e.sovd_error, "precondition-not-fulfilled");
-            }
+            },
             _ => panic!("expected SOVD error code"),
         }
     }
@@ -714,7 +671,7 @@ mod tests {
         match err.code {
             ErrorCode::SOVD(ref e) => {
                 assert_eq!(e.sovd_error, "error-response");
-            }
+            },
             _ => panic!("expected SOVD error code"),
         }
     }
