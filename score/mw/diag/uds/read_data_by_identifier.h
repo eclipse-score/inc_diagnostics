@@ -45,6 +45,14 @@ class ReadDataByIdentifier
                                                           score::cpp::stop_token stop_token) = 0;
 
     virtual ~ReadDataByIdentifier() noexcept = default;
+
+  protected:
+    constexpr ReadDataByIdentifier() noexcept = default;
+
+    constexpr ReadDataByIdentifier(ReadDataByIdentifier&&) noexcept = default;
+    constexpr ReadDataByIdentifier(const ReadDataByIdentifier&) noexcept = default;
+    constexpr ReadDataByIdentifier& operator=(ReadDataByIdentifier&&) noexcept = default;
+    constexpr ReadDataByIdentifier& operator=(const ReadDataByIdentifier&) noexcept = default;
 };
 
 /// Simplified adapter for `ReadDataByIdentifier` (must be non-blocking!)
@@ -60,6 +68,14 @@ class SimpleReadDataByIdentifier : public ReadDataByIdentifier
     [[nodiscard]] virtual Result<ByteVector> Read(const MetaData& meta_data) = 0;
 
     virtual ~SimpleReadDataByIdentifier() noexcept = default;
+
+  protected:
+    constexpr SimpleReadDataByIdentifier() noexcept = default;
+
+    constexpr SimpleReadDataByIdentifier(SimpleReadDataByIdentifier&&) noexcept = default;
+    constexpr SimpleReadDataByIdentifier(const SimpleReadDataByIdentifier&) noexcept = default;
+    constexpr SimpleReadDataByIdentifier& operator=(SimpleReadDataByIdentifier&&) noexcept = default;
+    constexpr SimpleReadDataByIdentifier& operator=(const SimpleReadDataByIdentifier&) noexcept = default;
 
   private:
     Future<Result<ByteVector>> Read(const MetaData& meta_data, score::cpp::stop_token /*stop_token*/) final

@@ -85,6 +85,14 @@ class RoutineControl
     }
 
     virtual ~RoutineControl() noexcept = default;
+
+  protected:
+    constexpr RoutineControl() noexcept = default;
+
+    constexpr RoutineControl(RoutineControl&&) noexcept = default;
+    constexpr RoutineControl(const RoutineControl&) noexcept = default;
+    constexpr RoutineControl& operator=(RoutineControl&&) noexcept = default;
+    constexpr RoutineControl& operator=(const RoutineControl&) noexcept = default;
 };
 
 /// Simplified adapter for `RoutineControl` (must be non-blocking!)
@@ -116,6 +124,14 @@ class SimpleRoutineControl : public RoutineControl
     [[nodiscard]] virtual Result<ByteVector> RequestResults(ByteView input, const MetaData& meta_data) = 0;
 
     virtual ~SimpleRoutineControl() noexcept = default;
+
+  protected:
+    constexpr SimpleRoutineControl() noexcept = default;
+
+    constexpr SimpleRoutineControl(SimpleRoutineControl&&) noexcept = default;
+    constexpr SimpleRoutineControl(const SimpleRoutineControl&) noexcept = default;
+    constexpr SimpleRoutineControl& operator=(SimpleRoutineControl&&) noexcept = default;
+    constexpr SimpleRoutineControl& operator=(const SimpleRoutineControl&) noexcept = default;
 
   private:
     Future<Result<ByteVector>> Start(ByteView input,
