@@ -34,5 +34,9 @@
   {
     "version": "pr-23",
     "url": "https://eclipse-score.github.io/inc_diagnostics/pr-23/"
+  },
+  {
+    "version": "pr-24",
+    "url": "https://eclipse-score.github.io/inc_diagnostics/pr-24/"
   }
 ]
