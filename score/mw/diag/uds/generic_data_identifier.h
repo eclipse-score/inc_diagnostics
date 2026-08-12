@@ -45,8 +45,8 @@ class GenericDataIdentifier : public ReadDataByIdentifier, public WriteDataByIde
 
     constexpr GenericDataIdentifier(GenericDataIdentifier&&) noexcept = default;
     constexpr GenericDataIdentifier(const GenericDataIdentifier&) noexcept = default;
-    constexpr GenericDataIdentifier& operator=(GenericDataIdentifier&&) noexcept = default;
-    constexpr GenericDataIdentifier& operator=(const GenericDataIdentifier&) noexcept = default;
+    constexpr GenericDataIdentifier& operator=(GenericDataIdentifier&&) & noexcept = default;
+    constexpr GenericDataIdentifier& operator=(const GenericDataIdentifier&) & noexcept = default;
 };
 // NOLINTEND(fuchsia-multiple-inheritance)
 
@@ -66,8 +66,8 @@ class SimpleGenericDataIdentifier : public SimpleReadDataByIdentifier, public Si
 
     constexpr SimpleGenericDataIdentifier(SimpleGenericDataIdentifier&&) noexcept = default;
     constexpr SimpleGenericDataIdentifier(const SimpleGenericDataIdentifier&) noexcept = default;
-    constexpr SimpleGenericDataIdentifier& operator=(SimpleGenericDataIdentifier&&) noexcept = default;
-    constexpr SimpleGenericDataIdentifier& operator=(const SimpleGenericDataIdentifier&) noexcept = default;
+    constexpr SimpleGenericDataIdentifier& operator=(SimpleGenericDataIdentifier&&) & noexcept = default;
+    constexpr SimpleGenericDataIdentifier& operator=(const SimpleGenericDataIdentifier&) & noexcept = default;
 };
 // NOLINTEND(fuchsia-multiple-inheritance)
 

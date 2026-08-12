@@ -53,8 +53,8 @@ class WriteDataByIdentifier
 
     constexpr WriteDataByIdentifier(WriteDataByIdentifier&&) noexcept = default;
     constexpr WriteDataByIdentifier(const WriteDataByIdentifier&) noexcept = default;
-    constexpr WriteDataByIdentifier& operator=(WriteDataByIdentifier&&) noexcept = default;
-    constexpr WriteDataByIdentifier& operator=(const WriteDataByIdentifier&) noexcept = default;
+    constexpr WriteDataByIdentifier& operator=(WriteDataByIdentifier&&) & noexcept = default;
+    constexpr WriteDataByIdentifier& operator=(const WriteDataByIdentifier&) & noexcept = default;
 };
 
 /// Simplified adapter for `WriteDataByIdentifier` (must be non-blocking!)
@@ -77,8 +77,8 @@ class SimpleWriteDataByIdentifier : public WriteDataByIdentifier
 
     constexpr SimpleWriteDataByIdentifier(SimpleWriteDataByIdentifier&&) noexcept = default;
     constexpr SimpleWriteDataByIdentifier(const SimpleWriteDataByIdentifier&) noexcept = default;
-    constexpr SimpleWriteDataByIdentifier& operator=(SimpleWriteDataByIdentifier&&) noexcept = default;
-    constexpr SimpleWriteDataByIdentifier& operator=(const SimpleWriteDataByIdentifier&) noexcept = default;
+    constexpr SimpleWriteDataByIdentifier& operator=(SimpleWriteDataByIdentifier&&) & noexcept = default;
+    constexpr SimpleWriteDataByIdentifier& operator=(const SimpleWriteDataByIdentifier&) & noexcept = default;
 
   private:
     Future<Result<void>> Write(ByteView input, const MetaData& meta_data, score::cpp::stop_token /*stop_token*/) final

@@ -57,8 +57,8 @@ class GenericService
 
     constexpr GenericService(GenericService&&) noexcept = default;
     constexpr GenericService(const GenericService&) noexcept = default;
-    constexpr GenericService& operator=(GenericService&&) noexcept = default;
-    constexpr GenericService& operator=(const GenericService&) noexcept = default;
+    constexpr GenericService& operator=(GenericService&&) & noexcept = default;
+    constexpr GenericService& operator=(const GenericService&) & noexcept = default;
 };
 
 /// Simplified adapter for `GenericService` (must be non-blocking!)
@@ -82,8 +82,8 @@ class SimpleGenericService : public GenericService
 
     constexpr SimpleGenericService(SimpleGenericService&&) noexcept = default;
     constexpr SimpleGenericService(const SimpleGenericService&) noexcept = default;
-    constexpr SimpleGenericService& operator=(SimpleGenericService&&) noexcept = default;
-    constexpr SimpleGenericService& operator=(const SimpleGenericService&) noexcept = default;
+    constexpr SimpleGenericService& operator=(SimpleGenericService&&) & noexcept = default;
+    constexpr SimpleGenericService& operator=(const SimpleGenericService&) & noexcept = default;
 
   private:
     Future<Result<ByteVector>> HandleMessage(ByteView input,
