@@ -19,7 +19,7 @@ This repository serves as a **template** for setting up **C++ and Rust projects*
 It provides a **standardized project structure**, ensuring best practices for:
 
 - **Build configuration** with Bazel.
-- **Testing** (unit and integration tests).
+- **Testing** (Component and Feature Integration Tests).
 - **Documentation** setup.
 - **CI/CD workflows**.
 - **Development environment** configuration.
@@ -31,8 +31,8 @@ It provides a **standardized project structure**, ensuring best practices for:
 | File/Folder                         | Description                                       |
 | ----------------------------------- | ------------------------------------------------- |
 | `README.md`                         | Short description & build instructions            |
-| `src/`                              | Source files for the module                       |
-| `tests/`                            | Unit tests (UT) and integration tests (IT)        |
+| `score/`                            | Source files and Unit Tests for the module        |
+| `tests/`                            | Component and Feature Integration Tests (CIT&FIT) |
 | `examples/`                         | Example files used for guidance                   |
 | `docs/`                             | Documentation (Doxygen for C++ / mdBook for Rust) |
 | `.github/workflows/`                | CI/CD pipelines                                   |
@@ -61,15 +61,15 @@ cd YOUR_PROJECT
 To build all targets of the module the following command can be used:
 
 ```sh
-bazel build //src/...
+bazel build //score/...
 ```
 
 This command will instruct Bazel to build all targets that are under Bazel
-package `src/`. The ideal solution is to provide single target that builds
+package `score/`. The ideal solution is to provide single target that builds
 artifacts, for example:
 
 ```sh
-bazel build //src/<module_name>:release_artifacts
+bazel build //score/<module_name>:release_artifacts
 ```
 
 where `:release_artifacts` is filegroup target that collects all release
@@ -79,6 +79,20 @@ artifacts of the module.
 > the module code needs to be built.
 
 ### 3️⃣ Run Tests
+
+All tests:
+
+```sh
+bazel test //...
+```
+
+Unit tests:
+
+```sh
+bazel test //score/...
+```
+
+Component / Feature integration tests:
 
 ```sh
 bazel test //tests/...
@@ -99,6 +113,14 @@ The template integrates **tools and linters** from **centralized repositories** 
 ## 📖 Documentation
 
 - A **centralized docs structure** is planned.
+- This template builds Sphinx from the repository root. The configuration stays in
+    `conf.py`, the main document is `docs/index.rst`, and the root `BUILD` target uses
+    a repository-local `docs.bzl` wrapper because the upstream SCORE docs macro does not
+    currently support `source_dir = "."`.
+
+```sh
+bazel run //:docs
+```
 
 ---
 
