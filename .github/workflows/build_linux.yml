@@ -34,10 +34,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Bazel Cache
-        uses: eclipse-score/cicd-actions/setup-bazel-cache@659dcbed63f6b7fbde88c7850125ea0a0a92f939
+        uses: eclipse-score/cicd-actions/setup-bazel-cache@af1be61755b13c1f33b6c250080dc6ac025012f1
         with:
           unique-cache-name: ${{ github.workflow }}-${{ github.job }}
 
