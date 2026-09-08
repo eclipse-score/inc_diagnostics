@@ -1,0 +1,12 @@
+diff --git a/foreign_cc/built_tools/pkgconfig_build.bzl b/foreign_cc/built_tools/pkgconfig_build.bzl
+index 9e18ee7..d40f898 100644
+--- a/foreign_cc/built_tools/pkgconfig_build.bzl
++++ b/foreign_cc/built_tools/pkgconfig_build.bzl
+@@ -65,6 +65,7 @@ def _pkgconfig_tool_impl(ctx):
+ 
+     configure_options = [
+         "--with-internal-glib",
++        "--disable-compile-warnings",
+         "--prefix=\"$$INSTALLDIR$$\"",
+     ]
+ 
