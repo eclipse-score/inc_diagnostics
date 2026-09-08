@@ -55,9 +55,6 @@ common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@sc
 common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
 common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
 common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
-# Use mbedtls backend for classic-diagnostic-adapter (avoids system OpenSSL dependency)
-build:score_diag_x86_64_linux --@classic-diagnostic-adapter//:tls_backend=mbedtls
-
 # Import custom user settings
 # Can be used to e.g. enable custom features without modifying this main .bazelrc
 try-import %workspace%/user.bazelrc

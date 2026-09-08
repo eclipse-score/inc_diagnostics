@@ -105,6 +105,13 @@ use_repo(crate, "score_crate_index")
 
 # C/C++ rules for Bazel
 bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
+single_version_override(
+    module_name = "rules_foreign_cc",
+    patch_strip = 1,
+    patches = ["//patches:rules-foreign-cc-pkgconfig-disable-compile-warnings.patch"],
+    version = "0.15.1",
+)
 
 # functional deps
 bazel_dep(name = "score_baselibs", version = "0.2.9")
@@ -129,6 +136,8 @@ bazel_dep(name = "mbedtls-rs", version = "0.1.0")
 git_override(
     module_name = "mbedtls-rs",
     commit = "524e3b96ccad358b73e4e3ad706d15b8778845b9",
+    patch_strip = 1,
+    patches = ["//patches:mbedtls-rs-enable-pic.patch"],
     remote = "https://github.com/eclipse-opensovd/mbedtls-rs.git",
 )
 

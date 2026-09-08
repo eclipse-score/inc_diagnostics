@@ -11,6 +11,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 exports_files([
+    "mbedtls-rs-enable-pic.patch",
     "opensovd-core-cargo-bazel-lock.patch",
     "opensovd-core-expose-tokio.patch",
+    "rules-foreign-cc-pkgconfig-disable-compile-warnings.patch",
 ])
