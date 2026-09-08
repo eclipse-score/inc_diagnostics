@@ -24,7 +24,7 @@ rust_binary(
     edition = "2021",
     deps = [
         "@classic-diagnostic-adapter//cda-main:opensovd_cda_lib",
-        "@classic-diagnostic-adapter//:tokio",
+        "@score_crate_index//:tokio",
     ],
     visibility = ["//visibility:public"],
 )
@@ -40,6 +40,6 @@ rust_test(
     ],
     deps = [
         "@opensovd_core//:opensovd-client",
-        "@opensovd_core//:tokio",
+        "@score_crate_index//:tokio",
     ],
 )

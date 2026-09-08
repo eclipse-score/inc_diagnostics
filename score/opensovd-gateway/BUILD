@@ -22,7 +22,7 @@ rust_binary(
         "@opensovd_core//:opensovd-models",
         "@opensovd_core//:opensovd-providers",
         "@opensovd_core//:opensovd-server",
-        "@opensovd_core//:tokio",
+        "@score_crate_index//:tokio",
     ],
     visibility = ["//visibility:public"],
 )
