@@ -23,7 +23,7 @@ setup_starpls(
 copyright_checker(
     name = "copyright",
     srcs = [
-        "src",
+        "score",
         "tests",
         "//:BUILD",
         "//:MODULE.bazel",
@@ -44,5 +44,18 @@ dash_license_checker(
 use_format_targets()
 
 docs(
+    bundles = [
+        {
+            "bundle": "//score/component_example:docs",
+            "mount_at": "components/component_example",
+        },
+        {
+            "bundle": "//examples:docs",
+            "mount_at": "examples",
+        },
+    ],
+    data = [
+        "@score_process_description//:needs_json",
+    ],
     source_dir = "docs",
 )
