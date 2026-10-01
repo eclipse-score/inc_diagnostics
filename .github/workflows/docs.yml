@@ -11,20 +11,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-name: Documentation
-
-permissions:
-  contents: write
-  pages: write
-  pull-requests: write
-  id-token: write
+name: Documentation CI
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize] # Allows forks to trigger the docs build
+  pull_request:
   push:
     branches:
       - main
+    tags:
+      - "v*"
+  release:
+    types: [published]
   merge_group:
     types: [checks_requested]
 
