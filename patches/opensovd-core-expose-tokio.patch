@@ -15,13 +15,18 @@ diff --git a/BUILD.bazel b/BUILD.bazel
 index ab0e6f7..5b8f04e 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -3,6 +3,36 @@
+@@ -3,6 +3,41 @@
  
  package(default_visibility = ["//visibility:public"])
  
 +alias(
 +    name = "tokio",
 +    actual = "@crate_index//:tokio",
++)
++
++alias(
++    name = "async-trait",
++    actual = "@crate_index//:async-trait",
 +)
 +
 +alias(
