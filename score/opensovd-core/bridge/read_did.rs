@@ -22,6 +22,8 @@ use tokio::sync::oneshot;
 
 unsafe extern "C" {
     fn score_diag_demo_reader_create(delay_ms: u32, nrc: u8) -> *mut c_void;
+    #[cfg(test)]
+    fn score_diag_reader_clone(reader: *const c_void) -> *mut c_void;
     fn score_diag_reader_release(reader: *mut c_void);
     fn score_diag_read_start(
         reader: *mut c_void,
@@ -79,8 +81,16 @@ pub struct ReadDid {
 
 impl ReadDid {
     pub fn demo(delay_ms: u32, nrc: u8, timeout: Duration) -> Result<Self, DataError> {
-        let handler = NonNull::new(unsafe { score_diag_demo_reader_create(delay_ms, nrc) })
-            .ok_or_else(|| DataError::Internal("could not register C++ handler".to_owned()))?;
+        unsafe { Self::from_registration(score_diag_demo_reader_create(delay_ms, nrc), timeout) }
+    }
+
+    /// Takes ownership of a registration returned by the C++ bridge.
+    ///
+    /// # Safety
+    /// A non-null handle must be live and exclusively owned by the caller, which relinquishes it here.
+    pub unsafe fn from_registration(handle: *mut c_void, timeout: Duration) -> Result<Self, DataError> {
+        let handler =
+            NonNull::new(handle).ok_or_else(|| DataError::Internal("could not register C++ handler".to_owned()))?;
         Ok(Self {
             handler: Arc::new(Handler(handler)),
             timeout,
@@ -109,6 +119,17 @@ impl ReadableDataResource for ReadDid {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn accepts_owned_registration_after_original_handle_is_released() {
+        let original = unsafe { score_diag_demo_reader_create(0, 0) };
+        assert!(!original.is_null());
+        let cloned = unsafe { score_diag_reader_clone(original) };
+        unsafe { score_diag_reader_release(original) };
+        let reader = unsafe { ReadDid::from_registration(cloned, Duration::from_secs(1)) }.expect("registration");
+        assert_eq!(reader.read().await.expect("read").value, b"1.0.0");
+        assert!(unsafe { ReadDid::from_registration(std::ptr::null_mut(), Duration::from_secs(1)) }.is_err());
+    }
 
     #[tokio::test(flavor = "current_thread")]
     async fn cpp_handler_returns_bytes_and_nrc() {

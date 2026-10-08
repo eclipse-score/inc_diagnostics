@@ -1,6 +1,6 @@
 # ReadDID Provider Prototype
 
-The private binding exposes an existing C++ `ReadDataByIdentifier` handler as a read-only Core data resource.
+The binding exposes existing C++ `ReadDataByIdentifier` handlers as read-only Core data resources.
 The example registers `application.version` on `score-diagnostics`, hosted on `score-demo`.
 Its HTTP data envelope is `{"value":[49,46,48,46,48]}`: the bytes of `1.0.0`, not serialized JSON bytes.
 
@@ -22,8 +22,9 @@ The boxed channel sender survives dropped receivers until the worker completes c
 
 ## Scope and Limitations
 
-This is an in-process example, not remote application registration. The supplied C++ demo handler returns an asynchronous future;
-applications can register their own handler through the C++ registration function, but there is no general Rust-facing registration API yet.
+This is an in-process example, not remote application registration. Applications can supply C++ handler/resource catalogs,
+which Rust consumes through the ownership-transfer registration API described below. The original asynchronous demo reader remains
+for version and scheduling tests; the sensor catalog uses application-owned source state instead of that demo constructor.
 The worker model is bounded per handler, not a production shared executor. Producers must cooperate with stop tokens to release their own work.
 
 Only unrestricted reads are supported. The shim explicitly supplies Default/Physical metadata, locked security and unknown addresses.
@@ -43,3 +44,48 @@ bazel test --config=score_diag_x86_64_linux_qm //score/opensovd-core:read_did_br
 The C++ tests cover request lifetime, metadata, byte copying and cancellation with a real unresolved promise.
 The Rust tests cover NRCs, timeout, dropped reads, saturation and executor responsiveness.
 The HTTP test exercises the registered application through the actual example topology.
+
+## Application-Owned Registration
+
+`RegisterApplication` accepts application ID, display name, hosting component ID, and a catalog of
+`ReadResourceRegistration` entries. Each entry owns its resource ID/name, encoding and a shared C++ ReadDID handler.
+Empty identifiers, missing handlers, unsupported encodings and duplicate resource IDs are rejected.
+The component must be registered in Core by the integration owner; there is no external process registration protocol here.
+
+A C++ application factory returns its opaque registration to Rust. `RegisteredApplication::from_registration` consumes
+exclusive ownership of that handle; `into_app` copies metadata, clones resource-reader handles, builds the provider,
+and releases the catalog. Core's App owns the resulting providers. Removing an App stops future routing; already-started
+reads retain their handler state. The C++ library target is visible to SCORE packages so application code can supply its own factories.
+
+Supported prototype encodings:
+- Bytes: lossless JSON byte array.
+- Temperature: exactly two bytes, signed big-endian centidegrees Celsius, decoded to a numeric degree-Celsius value.
+- Availability: exactly one byte, 0 or 1, decoded to a boolean. Other sizes or values are rejected.
+
+The `score-sensor` application is explicitly named a simulator. Its source publishes an initial 21.5 degC sample and can
+publish updated or unavailable samples locally. The C++ readers return the current source state; no diagnostic write route
+is introduced. Availability means the sample source is usable, not that the whole application or vehicle is healthy.
+An unavailable or released source returns false availability and an NRC for temperature, not a fabricated zero reading.
+Timestamp-based freshness and platform health sources are not implemented yet.
+
+## Local Walkthrough
+
+Start the server in one terminal (loopback only, no production authorization):
+
+```sh
+bazel run --config=score_diag_x86_64_linux_qm //score/opensovd-core:opensovd-gateway
+```
+
+Query it from another terminal:
+
+```sh
+curl --fail http://127.0.0.1:7690/sovd/v1/apps
+curl --fail http://127.0.0.1:7690/sovd/v1/apps/score-sensor/is-located-on
+curl --fail http://127.0.0.1:7690/sovd/v1/apps/score-sensor/data
+curl --fail 'http://127.0.0.1:7690/sovd/v1/apps/score-sensor/data/temperature.celsius?include-schema=true'
+curl --fail http://127.0.0.1:7690/sovd/v1/apps/score-sensor/data/sensor.healthy
+```
+
+The temperature read contains `data.value: 21.5`; the availability read contains `data.value: true`.
+The integration test publishes -12.5 degC, unavailable and recovered samples, verifies them through HTTP,
+then releases the source and removes the App. This proves changing source data and lifecycle behavior, not real sensor hardware.

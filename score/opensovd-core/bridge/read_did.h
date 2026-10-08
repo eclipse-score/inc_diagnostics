@@ -35,6 +35,7 @@ typedef enum ScoreDiagReadStatus
 typedef void (*ScoreDiagReadCompletion)(void* context, uint8_t status, uint8_t nrc, const uint8_t* data, size_t size);
 
 ScoreDiagReader* score_diag_demo_reader_create(uint32_t delay_ms, uint8_t nrc);
+ScoreDiagReader* score_diag_reader_clone(const ScoreDiagReader* reader);
 void score_diag_reader_release(ScoreDiagReader* reader);
 ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader, void* context, ScoreDiagReadCompletion completion);
 void score_diag_read_cancel(ScoreDiagReadRequest* request);

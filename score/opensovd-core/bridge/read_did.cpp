@@ -176,6 +176,18 @@ extern "C" ScoreDiagReader* score_diag_demo_reader_create(std::uint32_t delay_ms
     }
 }
 
+extern "C" ScoreDiagReader* score_diag_reader_clone(const ScoreDiagReader* reader)
+{
+    try
+    {
+        return reader == nullptr ? nullptr : new ScoreDiagReader{reader->state};
+    }
+    catch (...)
+    {
+        return nullptr;
+    }
+}
+
 extern "C" void score_diag_reader_release(ScoreDiagReader* reader)
 {
     delete reader;

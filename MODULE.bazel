@@ -40,6 +40,39 @@ git_override(
     remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
 )
 
+bazel_dep(name = "score_fault_lib", version = "0.0.1")
+git_override(
+    module_name = "score_fault_lib",
+    commit = "d8ba61084bc71bad56902363f5270699aa8cae71",  # fix/bzlmod: external consumer smoke test
+    remote = "https://github.com/eclipse-opensovd/fault-lib.git",
+)
+
+# testing-utils is a transitive dependency of score_fault_lib (not in any
+# public registry). Bzlmod only applies overrides from the root module, so
+# the git_override from fault-lib's MODULE.bazel does not apply here;
+# replicate it.
+git_override(
+    module_name = "testing-utils",
+    commit = "a847c7464cfa47e000141631d1223b92560d2e58",  # tag v0.2.0
+    remote = "https://github.com/qorix-group/testing_tools.git",
+)
+
+# score-baselibs is a transitive dependency of score_fault_lib (not in any
+# public registry); replicate the git_override from fault-lib's MODULE.bazel.
+git_override(
+    module_name = "score-baselibs",
+    commit = "46923f5c4f302bd9feae0261588687aaf32e3c5c",
+    remote = "https://github.com/eclipse-score/baselibs.git",
+)
+
+# rules_boost is a transitive dependency of score_fault_lib; its bazel_dep has
+# no version, so replicate the archive_override from fault-lib's MODULE.bazel.
+archive_override(
+    module_name = "rules_boost",
+    strip_prefix = "rules_boost-master",
+    urls = ["https://github.com/nelhage/rules_boost/archive/refs/heads/master.tar.gz"],
+)
+
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
 

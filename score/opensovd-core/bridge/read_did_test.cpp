@@ -11,6 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 #include "score/opensovd-core/bridge/read_did.h"
+#include "score/opensovd-core/bridge/application.h"
 
 #include <gtest/gtest.h>
 
@@ -127,5 +128,49 @@ TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
     EXPECT_EQ(reply.count, 1U);
     score_diag_read_release(request);
     score_diag_reader_release(reader);
+}
+
+TEST(ApplicationRegistration, CatalogOwnsDescriptorsAndClonedReadersOutliveIt)
+{
+    auto handler = std::make_shared<DeferredReader>();
+    auto* application = score::opensovd::bridge::RegisterApplication(
+        "my-app", "My Application", "my-component", {{"my-data", "My Data", SCORE_DIAG_BYTES, handler}});
+    ASSERT_NE(application, nullptr);
+    EXPECT_STREQ(score_diag_application_id(application), "my-app");
+    EXPECT_STREQ(score_diag_application_name(application), "My Application");
+    EXPECT_STREQ(score_diag_application_component(application), "my-component");
+    EXPECT_EQ(score_diag_application_resource_count(application), 1U);
+    EXPECT_STREQ(score_diag_application_resource_id(application, 0U), "my-data");
+    EXPECT_STREQ(score_diag_application_resource_name(application, 0U), "My Data");
+    EXPECT_EQ(score_diag_application_resource_encoding(application, 0U), SCORE_DIAG_BYTES);
+    auto* reader = score_diag_application_resource_reader(application, 0U);
+    ASSERT_NE(reader, nullptr);
+    EXPECT_EQ(score_diag_application_resource_reader(application, 1U), nullptr);
+    score_diag_application_release(application);
+    Completion reply;
+    auto* request = score_diag_read_start(reader, &reply, Complete);
+    ASSERT_NE(request, nullptr);
+    ASSERT_TRUE(handler->WaitForInvocation());
+    EXPECT_TRUE(handler->promise.SetValue(Result<ByteVector>{ByteVector{std::byte{0x42}}}).has_value());
+    EXPECT_TRUE(reply.Wait());
+    EXPECT_EQ(reply.status, SCORE_DIAG_READ_OK);
+    EXPECT_EQ(reply.bytes, (std::vector<std::uint8_t>{0x42}));
+    score_diag_read_release(request);
+    score_diag_reader_release(reader);
+}
+
+TEST(ApplicationRegistration, RejectsMissingHandlersAndDuplicateResources)
+{
+    using score::opensovd::bridge::RegisterApplication;
+    auto handler = std::make_shared<DeferredReader>();
+    EXPECT_EQ(RegisterApplication("", "App", "Component", {{"data", "Data", SCORE_DIAG_BYTES, handler}}), nullptr);
+    EXPECT_EQ(RegisterApplication("app", "App", "Component", {}), nullptr);
+    EXPECT_EQ(RegisterApplication("app", "App", "Component", {{"data", "Data", SCORE_DIAG_BYTES, nullptr}}), nullptr);
+    EXPECT_EQ(RegisterApplication(
+                  "app",
+                  "App",
+                  "Component",
+                  {{"data", "Data", SCORE_DIAG_BYTES, handler}, {"data", "Other", SCORE_DIAG_BYTES, handler}}),
+              nullptr);
 }
 }  // namespace

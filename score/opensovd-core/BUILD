@@ -16,8 +16,15 @@ load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 
 cc_library(
     name = "read_did_bridge",
-    srcs = ["bridge/read_did.cpp"],
-    hdrs = ["bridge/read_did.h"],
+    srcs = [
+        "bridge/application.cpp",
+        "bridge/read_did.cpp",
+    ],
+    hdrs = [
+        "bridge/application.h",
+        "bridge/read_did.h",
+    ],
+    visibility = ["//score:__subpackages__"],
     deps = [
         "//score/mw/diag/uds",
         "//score/mw/diag/uds:negative_response_code",
@@ -36,6 +43,7 @@ cc_test(
 rust_binary(
     name = "opensovd-gateway",
     srcs = [
+        "bridge/application.rs",
         "bridge/read_did.rs",
         "src/main.rs",
     ],
