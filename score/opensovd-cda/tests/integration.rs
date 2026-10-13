@@ -44,7 +44,7 @@ fn runfile(path: &str) -> PathBuf {
 
 fn write_config(path: &Path, database: &Path, storage: &Path, port: u16) {
     let config = format!(
-        "[database]\npath = {:?}\nexit_no_database_loaded = false\n\n\
+        "[database]\ndir = {:?}\nexit_no_database_loaded = false\n\n\
          [doip]\ntester_address = \"127.0.0.1\"\n\n\
          [runtime_update_config]\nstorage_dir = {:?}\n\n\
          [server]\naddress = \"127.0.0.1\"\nport = {port}\n",

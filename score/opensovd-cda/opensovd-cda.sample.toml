@@ -12,7 +12,7 @@
 # *******************************************************************************
 
 [database]
-path = "score/opensovd-cda/mdd"
+dir = "score/opensovd-cda/mdd"
 exit_no_database_loaded = false
 
 [doip]

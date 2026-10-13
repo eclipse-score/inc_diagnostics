@@ -70,11 +70,12 @@ jobs:
 
       - name: Bazel Test QM diagnostics
         run: |
+          TEST_TARGET_OUTPUT="$(bazel query \
+            'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-core/... + //score/examples/...)')"
           TEST_TARGETS=()
-          while IFS= read -r target; do
-            TEST_TARGETS+=("${target}")
-          done < <(bazel query \
-            'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-core/... + //score/examples/...)')
+          if [[ -n "${TEST_TARGET_OUTPUT}" ]]; then
+            mapfile -t TEST_TARGETS <<< "${TEST_TARGET_OUTPUT}"
+          fi
 
           if ((${#TEST_TARGETS[@]} == 0)); then
             echo "No QM diagnostic test targets found; build verification is covered above."
