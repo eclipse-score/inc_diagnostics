@@ -1,0 +1,8 @@
+diff --git a/cda-main/BUILD.bazel b/cda-main/BUILD.bazel
+--- a/cda-main/BUILD.bazel
++++ b/cda-main/BUILD.bazel
+@@ -83,0 +84,4 @@
++    rustc_flags = [
++        "-C",
++        "link-arg=-Wl,--no-gc-sections",
++    ],
