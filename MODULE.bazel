@@ -53,10 +53,7 @@ gcc.toolchain(
     use_default_package = True,
     version = "12.2.0",
 )
-use_repo(
-    gcc,
-    "score_gcc_x86_64_toolchain",
-)
+use_repo(gcc, "score_gcc_x86_64_toolchain")
 
 bazel_dep(name = "rules_python", version = "1.8.3", dev_dependency = True)
 

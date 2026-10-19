@@ -70,8 +70,17 @@ jobs:
 
       - name: Bazel Test QM diagnostics
         run: |
+          # Capture bazel query output and check for failures
+          set -o pipefail
           TEST_TARGET_OUTPUT="$(bazel query \
             'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-core/... + //score/examples/...)')"
+          QUERY_EXIT_CODE=$?
+
+          if [[ $QUERY_EXIT_CODE -ne 0 ]]; then
+            echo "::error::Bazel query failed with exit code $QUERY_EXIT_CODE"
+            exit $QUERY_EXIT_CODE
+          fi
+
           TEST_TARGETS=()
           if [[ -n "${TEST_TARGET_OUTPUT}" ]]; then
             mapfile -t TEST_TARGETS <<< "${TEST_TARGET_OUTPUT}"
