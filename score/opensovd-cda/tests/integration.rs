@@ -56,7 +56,7 @@ fn write_config(path: &Path, database: &Path, storage: &Path, port: u16) {
 
 #[tokio::test(flavor = "current_thread")]
 async fn cda_serves_version_and_components() {
-    let binary = runfile("score/opensovd-cda/opensovd-cda");
+    let binary = runfile("classic-diagnostic-adapter+/cda-main/opensovd-cda");
     let mdd = runfile("score/opensovd-cda/mdd/functional_groups.mdd");
     let temp = env::temp_dir().join(format!("inc-diagnostics-cda-{}", std::process::id()));
     fs::create_dir_all(&temp).expect("create test directory");

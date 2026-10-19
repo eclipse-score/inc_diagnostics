@@ -48,8 +48,32 @@ void score_diag_read_release(ScoreDiagReadRequest* request);
 
 namespace score::opensovd::bridge
 {
-ScoreDiagReader* RegisterReadDataByIdentifier(std::shared_ptr<score::mw::diag::uds::ReadDataByIdentifier> handler);
+struct ReaderDeleter
+{
+    void operator()(ScoreDiagReader* reader) const noexcept
+    {
+        score_diag_reader_release(reader);
+    }
+};
+
+struct ReadRequestDeleter
+{
+    void operator()(ScoreDiagReadRequest* request) const noexcept
+    {
+        score_diag_read_release(request);
+    }
+};
+
+using ReaderPtr = std::unique_ptr<ScoreDiagReader, ReaderDeleter>;
+using ReadRequestPtr = std::unique_ptr<ScoreDiagReadRequest, ReadRequestDeleter>;
+
+ReaderPtr RegisterReadDataByIdentifier(std::shared_ptr<score::mw::diag::uds::ReadDataByIdentifier> handler);
+
+inline ReadRequestPtr StartRead(ScoreDiagReader* reader, void* context, ScoreDiagReadCompletion completion)
+{
+    return ReadRequestPtr{score_diag_read_start(reader, context, completion)};
 }
+}  // namespace score::opensovd::bridge
 #endif
 
 #endif

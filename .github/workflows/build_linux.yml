@@ -31,6 +31,10 @@ jobs:
   linux-build:
     name: Build & test on host for target platform x86_64-linux
     runs-on: ubuntu-24.04
+    env:
+      BAZEL_BUILD_TARGETS: //examples/... //tests/... //score/...
+      BAZEL_TEST_TARGETS: //examples/... //tests/... //score/...
+      BAZEL_QM_BUILD_TARGETS: //score/opensovd-cda //score/opensovd-core:opensovd-gateway //score/examples/sovd-client
 
     steps:
       - name: Checkout Repository
@@ -43,15 +47,15 @@ jobs:
 
       - name: Bazel Build
         run: |
-          TARGETS=(//examples/... //tests/... //score/mw/...)
+          read -r -a targets <<< "${BAZEL_BUILD_TARGETS}"
 
-          bazel build --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
+          bazel build --config=score_diag_x86_64_linux -- "${targets[@]}"
 
       - name: Bazel Test
         run: |
-          TARGETS=(//examples/... //tests/... //score/mw/...)
+          read -r -a targets <<< "${BAZEL_TEST_TARGETS}"
 
-          bazel test --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
+          bazel test --config=score_diag_x86_64_linux -- "${targets[@]}"
 
       - name: Install QM native dependencies
         run: |
@@ -63,10 +67,8 @@ jobs:
 
       - name: Bazel Build QM diagnostics
         run: |
-          bazel build --config=score_diag_x86_64_linux_qm -- \
-            //score/opensovd-cda \
-            //score/opensovd-core:opensovd-gateway \
-            //score/examples/sovd-client
+          read -r -a targets <<< "${BAZEL_QM_BUILD_TARGETS}"
+          bazel build --config=score_diag_x86_64_linux_qm -- "${targets[@]}"
 
       - name: Bazel Test QM diagnostics
         run: |

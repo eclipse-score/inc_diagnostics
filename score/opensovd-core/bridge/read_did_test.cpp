@@ -26,6 +26,8 @@ using score::mw::diag::Future;
 using score::mw::diag::uds::MetaData;
 using score::mw::diag::uds::ReadDataByIdentifier;
 using score::mw::diag::uds::Result;
+using score::opensovd::bridge::ReaderPtr;
+using score::opensovd::bridge::ReadRequestPtr;
 
 struct Completion
 {
@@ -91,12 +93,12 @@ class DeferredReader final : public ReadDataByIdentifier
 TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
 {
     auto handler = std::make_shared<DeferredReader>();
-    auto* reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
+    ReaderPtr reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
     Completion reply;
-    auto* request = score_diag_read_start(reader, &reply, Complete);
+    ReadRequestPtr request = score::opensovd::bridge::StartRead(reader.get(), &reply, Complete);
     ASSERT_NE(request, nullptr);
     ASSERT_TRUE(handler->WaitForInvocation());
-    score_diag_reader_release(reader);
+    reader.reset();
     EXPECT_EQ(handler->received_metadata.session, score::mw::diag::uds::DiagnosticSession::Default);
     EXPECT_FALSE(handler->received_metadata.security_level.has_value());
     EXPECT_EQ(handler->received_metadata.addressing, score::mw::diag::uds::AddressingMode::Physical);
@@ -108,24 +110,21 @@ TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
     EXPECT_EQ(reply.status, SCORE_DIAG_READ_OK);
     EXPECT_EQ(reply.count, 1U);
     EXPECT_EQ(reply.bytes, (std::vector<std::uint8_t>{0x00, 0xff}));
-    score_diag_read_release(request);
 }
 
 TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
 {
     auto handler = std::make_shared<DeferredReader>();
-    auto* reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
+    ReaderPtr reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
     Completion reply;
-    auto* request = score_diag_read_start(reader, &reply, Complete);
+    ReadRequestPtr request = score::opensovd::bridge::StartRead(reader.get(), &reply, Complete);
     ASSERT_NE(request, nullptr);
     ASSERT_TRUE(handler->WaitForInvocation());
-    score_diag_read_cancel(request);
+    score_diag_read_cancel(request.get());
     EXPECT_TRUE(reply.Wait());
     EXPECT_EQ(reply.status, SCORE_DIAG_READ_CANCELLED);
     EXPECT_TRUE(handler->received_token.stop_requested());
     EXPECT_TRUE(handler->promise.SetValue(Result<ByteVector>{ByteVector{std::byte{0x12}}}).has_value());
     EXPECT_EQ(reply.count, 1U);
-    score_diag_read_release(request);
-    score_diag_reader_release(reader);
 }
 }  // namespace

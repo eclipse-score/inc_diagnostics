@@ -13,6 +13,7 @@
 
 common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
 common --registry=https://bcr.bazel.build
+# Keep independent module-extension usages from merging their configuration tags.
 common --experimental_isolated_extension_usages
 
 build --java_language_version=17
@@ -51,12 +52,13 @@ common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
 common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
 common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
 
-# Configuration for x86_64 Linux QM builds
+# QM builds use a distinct target platform but share the common warning settings.
+common:score_diag_x86_64_linux_qm --config=_score_diag_common_build_settings
 common:score_diag_x86_64_linux_qm --platforms=//platforms:x86_64-linux-qm
 common:score_diag_x86_64_linux_qm --host_platform=//platforms:x86_64-linux-qm
+# The QM platform currently relies on Bazel's auto-detected C++ toolchain.
 common:score_diag_x86_64_linux_qm --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
-common:score_diag_x86_64_linux_qm --cxxopt=-std=c++17
-common:score_diag_x86_64_linux_qm --incompatible_strict_action_env
+
 # Import custom user settings
 # Can be used to e.g. enable custom features without modifying this main .bazelrc
 try-import %workspace%/user.bazelrc

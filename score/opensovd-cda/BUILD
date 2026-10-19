@@ -13,12 +13,9 @@
 
 load("@rules_rust//rust:defs.bzl", "rust_test")
 
-genrule(
+alias(
     name = "cda_binary",
-    srcs = ["@classic-diagnostic-adapter//:opensovd-cda"],
-    outs = ["opensovd-cda"],
-    cmd = "cp $(location @classic-diagnostic-adapter//:opensovd-cda) $@ && chmod +x $@",
-    visibility = ["//visibility:public"],
+    actual = "@classic-diagnostic-adapter//:opensovd-cda",
 )
 
 rust_test(
