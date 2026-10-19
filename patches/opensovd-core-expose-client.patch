@@ -33,3 +33,4 @@ index 0000000..1111111
 +    compile_data = ["README.md"],
 +    deps = ["//opensovd-models:opensovd_models"],
 +)
++

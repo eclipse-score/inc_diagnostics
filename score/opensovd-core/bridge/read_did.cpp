@@ -16,6 +16,7 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <utility>
 
@@ -35,17 +36,51 @@ struct HandlerState
     std::atomic<std::size_t> active_requests{0U};
 };
 
-struct RequestState
+class ActiveRequest final
 {
-    ~RequestState()
+  public:
+    static std::optional<ActiveRequest> TryAcquire(const std::shared_ptr<HandlerState>& owner)
     {
-        if (owner)
+        auto active = owner->active_requests.load();
+        while (active < 8U)
         {
-            score::cpp::ignore = owner->active_requests.fetch_sub(1U);
+            if (owner->active_requests.compare_exchange_weak(active, active + 1U))
+            {
+                return ActiveRequest{owner};
+            }
+        }
+        return std::nullopt;
+    }
+
+    ActiveRequest(ActiveRequest&& other) noexcept : owner_{std::move(other.owner_)} {}
+    ActiveRequest& operator=(ActiveRequest&&) = delete;
+    ActiveRequest(const ActiveRequest&) = delete;
+    ActiveRequest& operator=(const ActiveRequest&) = delete;
+
+    ~ActiveRequest()
+    {
+        if (owner_)
+        {
+            score::cpp::ignore = owner_->active_requests.fetch_sub(1U);
         }
     }
 
-    std::shared_ptr<HandlerState> owner;
+    HandlerState& owner() const noexcept
+    {
+        return *owner_;
+    }
+
+  private:
+    explicit ActiveRequest(std::shared_ptr<HandlerState> owner) : owner_{std::move(owner)} {}
+
+    std::shared_ptr<HandlerState> owner_;
+};
+
+struct RequestState
+{
+    explicit RequestState(ActiveRequest active_request) : active_request{std::move(active_request)} {}
+
+    ActiveRequest active_request;
     score::cpp::stop_source stop_source;
     void* context;
     ScoreDiagReadCompletion completion;
@@ -98,8 +133,9 @@ void CompleteRead(const std::shared_ptr<RequestState>& state)
     try
     {
         auto future = [&state]() {
-            std::lock_guard<std::mutex> guard{state->owner->dispatch_mutex};
-            return state->owner->handler->Read(MetaData{}, state->stop_source.get_token());
+            auto& owner = state->active_request.owner();
+            std::lock_guard<std::mutex> guard{owner.dispatch_mutex};
+            return owner.handler->Read(MetaData{}, state->stop_source.get_token());
         }();
         auto completion = future.Get(state->stop_source.get_token());
         if (state->stop_source.stop_requested())
@@ -152,15 +188,15 @@ struct ScoreDiagReadRequest
 
 namespace score::opensovd::bridge
 {
-ScoreDiagReader* RegisterReadDataByIdentifier(std::shared_ptr<ReadDataByIdentifier> handler)
+ReaderPtr RegisterReadDataByIdentifier(std::shared_ptr<ReadDataByIdentifier> handler)
 {
     if (!handler)
     {
-        return nullptr;
+        return {};
     }
     auto state = std::make_shared<HandlerState>();
     state->handler = std::move(handler);
-    return new ScoreDiagReader{std::move(state)};
+    return ReaderPtr{new ScoreDiagReader{std::move(state)}};
 }
 }  // namespace score::opensovd::bridge
 
@@ -168,7 +204,8 @@ extern "C" ScoreDiagReader* score_diag_demo_reader_create(std::uint32_t delay_ms
 {
     try
     {
-        return score::opensovd::bridge::RegisterReadDataByIdentifier(std::make_shared<DemoReader>(delay_ms, nrc));
+        return score::opensovd::bridge::RegisterReadDataByIdentifier(std::make_shared<DemoReader>(delay_ms, nrc))
+            .release();
     }
     catch (...)
     {
@@ -188,14 +225,13 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
     std::unique_ptr<ScoreDiagReadRequest> request;
     try
     {
-        auto state = std::make_shared<RequestState>();
-        if (reader->state->active_requests.fetch_add(1U) >= 8U)
+        auto active_request = ActiveRequest::TryAcquire(reader->state);
+        if (!active_request)
         {
-            score::cpp::ignore = reader->state->active_requests.fetch_sub(1U);
             completion(context, SCORE_DIAG_READ_BUSY, 0U, nullptr, 0U);
             return nullptr;
         }
-        state->owner = reader->state;
+        auto state = std::make_shared<RequestState>(std::move(*active_request));
         state->context = context;
         state->completion = completion;
         request = std::make_unique<ScoreDiagReadRequest>(ScoreDiagReadRequest{state});
