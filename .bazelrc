@@ -25,9 +25,6 @@ test --build_tests_only
 test --test_output=errors
 test --test_tag_filters=-manual
 
-# Do not use any auto-detected C++ toolchains, only our explicitly specified ones as below
-build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
-
 # Use the GCC C++ toolchain for x86-64 linux host by default for `bazel run`
 run --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
 run --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
@@ -41,6 +38,8 @@ build:_score_diag_common_build_settings --incompatible_strict_action_env
 
 # Base configuration for building on x86-64 linux host
 common:_score_diag_use_gcc_based_host_platform --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+# Avoid conflicting with foreign-cc toolchains by allowing auto-detection for host tools.
+common:_score_diag_use_gcc_based_host_platform --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
 
 # Base configuration for compiling for x86-64 linux as target platform
 common:_score_diag_build_for_x86_64_linux_target_platform --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
