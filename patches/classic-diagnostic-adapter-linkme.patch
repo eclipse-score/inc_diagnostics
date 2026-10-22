@@ -1,0 +1,9 @@
+diff --git a/cda-main/BUILD.bazel b/cda-main/BUILD.bazel
+--- a/cda-main/BUILD.bazel
++++ b/cda-main/BUILD.bazel
+@@ -83,0 +84,5 @@
++    # The CDA uses linkme sections for service registration; retain them in the release binary.
++    rustc_flags = [
++        "-C",
++        "link-arg=-Wl,--no-gc-sections",
++    ],
