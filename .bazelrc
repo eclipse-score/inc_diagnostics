@@ -33,12 +33,17 @@ run --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
 build:_score_diag_common_build_settings --cxxopt=-std=c++17  # TODO: why is this not enabled via toolchain features instead?! Wouldn't that one conflict with rustc?
 build:_score_diag_common_build_settings --features=minimal_warnings
 build:_score_diag_common_build_settings --features=strict_warnings
-build:_score_diag_common_build_settings --features=warnings_as_errors
+# Note: warnings_as_errors is intentionally NOT enabled because vendored C code
+# in Rust crates (e.g. lzma-sys → xz) triggers -Wundef on autoconf-style
+# #elif HAVE_* checks, which would become hard errors.
 build:_score_diag_common_build_settings --incompatible_strict_action_env
 
-# Base configuration for building on x86-64 linux host
-common:_score_diag_use_gcc_based_host_platform --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
-# Avoid conflicting with foreign-cc toolchains by allowing auto-detection for host tools.
+# Base configuration for building on x86-64 linux host.
+# Do NOT set --host_platform here: it would force the custom GCC toolchain for
+# exec/host builds (e.g. rules_foreign_cc BootstrapPkgConfig), whose -std=c11
+# breaks glib's use of `asm`. Let Bazel auto-detect the system toolchain for
+# host tools instead. The target build still uses the GCC toolchain via
+# --platforms and --extra_toolchains in the target-platform config below.
 common:_score_diag_use_gcc_based_host_platform --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
 
 # Base configuration for compiling for x86-64 linux as target platform
