@@ -21,6 +21,6 @@ on:
     types: [checks_requested]
 jobs:
   formatting-check:
-    uses: eclipse-score/cicd-workflows/.github/workflows/format.yml@d31fdc0ba74985a71acbfa1e994fd45e2bbc5fad
+    uses: eclipse-score/cicd-workflows/.github/workflows/format.yml@f77ed751fa587e3a1142b2d85320917e00c888ae
     with:
       bazel-target: "test --config=score_diag_x86_64_linux --test_output=errors //:format.check"
