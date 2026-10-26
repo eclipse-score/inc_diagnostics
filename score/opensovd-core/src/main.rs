@@ -56,8 +56,11 @@ async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
     {
         let mut registry = topology.write().await;
         registry.add_component(Component::new("score-demo", "SCORE Demo").with_data_provider(provider));
-        registry
-            .add_app(App::new("score-diagnostics", "SCORE Diagnostics", "score-demo").with_data_provider(app_provider));
+        registry.add_app(
+            App::new("score-diagnostics", "SCORE Diagnostics")
+                .with_component_id("score-demo")
+                .with_data_provider(app_provider),
+        );
     }
     Ok(topology)
 }
@@ -96,10 +99,10 @@ mod tests {
         let url = format!("http://{address}/sovd/v1");
         let client = Client::connect(&url).expect("client");
         let apps = client.list_apps().send().await.expect("list apps");
-        assert!(apps.data.items.iter().any(|app| app.id == "score-diagnostics"));
+        assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
         let app = client.app("score-diagnostics");
-        let location = app.is_located_on().await.expect("app location");
-        assert!(location.items.iter().any(|component| component.id == "score-demo"));
+        let location = app.located_on().await.expect("app location");
+        assert!(location.is_some_and(|component| component.id == "score-demo"));
         let version = app
             .data("application.version")
             .read()

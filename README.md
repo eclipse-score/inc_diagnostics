@@ -126,3 +126,49 @@ PROJECT_CONFIG = {
 
 When used with macros like `dash_license_checker`, it allows dynamic selection of file types
  (e.g., `cargo`, `requirements`) based on the languages declared in `source_code`.
+
+---
+
+## 🔧 Toolchain Architecture
+
+This repository uses a **hybrid toolchain strategy** for builds:
+
+### Target Platform (Production Code)
+
+| Component | Toolchain | Version |
+|-----------|-----------|---------|
+| **C/C++** | GCC (hermetic) | 12.2.0 |
+| **Rust** | Ferrocene | 1.2.0 |
+
+The target platform uses **strict C11/C++17** standards. The Ferrocene Rust toolchain is the Eclipse S-CORE qualified toolchain for safety-critical systems.
+
+### Host Platform (Build Tools)
+
+| Component | Toolchain | Version |
+|-----------|-----------|---------|
+| **C/C++** | System GCC (auto-detected) | Host system default |
+| **Rust** | Ferrocene | 1.2.0 |
+
+The host platform uses Bazel's auto-detected system toolchain for C/C++ builds. This is necessary because `rules_foreign_cc BootstrapPkgConfig` builds glib from source, which uses GNU `asm` extensions that are incompatible with the hermetic toolchain's strict `-std=c11`.
+
+### Why This Matters
+
+1. **Target hermeticity**: Production code uses fully hermetic, qualified toolchains.
+2. **Safety compliance**: Ferrocene provides qualified Rust tooling for ASIL/QM development.
+3. **Build compatibility**: System toolchain for host allows building native dependencies (pkg-config, glib) required by Rust crates like `aws-lc-sys`.
+
+### Configuration
+
+Toolchains are configured in:
+- **MODULE.bazel**: GCC and Ferrocene toolchain registration
+- **.bazelrc**: Platform-specific flags and toolchain selection
+
+### Patches
+
+This repository maintains local patches for upstream dependencies:
+
+| Patch | Purpose | Status |
+|-------|---------|--------|
+| `classic-diagnostic-adapter-linkme.patch` | Preserves linkme sections in CDA binary | Required — upstream does not include `--no-gc-sections` |
+| `opensovd-core-expose-tokio.patch` | Exposes tokio and other crate aliases | Required — upstream only exposes gateway target |
+| `opensovd-core-expose-client.patch` | Adds BUILD for opensovd-client | Required — upstream has no Bazel support for client crate |

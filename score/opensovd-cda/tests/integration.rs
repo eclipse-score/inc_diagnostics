@@ -86,7 +86,7 @@ async fn cda_serves_version_and_components() {
         match Client::connect(&url) {
             Ok(client) => match client.list_components().send().await {
                 Ok(components) => {
-                    assert!(components.data.items.is_empty());
+                    assert!(components.items.is_empty());
                     return;
                 },
                 Err(error) => last_error = Some(error.to_string()),

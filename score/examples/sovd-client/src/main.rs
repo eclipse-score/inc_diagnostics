@@ -23,24 +23,24 @@ fn init_tracing() {
 
 async fn run(client: &Client) -> Result<(), opensovd_client::Error> {
     let components = client.list_components().send().await?;
-    for component in &components.data.items {
+    for component in &components.items {
         tracing::info!("component: {} ({})", component.id, component.name);
     }
 
-    if let Some(component) = components.data.items.first() {
+    if let Some(component) = components.items.first() {
         let data = client.component(&component.id).list_data().send().await?;
-        for item in &data.data.items {
+        for item in &data.items {
             tracing::info!("  data: {} ({})", item.id, item.name);
         }
     }
 
     let apps = client.list_apps().send().await?;
-    for app in &apps.data.items {
+    for app in &apps.items {
         tracing::info!("app: {} ({})", app.id, app.name);
     }
 
     let areas = client.list_areas().send().await?;
-    for area in &areas.data.items {
+    for area in &areas.items {
         tracing::info!("area: {} ({})", area.id, area.name);
     }
 

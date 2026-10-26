@@ -59,7 +59,7 @@ async fn client_lists_demo_component() {
     for _ in 0..40 {
         match Client::connect(&url).expect("client").list_components().send().await {
             Ok(response) => {
-                assert!(response.data.items.iter().any(|c| c.id == "score-demo"));
+                assert!(response.items.iter().any(|c| c.id == "score-demo"));
                 return;
             },
             Err(error) => last_error = Some(error),

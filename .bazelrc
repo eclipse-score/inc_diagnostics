@@ -39,11 +39,10 @@ build:_score_diag_common_build_settings --features=strict_warnings
 build:_score_diag_common_build_settings --incompatible_strict_action_env
 
 # Base configuration for building on x86-64 linux host.
-# Do NOT set --host_platform here: it would force the custom GCC toolchain for
-# exec/host builds (e.g. rules_foreign_cc BootstrapPkgConfig), whose -std=c11
-# breaks glib's use of `asm`. Let Bazel auto-detect the system toolchain for
-# host tools instead. The target build still uses the GCC toolchain via
-# --platforms and --extra_toolchains in the target-platform config below.
+# Do NOT set --host_platform: rules_foreign_cc BootstrapPkgConfig builds glib
+# from source, which requires GNU asm extensions that fail with the toolchain's
+# strict -std=c11. Let Bazel auto-detect the system toolchain for host tools.
+# The target build still uses the hermetic GCC toolchain via --platforms.
 common:_score_diag_use_gcc_based_host_platform --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
 
 # Base configuration for compiling for x86-64 linux as target platform

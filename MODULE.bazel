@@ -15,7 +15,7 @@ module(name = "score_diagnostics")
 bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0")
 git_override(
     module_name = "classic-diagnostic-adapter",
-    commit = "a5363acb416c289d301577252d3b4b6750df044d",
+    commit = "ba10b0b21a06de37169996b18129da4bd478da69",
     patch_strip = 1,
     patches = ["//patches:classic-diagnostic-adapter-linkme.patch"],
     remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
@@ -31,7 +31,7 @@ git_override(
 bazel_dep(name = "opensovd_core", version = "0.0.0")
 git_override(
     module_name = "opensovd_core",
-    commit = "29e806f3226cbce5fb9985924de737d8e3fb6a47",
+    commit = "deab38a7c0bd4ca7ded0151bfc8bb56d93779c44",
     patch_strip = 1,
     patches = [
         "//patches:opensovd-core-expose-tokio.patch",
