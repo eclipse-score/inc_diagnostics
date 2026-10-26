@@ -37,7 +37,7 @@ WriteDID, routines, fault-lib, process registration, and authenticated context m
 ## Checks
 
 ```sh
-bazel test --config=score_diag_x86_64_linux_qm //score/opensovd-core:read_did_bridge_test //score/opensovd-core:application_registration_test
+bazel test --config=score_diag_x86_64_linux //score/opensovd-core:read_did_bridge_test //score/opensovd-core:application_registration_test
 ```
 
 The C++ tests cover request lifetime, metadata, byte copying and cancellation with a real unresolved promise.

@@ -25,7 +25,6 @@ test --build_tests_only
 test --test_output=errors
 test --test_tag_filters=-manual
 
-# Do not use any auto-detected C++ toolchains, only our explicitly specified ones as below
 build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
 # Use the GCC C++ toolchain for x86-64 linux host by default for `bazel run`
@@ -36,11 +35,19 @@ run --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
 build:_score_diag_common_build_settings --cxxopt=-std=c++17  # TODO: why is this not enabled via toolchain features instead?! Wouldn't that one conflict with rustc?
 build:_score_diag_common_build_settings --features=minimal_warnings
 build:_score_diag_common_build_settings --features=strict_warnings
-build:_score_diag_common_build_settings --features=warnings_as_errors
+# Enforce warning errors for main-repository sources, not external dependencies
+# or vendored C code compiled by Rust build scripts.
+build:_score_diag_common_build_settings --per_file_copt=^//.*@-Werror
+build:_score_diag_common_build_settings --host_per_file_copt=^//.*@-Werror
 build:_score_diag_common_build_settings --incompatible_strict_action_env
 
-# Base configuration for building on x86-64 linux host
+# Base configuration for building on x86-64 linux host.
+# Use hermetic GCC toolchain with Ferrocene Rust for both host and target.
+# rules_foreign_cc 0.17.0+ uses pkgconf instead of pkg-config, eliminating the
+# BootstrapPkgConfig glib build that previously required auto-detected host toolchain.
 common:_score_diag_use_gcc_based_host_platform --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+common:_score_diag_use_gcc_based_host_platform --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+common:_score_diag_use_gcc_based_host_platform --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 
 # Base configuration for compiling for x86-64 linux as target platform
 common:_score_diag_build_for_x86_64_linux_target_platform --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
@@ -51,13 +58,6 @@ common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@sc
 common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
 common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
 common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
-
-# QM builds use a distinct target platform but share the common warning settings.
-common:score_diag_x86_64_linux_qm --config=_score_diag_common_build_settings
-common:score_diag_x86_64_linux_qm --platforms=//platforms:x86_64-linux-qm
-common:score_diag_x86_64_linux_qm --host_platform=//platforms:x86_64-linux-qm
-# The QM platform currently relies on Bazel's auto-detected C++ toolchain.
-common:score_diag_x86_64_linux_qm --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
 
 # Import custom user settings
 # Can be used to e.g. enable custom features without modifying this main .bazelrc

@@ -14,7 +14,7 @@
 load("@rules_rust//rust:defs.bzl", "rust_test")
 
 alias(
-    name = "cda_binary",
+    name = "opensovd-cda",
     actual = "@classic-diagnostic-adapter//:opensovd-cda",
 )
 
@@ -25,7 +25,7 @@ rust_test(
         "mdd/functional_groups.mdd",
         "mdd/functional_groups.mdd.license",
         "opensovd-cda.sample.toml",
-        ":cda_binary",
+        ":opensovd-cda",
     ],
     deps = [
         "@opensovd_core//:opensovd-client",

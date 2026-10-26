@@ -126,3 +126,44 @@ PROJECT_CONFIG = {
 
 When used with macros like `dash_license_checker`, it allows dynamic selection of file types
  (e.g., `cargo`, `requirements`) based on the languages declared in `source_code`.
+
+---
+
+## 🔧 Toolchain Architecture
+
+All Linux targets, including the OpenSOVD gateway, CDA and example client, use
+the `score_diag_x86_64_linux` configuration. Host build tools and target code
+use the same hermetic toolchains:
+
+| Component | Toolchain | Version |
+|-----------|-----------|---------|
+| **C/C++** | GCC (hermetic) | 12.2.0 |
+| **Rust** | Ferrocene | Pinned by `score_toolchains_rust` 0.9.1 |
+
+`rules_foreign_cc` 0.17.0 uses pkgconf for native dependency builds with the
+hermetic GCC toolchain. Auto-detected system C/C++ toolchains are disabled.
+Using the Ferrocene toolchain does not itself qualify the application code.
+
+Strict C/C++ warnings are enabled. Warnings are errors for this repository's
+sources in both target and host builds; external dependencies and vendored C
+compiled by Rust build scripts retain nonfatal warnings.
+
+### Configuration
+
+Toolchains are registered in [MODULE.bazel](MODULE.bazel), and platform and
+warning settings are defined in [.bazelrc](.bazelrc).
+
+```sh
+bazel build --config=score_diag_x86_64_linux //examples/... //tests/... //score/...
+bazel test --config=score_diag_x86_64_linux //examples/... //tests/... //score/...
+```
+
+### Patches
+
+This repository maintains local patches for upstream dependencies:
+
+| Patch | Purpose | Status |
+|-------|---------|--------|
+| `classic-diagnostic-adapter-linkme.patch` | Preserves linkme sections in CDA binary | Required — upstream does not include `--no-gc-sections` |
+| `opensovd-core-expose-tokio.patch` | Exposes tokio and other crate aliases | Required — upstream only exposes gateway target |
+| `opensovd-core-expose-client.patch` | Adds BUILD for opensovd-client | Required — upstream has no Bazel support for client crate |
