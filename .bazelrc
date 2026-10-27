@@ -39,11 +39,12 @@ build:_score_diag_common_build_settings --features=strict_warnings
 build:_score_diag_common_build_settings --incompatible_strict_action_env
 
 # Base configuration for building on x86-64 linux host.
-# Do NOT set --host_platform: rules_foreign_cc BootstrapPkgConfig builds glib
-# from source, which requires GNU asm extensions that fail with the toolchain's
-# strict -std=c11. Let Bazel auto-detect the system toolchain for host tools.
-# The target build still uses the hermetic GCC toolchain via --platforms.
-common:_score_diag_use_gcc_based_host_platform --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
+# Use hermetic GCC toolchain with Ferrocene Rust for both host and target.
+# rules_foreign_cc 0.17.0+ uses pkgconf instead of pkg-config, eliminating the
+# BootstrapPkgConfig glib build that previously required auto-detected host toolchain.
+common:_score_diag_use_gcc_based_host_platform --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+common:_score_diag_use_gcc_based_host_platform --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+common:_score_diag_use_gcc_based_host_platform --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 
 # Base configuration for compiling for x86-64 linux as target platform
 common:_score_diag_build_for_x86_64_linux_target_platform --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
