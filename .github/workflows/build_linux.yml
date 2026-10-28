@@ -31,6 +31,10 @@ jobs:
   linux-build:
     name: Build & test on host for target platform x86_64-linux
     runs-on: ubuntu-24.04
+    env:
+      BAZEL_BUILD_TARGETS: //examples/... //tests/... //score/...
+      BAZEL_TEST_TARGETS: //examples/... //tests/... //score/...
+      BAZEL_QM_BUILD_TARGETS: //score/opensovd-cda //score/opensovd-core:opensovd-gateway //score/examples/sovd-client
 
     steps:
       - name: Checkout Repository
@@ -43,22 +47,49 @@ jobs:
 
       - name: Bazel Build
         run: |
-          TARGETS=(//examples/... //tests/...)
+          read -r -a targets <<< "${BAZEL_BUILD_TARGETS}"
 
-          # consider //score/... targets only in case such directory actually contains any Bazel packages.
-          if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
-            TARGETS+=(//score/...)
-          fi
-
-          bazel build --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
+          bazel build --config=score_diag_x86_64_linux -- "${targets[@]}"
 
       - name: Bazel Test
         run: |
-          TARGETS=(//examples/... //tests/...)
+          read -r -a targets <<< "${BAZEL_TEST_TARGETS}"
 
-          # consider //score/... targets only in case such directory actually contains any Bazel packages.
-          if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
-            TARGETS+=(//score/...)
+          bazel test --config=score_diag_x86_64_linux -- "${targets[@]}"
+
+      - name: Install QM native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            liblzma-dev \
+            libssl-dev \
+            pkg-config
+
+      - name: Bazel Build QM diagnostics
+        run: |
+          read -r -a targets <<< "${BAZEL_QM_BUILD_TARGETS}"
+          bazel build --config=score_diag_x86_64_linux_qm -- "${targets[@]}"
+
+      - name: Bazel Test QM diagnostics
+        run: |
+          # Capture bazel query output and check for failures
+          set -o pipefail
+          TEST_TARGET_OUTPUT="$(bazel query \
+            'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-core/... + //score/examples/...)')"
+          QUERY_EXIT_CODE=$?
+
+          if [[ $QUERY_EXIT_CODE -ne 0 ]]; then
+            echo "::error::Bazel query failed with exit code $QUERY_EXIT_CODE"
+            exit $QUERY_EXIT_CODE
           fi
 
-          bazel test --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
+          TEST_TARGETS=()
+          if [[ -n "${TEST_TARGET_OUTPUT}" ]]; then
+            mapfile -t TEST_TARGETS <<< "${TEST_TARGET_OUTPUT}"
+          fi
+
+          if ((${#TEST_TARGETS[@]} == 0)); then
+            echo "No QM diagnostic test targets found; build verification is covered above."
+          else
+            bazel test --config=score_diag_x86_64_linux_qm -- "${TEST_TARGETS[@]}"
+          fi

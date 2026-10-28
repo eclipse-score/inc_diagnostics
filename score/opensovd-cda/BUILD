@@ -10,17 +10,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-name: Formatting checks
-permissions:
-  contents: read
-  actions: write
-on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-  merge_group:
-    types: [checks_requested]
-jobs:
-  formatting-check:
-    uses: eclipse-score/cicd-workflows/.github/workflows/format.yml@d31fdc0ba74985a71acbfa1e994fd45e2bbc5fad
-    with:
-      bazel-target: "test --config=score_diag_x86_64_linux --test_output=errors //:format.check"
+
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+alias(
+    name = "opensovd-cda",
+    actual = "@classic-diagnostic-adapter//:opensovd-cda",
+)
+
+rust_test(
+    name = "integration_test",
+    srcs = ["tests/integration.rs"],
+    data = [
+        "mdd/functional_groups.mdd",
+        "mdd/functional_groups.mdd.license",
+        "opensovd-cda.sample.toml",
+        ":opensovd-cda",
+    ],
+    deps = [
+        "@opensovd_core//:opensovd-client",
+        "@opensovd_core//:tokio",
+    ],
+)
