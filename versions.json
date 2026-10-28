@@ -2,9 +2,5 @@
   {
     "version": "main",
     "url": "https://eclipse-score.github.io/inc_diagnostics/main/"
-  },
-  {
-    "version": "pr-6",
-    "url": "https://eclipse-score.github.io/inc_diagnostics/pr-6/"
   }
 ]
