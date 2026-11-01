@@ -10,6 +10,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
+
+load("@score_docs_as_code//:docs.bzl", "docs_bundle")
+
+docs_bundle(
+    name = "docs",
+    source_dir = "docs",
+    visibility = ["//visibility:public"],
+)
+
 # Needed for Dash tool to check python dependency licenses.
 filegroup(
     name = "cargo_lock",
