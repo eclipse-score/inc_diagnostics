@@ -155,13 +155,8 @@ class DiagUdsErrorDomain final : public score::result::ErrorDomain
   public:
     std::string_view MessageFor(const score::result::ErrorCode& code) const noexcept override
     {
-        const auto response_code = ToNegativeResponseCode(code);
-        if (!response_code.has_value())
-        {
-            return "Undefined ErrorCode!";
-        }
-
-        return GetMessageForNegativeResponseCode(response_code.value()).value();
+        return GetMessageForNegativeResponseCode(static_cast<NegativeResponseCode>(code))
+            .value_or("Undefined ErrorCode!");
     }
 };
 

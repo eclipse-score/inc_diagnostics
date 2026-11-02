@@ -86,6 +86,8 @@ TEST(UdsErrorTest, ErrorMessageForUnknownCodeReturnsUndefined)
     // Pass an illegal ErrorCode that isn't a valid NRC
     const score::result::Error err = MakeError(static_cast<NegativeResponseCode>(0x05));
     EXPECT_EQ(err.Message(), "Undefined ErrorCode!");
+    EXPECT_EQ(MakeError(static_cast<NegativeResponseCode>(-1)).Message(), "Undefined ErrorCode!");
+    EXPECT_EQ(MakeError(static_cast<NegativeResponseCode>(0x100)).Message(), "Undefined ErrorCode!");
 }
 
 TEST(UdsErrorTest, MakeErrorWithDefaultEmptyUserMessageHasEmptyUserMessage)
@@ -122,8 +124,8 @@ TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCCompileTimeMinMax)
 
 TEST(UdsResponseCodeTest, VehicleManufacturerSpecificCNCValueAccessor)
 {
-    static constexpr auto kCustomError = std::uint8_t{VehicleManufacturerSpecificCNC::kRangeMin + 1U};
-    static constexpr auto kSomeError = std::uint8_t{VehicleManufacturerSpecificCNC::kRangeMin + 2U};
+    static constexpr auto kCustomError = static_cast<std::uint8_t>(VehicleManufacturerSpecificCNC::kRangeMin + 1U);
+    static constexpr auto kSomeError = static_cast<std::uint8_t>(VehicleManufacturerSpecificCNC::kRangeMin + 2U);
 
     const auto custom_error_a = VehicleManufacturerSpecificCNC::FromValue<kCustomError>();
     const auto custom_error_b = VehicleManufacturerSpecificCNC::FromValue<kCustomError>();

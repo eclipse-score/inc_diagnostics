@@ -25,7 +25,7 @@ namespace
 class SimpleGenericServiceForTest : public SimpleGenericService
 {
   public:
-    Result<ByteVector> result{ByteVector{std::byte{0xAB}}};
+    Result<ByteVector> result{ByteVector{static_cast<std::byte>(0xABU)}};
 
     Result<ByteVector> HandleMessage(ByteView /*input*/, const MetaData& /*meta_data*/) override
     {
@@ -40,7 +40,7 @@ TEST(GenericServiceTest, SimpleGenericServiceBridgesResultToFuture)
     SimpleGenericServiceForTest service;
     MetaData meta_data{};
     score::cpp::stop_token stop_token{};
-    ByteVector payload{std::byte{0x31}};
+    ByteVector payload{static_cast<std::byte>(0x31U)};
 
     GenericService& full_interface = service;
     auto future = full_interface.HandleMessage(payload, meta_data, stop_token);
@@ -50,7 +50,7 @@ TEST(GenericServiceTest, SimpleGenericServiceBridgesResultToFuture)
     auto result = outer_res.value();
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().size(), 1U);
-    EXPECT_EQ(result.value()[0], std::byte{0xAB});
+    EXPECT_EQ(result.value()[0], static_cast<std::byte>(0xABU));
 }
 
 TEST(GenericServiceTest, SimpleGenericServicePropagatesError)
@@ -60,7 +60,7 @@ TEST(GenericServiceTest, SimpleGenericServicePropagatesError)
 
     MetaData meta_data{};
     score::cpp::stop_token stop_token{};
-    ByteVector payload{std::byte{0x31}};
+    ByteVector payload{static_cast<std::byte>(0x31U)};
 
     GenericService& full_interface = service;
     auto future = full_interface.HandleMessage(payload, meta_data, stop_token);

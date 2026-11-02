@@ -108,7 +108,8 @@ score::result::Error MakeError(const NegativeResponseCode code, const std::strin
 template <std::uint8_t kMin, std::uint8_t kMax>
 class RangedNRC
 {
-    static_assert(kMin <= kMax, "RangedNRC: kMin must be <= kMax");
+    static_assert(static_cast<std::uint32_t>(kMin) <= static_cast<std::uint32_t>(kMax),
+                  "RangedNRC: kMin must be <= kMax");
 
   public:
     /// Inclusive lower bound of this NRC range.
@@ -120,14 +121,17 @@ class RangedNRC
     template <std::uint8_t kVal>
     [[nodiscard]] static constexpr RangedNRC FromValue() noexcept
     {
-        static_assert(kVal >= kRangeMin && kVal <= kRangeMax, "RangedNRC value out of range");
+        static_assert(static_cast<std::uint32_t>(kVal) >= static_cast<std::uint32_t>(kRangeMin) &&
+                          static_cast<std::uint32_t>(kVal) <= static_cast<std::uint32_t>(kRangeMax),
+                      "RangedNRC value out of range");
         return RangedNRC{kVal};
     }
 
     /// Runtime overload: returns std::nullopt if val is outside [kRangeMin, kRangeMax].
     [[nodiscard]] static constexpr std::optional<RangedNRC> FromValue(std::uint8_t val) noexcept
     {
-        if (val < kRangeMin || val > kRangeMax)
+        if (static_cast<std::uint32_t>(val) < static_cast<std::uint32_t>(kRangeMin) ||
+            static_cast<std::uint32_t>(val) > static_cast<std::uint32_t>(kRangeMax))
         {
             return std::nullopt;
         }
@@ -149,11 +153,13 @@ class RangedNRC
         // According to 7.2/6 of the C++ standard, permitted values for an enumeration are all possible values
         // in the range [emin, emax] whereby emin and emax denote the smallest respectively largest enumerator
         // value. That's why the `static_cast` as performed below is safe and also well-defined behavior.
-        static_assert(kRangeMax <= static_cast<std::uint8_t>(NegativeResponseCode::NoProcessingNoResponse),
+        static_assert(static_cast<std::uint32_t>(kRangeMax) <=
+                          static_cast<std::uint32_t>(NegativeResponseCode::NoProcessingNoResponse),
                       "RangedNRC upper bound exceeds NegativeResponseCode range");
-        static_assert(kRangeMin >= static_cast<std::uint8_t>(NegativeResponseCode::GeneralReject),
-                      "RangedNRC lower bound is below NegativeResponseCode range");
-        return NegativeResponseCode{value_};
+        static_assert(
+            static_cast<std::uint32_t>(kRangeMin) >= static_cast<std::uint32_t>(NegativeResponseCode::GeneralReject),
+            "RangedNRC lower bound is below NegativeResponseCode range");
+        return static_cast<NegativeResponseCode>(value_);
     }
 
   private:

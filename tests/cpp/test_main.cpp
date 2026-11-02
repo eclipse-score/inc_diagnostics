@@ -12,10 +12,14 @@
  ********************************************************************************/
 #include <gtest/gtest.h>
 
-// Function to be tested
-int add(int a, int b)
+#include <cstdint>
+
+namespace
 {
-    return a + b;
+// Function to be tested
+std::int32_t add(std::int32_t left, std::int32_t right)
+{
+    return left + right;
 }
 
 // Test case
@@ -37,10 +41,18 @@ TEST(AdditionTest, HandlesZero)
     EXPECT_EQ(add(0, 5), 5);
     EXPECT_EQ(add(5, 0), 5);
 }
+}  // namespace
 
 // Main function for running tests
 int main(int argc, char** argv)
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    try
+    {
+        ::testing::InitGoogleTest(&argc, argv);
+        return RUN_ALL_TESTS();
+    }
+    catch (...)
+    {
+        return 1;
+    }
 }

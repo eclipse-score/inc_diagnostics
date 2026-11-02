@@ -94,6 +94,33 @@ The template integrates **tools and linters** from **centralized repositories** 
 - **Rust:** `clippy`, `rustfmt`, `Rust Unit Tests`
 - **CI/CD:** GitHub Actions for automated builds and tests
 
+### CodeQL Findings
+
+Assess production alerts separately from tests and mocks. The selected CodeQL
+checks provide automated findings for review; this C++ scan does not analyze Rust
+or establish safety across the C ABI.
+
+For reusable analysis configuration and tooling, see the communication project's
+[static-analysis setup](https://github.com/eclipse-score/communication/tree/main/quality/static_analysis).
+
+The following remaining patterns need review rather than blanket suppression.
+These are triage rationales, not approved exceptions:
+
+| Check | Scope and Rationale |
+|-------|---------------------|
+| Global namespace declarations | The bridge's opaque types and callback typedefs form a C-compatible interface. C++ namespaces cannot replace those C declarations without redesigning the interface. |
+| Use of `reinterpret_cast` | The bridge lends the byte buffer to a callback without copying. A compile-time assertion requires `uint8_t` to be `unsigned char`, which may inspect object representations. The callback must not retain the pointer; Rust copies the bytes before returning. |
+| Smart-pointer factory functions | The bridge adopts handles using custom deleters that call the C release functions. `make_unique` does not construct these custom-deleter pointer types or adopt existing C handles. |
+| Hidden inherited virtual functions | The `Simple*` UDS adapters deliberately expose synchronous overloads and privately finalize the cancellation-aware overloads. The existing tests exercise dispatch through the full base interfaces; renaming the synchronous methods would change the implementer API. |
+| Implicit boolean conversions | The validator precondition and future-result check are reported as conversions from `unknown`. Treat these as analysis limitations pending manual type review, not demonstrated non-boolean conditions. |
+
+GoogleTest/GoogleMock expansions also produce alerts at test call sites, including
+generated branches, boolean conversions, linkage and mock exception paths. Keep
+those findings visible in the test report, but do not modify vendored framework
+code or weaken production interfaces merely to reduce their count. Intentional
+contract-test temporaries and the bridge's callback-context cast also require
+test-specific review. Alert counts are not counts of confirmed defects.
+
 ---
 
 ## 📖 Documentation

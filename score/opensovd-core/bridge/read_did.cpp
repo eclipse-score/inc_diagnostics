@@ -18,10 +18,13 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <type_traits>
 #include <utility>
 
 namespace
 {
+static_assert(std::is_same_v<std::uint8_t, unsigned char>);
+
 using score::mw::diag::ByteVector;
 using score::mw::diag::Future;
 using score::mw::diag::uds::MetaData;
@@ -89,7 +92,7 @@ struct RequestState
 class DemoReader final : public ReadDataByIdentifier
 {
   public:
-    DemoReader(std::uint32_t delay_ms, std::uint8_t nrc) : delay_ms_{delay_ms}, nrc_{nrc} {}
+    DemoReader(std::uint32_t delay_ms, std::uint8_t nrc) : ReadDataByIdentifier{}, delay_ms_{delay_ms}, nrc_{nrc} {}
 
     Future<Result<ByteVector>> Read(const MetaData& meta_data, score::cpp::stop_token stop_token) override
     {
@@ -116,8 +119,11 @@ class DemoReader final : public ReadDataByIdentifier
             }
             else
             {
-                score::cpp::ignore = promise.SetValue(Result<ByteVector>{
-                    ByteVector{std::byte{0x31}, std::byte{0x2e}, std::byte{0x30}, std::byte{0x2e}, std::byte{0x30}}});
+                score::cpp::ignore = promise.SetValue(Result<ByteVector>{ByteVector{static_cast<std::byte>(0x31U),
+                                                                                    static_cast<std::byte>(0x2eU),
+                                                                                    static_cast<std::byte>(0x30U),
+                                                                                    static_cast<std::byte>(0x2eU),
+                                                                                    static_cast<std::byte>(0x30U)}});
             }
         }).detach();
         return future;
@@ -249,7 +255,7 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
 
 extern "C" void score_diag_read_cancel(ScoreDiagReadRequest* request)
 {
-    score::cpp::ignore = request->state->stop_source.request_stop();
+    [[maybe_unused]] const bool stop_requested = request->state->stop_source.request_stop();
 }
 
 extern "C" void score_diag_read_release(ScoreDiagReadRequest* request)

@@ -95,7 +95,7 @@ TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
     auto handler = std::make_shared<DeferredReader>();
     ReaderPtr reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
     Completion reply;
-    ReadRequestPtr request = score::opensovd::bridge::StartRead(reader.get(), &reply, Complete);
+    ReadRequestPtr request = score::opensovd::bridge::StartRead(reader.get(), &reply, &Complete);
     ASSERT_NE(request, nullptr);
     ASSERT_TRUE(handler->WaitForInvocation());
     reader.reset();
@@ -105,7 +105,9 @@ TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
     EXPECT_FALSE(handler->received_metadata.source_address.has_value());
     EXPECT_FALSE(handler->received_metadata.target_address.has_value());
     EXPECT_TRUE(
-        handler->promise.SetValue(Result<ByteVector>{ByteVector{std::byte{0x00}, std::byte{0xff}}}).has_value());
+        handler->promise
+            .SetValue(Result<ByteVector>{ByteVector{static_cast<std::byte>(0x00U), static_cast<std::byte>(0xffU)}})
+            .has_value());
     EXPECT_TRUE(reply.Wait());
     EXPECT_EQ(reply.status, SCORE_DIAG_READ_OK);
     EXPECT_EQ(reply.count, 1U);
@@ -117,14 +119,14 @@ TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
     auto handler = std::make_shared<DeferredReader>();
     ReaderPtr reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
     Completion reply;
-    ReadRequestPtr request = score::opensovd::bridge::StartRead(reader.get(), &reply, Complete);
+    ReadRequestPtr request = score::opensovd::bridge::StartRead(reader.get(), &reply, &Complete);
     ASSERT_NE(request, nullptr);
     ASSERT_TRUE(handler->WaitForInvocation());
     score_diag_read_cancel(request.get());
     EXPECT_TRUE(reply.Wait());
     EXPECT_EQ(reply.status, SCORE_DIAG_READ_CANCELLED);
     EXPECT_TRUE(handler->received_token.stop_requested());
-    EXPECT_TRUE(handler->promise.SetValue(Result<ByteVector>{ByteVector{std::byte{0x12}}}).has_value());
+    EXPECT_TRUE(handler->promise.SetValue(Result<ByteVector>{ByteVector{static_cast<std::byte>(0x12U)}}).has_value());
     EXPECT_EQ(reply.count, 1U);
 }
 }  // namespace

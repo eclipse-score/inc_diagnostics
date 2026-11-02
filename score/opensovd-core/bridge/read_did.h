@@ -17,6 +17,9 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
+#include "score/mw/diag/uds/read_data_by_identifier.h"
+#include <memory>
+
 extern "C" {
 #endif
 
@@ -24,6 +27,9 @@ typedef struct ScoreDiagReader ScoreDiagReader;
 typedef struct ScoreDiagReadRequest ScoreDiagReadRequest;
 
 typedef enum ScoreDiagReadStatus
+#ifdef __cplusplus
+    : int32_t
+#endif
 {
     SCORE_DIAG_READ_OK = 0,
     SCORE_DIAG_READ_NRC = 1,
@@ -42,9 +48,6 @@ void score_diag_read_release(ScoreDiagReadRequest* request);
 
 #ifdef __cplusplus
 }
-
-#include "score/mw/diag/uds/read_data_by_identifier.h"
-#include <memory>
 
 namespace score::opensovd::bridge
 {
