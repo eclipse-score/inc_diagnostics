@@ -44,7 +44,7 @@ fn runfile(path: &str) -> PathBuf {
 
 fn write_config(path: &Path, database: &Path, storage: &Path, port: u16) {
     let config = format!(
-        "[database]\ndir = {:?}\nexit_no_database_loaded = false\n\n\
+        "[database]\ndir = {:?}\nexit_no_database_loaded = true\n\n\
          [doip]\ntester_address = \"127.0.0.1\"\n\n\
          [runtime_update_config]\nstorage_dir = {:?}\n\n\
          [server]\naddress = \"127.0.0.1\"\nport = {port}\n",
@@ -58,19 +58,19 @@ fn write_config(path: &Path, database: &Path, storage: &Path, port: u16) {
 async fn cda_serves_version_and_components() {
     let binary = runfile("classic-diagnostic-adapter+/cda-main/opensovd-cda");
     let mdd = runfile("score/opensovd-cda/mdd/functional_groups.mdd");
-    let temp = env::temp_dir().join(format!("inc-diagnostics-cda-{}", std::process::id()));
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve test port");
+    let port = listener.local_addr().expect("test address").port();
+    let temp = env::temp_dir().join(format!("inc-diagnostics-cda-{}-{port}", std::process::id()));
     fs::create_dir_all(&temp).expect("create test directory");
+    let database = temp.join("database");
+    fs::create_dir_all(&database).expect("create database directory");
+    fs::copy(&mdd, database.join("functional_groups.mdd")).expect("copy MDD fixture");
     let config = temp.join("cda.toml");
     let storage = temp.join("storage");
     fs::create_dir_all(&storage).expect("create storage directory");
-    write_config(
-        &config,
-        mdd.parent().expect("MDD parent"),
-        &storage,
-        24000 + (std::process::id() % 10000) as u16,
-    );
+    write_config(&config, &database, &storage, port);
 
-    let port = 24000 + (std::process::id() % 10000) as u16;
+    drop(listener);
     let mut child = ChildGuard(
         Command::new(binary)
             .arg("--config")
@@ -83,18 +83,48 @@ async fn cda_serves_version_and_components() {
     let url = format!("http://127.0.0.1:{port}/vehicle/v15");
     let mut last_error = None;
     for _ in 0..120 {
+        if let Some(status) = child.0.try_wait().expect("check CDA process") {
+            panic!("CDA exited during startup: {status}");
+        }
         match Client::connect(&url) {
             Ok(client) => match client.list_components().send().await {
                 Ok(components) => {
+                    assert!(child.0.try_wait().expect("check CDA process").is_none());
                     assert!(components.items.is_empty());
+                    let apps = client.list_apps().send().await.expect("discover CDA apps");
+                    assert!(apps.items.iter().any(|app| app.id == "sovd2uds"));
+                    let network = client
+                        .app("sovd2uds")
+                        .data("networkstructure")
+                        .read()
+                        .send()
+                        .await
+                        .expect("read fixture network structure");
+                    let groups = network.data[0]["FunctionalGroups"]
+                        .as_array()
+                        .expect("functional groups collection");
+                    assert!(
+                        !groups.is_empty(),
+                        "MDD fixture must expose functional groups: {}",
+                        network.data
+                    );
+                    let example = runfile("score/examples/sovd-client/sovd-client");
+                    let output = Command::new(example)
+                        .arg(&url)
+                        .output()
+                        .expect("run example client");
+                    assert!(
+                        output.status.success(),
+                        "example client failed: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
                     return;
-                },
+                }
                 Err(error) => last_error = Some(error.to_string()),
             },
             Err(error) => last_error = Some(error.to_string()),
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
-    let _ = child.0.try_wait();
     panic!("CDA did not become reachable: {last_error:?}");
 }

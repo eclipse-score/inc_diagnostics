@@ -13,7 +13,9 @@ Its HTTP data envelope is `{"value":[49,46,48,46,48]}`: the bytes of `1.0.0`, no
 - A request retains shared handler state independently of the registration handle. Releasing registration prevents further use of that handle but does not invalidate started reads.
 - Cancel and release are separate operations. The caller must not use a released handle; cancel/release on one request must not race each other. Rust's uniquely owned request guard cancels before release on every exit path.
 - A bounded worker waits on the interruptible C++ future, never on the Tokio executor. At most eight requests may be outstanding per handler; additional starts complete BUSY without a new worker.
+- Duplicate registrations of the same handler share dispatch and admission state. Admission is released when the worker finishes, even if a completed request handle remains alive.
 - The handler's Read dispatch is serialized. Read must return its future promptly; the bridge cannot interrupt a handler blocked inside Read itself. Future waiting is interruptible even if the eventual producer ignores cancellation.
+- Cancellation is checked under the dispatch lock before invoking Read, so requests cancelled while queued do not start handler work.
 - C++ catches application exceptions before callback completion. The callback must not throw. Rust's callback consumes its boxed channel sender once and does not unwrap fallible operations; Rust panics must not unwind across C.
 
 The Rust Handler Send/Sync implementations rely on immutable opaque handles, C++ shared ownership, atomic request accounting,

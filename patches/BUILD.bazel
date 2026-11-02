@@ -12,6 +12,7 @@
 # *******************************************************************************
 exports_files([
     "classic-diagnostic-adapter-linkme.patch",
+    "classic-diagnostic-adapter-resource-ids.patch",
     "opensovd-core-expose-client.patch",
     "opensovd-core-expose-tokio.patch",
 ])

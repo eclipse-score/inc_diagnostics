@@ -27,6 +27,11 @@ rust_binary(
 )
 
 rust_test(
+    name = "client_test",
+    crate = ":sovd-client",
+)
+
+rust_test(
     name = "integration_test",
     srcs = ["tests/integration.rs"],
     edition = "2021",

@@ -17,7 +17,10 @@ git_override(
     module_name = "classic-diagnostic-adapter",
     commit = "ba10b0b21a06de37169996b18129da4bd478da69",
     patch_strip = 1,
-    patches = ["//patches:classic-diagnostic-adapter-linkme.patch"],
+    patches = [
+        "//patches:classic-diagnostic-adapter-linkme.patch",
+        "//patches:classic-diagnostic-adapter-resource-ids.patch",
+    ],
     remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
 )
 
@@ -103,7 +106,10 @@ bazel_dep(name = "score_crates", version = "0.0.10")
 bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
 
 # Use the qualified Ferrocene toolchain for the supported Linux target.
-register_toolchains("@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu")
+register_toolchains(
+    "@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu",
+    dev_dependency = True,
+)
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 

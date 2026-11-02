@@ -90,6 +90,36 @@ TEST(UdsErrorTest, ErrorMessageForUnknownCodeReturnsUndefined)
     EXPECT_EQ(MakeError(static_cast<NegativeResponseCode>(0x100)).Message(), "Undefined ErrorCode!");
 }
 
+TEST(UdsErrorTest, ConversionRejectsMatchingCodeFromUnrelatedDomain)
+{
+    class ForeignDomain final : public score::result::ErrorDomain
+    {
+      public:
+        std::string_view MessageFor(const score::result::ErrorCode&) const noexcept override
+        {
+            return "Foreign error";
+        }
+    };
+    const ForeignDomain domain;
+    const score::result::Error foreign{0x33, domain, ""};
+    EXPECT_FALSE(ToNegativeResponseCode(foreign).has_value());
+    const auto uds = MakeError(NegativeResponseCode::SecurityAccessDenied, "context");
+    EXPECT_EQ(ToNegativeResponseCode(uds), NegativeResponseCode::SecurityAccessDenied);
+}
+
+TEST(UdsErrorTest, ConversionPreservesManufacturerSpecificRange)
+{
+    for (score::result::ErrorCode code = 0xF0; code <= 0xFE; ++code)
+    {
+        const auto nrc = static_cast<NegativeResponseCode>(code);
+        EXPECT_EQ(ToNegativeResponseCode(code), nrc);
+        const auto error = MakeError(nrc);
+        EXPECT_EQ(ToNegativeResponseCode(error), nrc);
+        EXPECT_EQ(error.Message(), "Vehicle manufacturer specific conditions not correct");
+    }
+    EXPECT_FALSE(ToNegativeResponseCode(MakeError(static_cast<NegativeResponseCode>(0xEF))).has_value());
+}
+
 TEST(UdsErrorTest, MakeErrorWithDefaultEmptyUserMessageHasEmptyUserMessage)
 {
     const auto err = MakeError(NegativeResponseCode::GeneralReject);

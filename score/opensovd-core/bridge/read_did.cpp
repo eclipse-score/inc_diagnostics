@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -81,9 +82,6 @@ class ActiveRequest final
 
 struct RequestState
 {
-    explicit RequestState(ActiveRequest active_request) : active_request{std::move(active_request)} {}
-
-    ActiveRequest active_request;
     score::cpp::stop_source stop_source;
     void* context;
     ScoreDiagReadCompletion completion;
@@ -134,15 +132,19 @@ class DemoReader final : public ReadDataByIdentifier
     std::uint8_t nrc_;
 };
 
-void CompleteRead(const std::shared_ptr<RequestState>& state)
+void CompleteRead(const std::shared_ptr<RequestState>& state, HandlerState& owner)
 {
     try
     {
-        auto future = [&state]() {
-            auto& owner = state->active_request.owner();
-            std::lock_guard<std::mutex> guard{owner.dispatch_mutex};
-            return owner.handler->Read(MetaData{}, state->stop_source.get_token());
-        }();
+        std::unique_lock<std::mutex> guard{owner.dispatch_mutex};
+        if (state->stop_source.stop_requested())
+        {
+            guard.unlock();
+            state->completion(state->context, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
+            return;
+        }
+        auto future = owner.handler->Read(MetaData{}, state->stop_source.get_token());
+        guard.unlock();
         auto completion = future.Get(state->stop_source.get_token());
         if (state->stop_source.stop_requested())
         {
@@ -154,7 +156,7 @@ void CompleteRead(const std::shared_ptr<RequestState>& state)
         }
         else if (!completion.value().has_value())
         {
-            const auto nrc = score::mw::diag::uds::ToNegativeResponseCode(*completion.value().error());
+            const auto nrc = score::mw::diag::uds::ToNegativeResponseCode(completion.value().error());
             if (nrc.has_value())
             {
                 state->completion(
@@ -200,8 +202,28 @@ ReaderPtr RegisterReadDataByIdentifier(std::shared_ptr<ReadDataByIdentifier> han
     {
         return {};
     }
-    auto state = std::make_shared<HandlerState>();
-    state->handler = std::move(handler);
+    static std::mutex registry_mutex;
+    static std::map<ReadDataByIdentifier*, std::weak_ptr<HandlerState>> registry;
+    std::lock_guard<std::mutex> guard{registry_mutex};
+    for (auto entry = registry.begin(); entry != registry.end();)
+    {
+        if (entry->second.expired())
+        {
+            entry = registry.erase(entry);
+        }
+        else
+        {
+            ++entry;
+        }
+    }
+    auto& registered = registry[handler.get()];
+    auto state = registered.lock();
+    if (!state)
+    {
+        state = std::make_shared<HandlerState>();
+        state->handler = std::move(handler);
+        registered = state;
+    }
     return ReaderPtr{new ScoreDiagReader{std::move(state)}};
 }
 }  // namespace score::opensovd::bridge
@@ -237,12 +259,12 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
             completion(context, SCORE_DIAG_READ_BUSY, 0U, nullptr, 0U);
             return nullptr;
         }
-        auto state = std::make_shared<RequestState>(std::move(*active_request));
+        auto state = std::make_shared<RequestState>();
         state->context = context;
         state->completion = completion;
         request = std::make_unique<ScoreDiagReadRequest>(ScoreDiagReadRequest{state});
-        std::thread([state]() {
-            CompleteRead(state);
+        std::thread([state, active_request = std::move(*active_request)]() {
+            CompleteRead(state, active_request.owner());
         }).detach();
         return request.release();
     }

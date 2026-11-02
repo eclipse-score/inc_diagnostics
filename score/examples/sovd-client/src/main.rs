@@ -21,6 +21,10 @@ fn init_tracing() {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
+fn is_unsupported_collection(error: &opensovd_client::Error) -> bool {
+    matches!(error, opensovd_client::Error::ApiError { status, .. } if status.as_u16() == 404)
+}
+
 async fn run(client: &Client) -> Result<(), opensovd_client::Error> {
     let components = client.list_components().send().await?;
     for component in &components.items {
@@ -39,12 +43,38 @@ async fn run(client: &Client) -> Result<(), opensovd_client::Error> {
         tracing::info!("app: {} ({})", app.id, app.name);
     }
 
-    let areas = client.list_areas().send().await?;
-    for area in &areas.items {
-        tracing::info!("area: {} ({})", area.id, area.name);
+    match client.list_areas().send().await {
+        Ok(areas) => {
+            for area in &areas.items {
+                tracing::info!("area: {} ({})", area.id, area.name);
+            }
+        }
+        Err(error) if is_unsupported_collection(&error) => {}
+        Err(error) => return Err(error),
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_not_found_marks_a_collection_unsupported() {
+        let not_found = opensovd_client::Error::ApiError {
+            status: "404".parse().expect("status"),
+            details: None,
+        };
+        let server_error = opensovd_client::Error::ApiError {
+            status: "500".parse().expect("status"),
+            details: None,
+        };
+        let timeout = opensovd_client::Error::Timeout(std::time::Duration::from_secs(1));
+        assert!(is_unsupported_collection(&not_found));
+        assert!(!is_unsupported_collection(&server_error));
+        assert!(!is_unsupported_collection(&timeout));
+    }
 }
 
 #[tokio::main(flavor = "current_thread")]

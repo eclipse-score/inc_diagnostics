@@ -99,9 +99,11 @@ score::result::Error MakeError(const NegativeResponseCode code, const std::strin
 
 /// Extracts the UDS NegativeResponseCode from a score::result::ErrorCode if applicable.
 /// @param code The error code to inspect.
-/// @return The corresponding NegativeResponseCode enum value, or std::nullopt if code does not belong to the NRC error
-/// domain.
+/// @return The corresponding named or manufacturer-specific NRC, or std::nullopt if the numeric code is unsupported.
 [[nodiscard]] std::optional<NegativeResponseCode> ToNegativeResponseCode(const score::result::ErrorCode& code) noexcept;
+
+/// Extracts an NRC only when the error belongs to the UDS error domain.
+[[nodiscard]] std::optional<NegativeResponseCode> ToNegativeResponseCode(const score::result::Error& error) noexcept;
 
 /// Generic wrapper for an NRC byte constrained to the compile-time range [kMin, kMax].
 /// Use the named aliases below rather than instantiating this template directly.

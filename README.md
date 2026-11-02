@@ -171,6 +171,11 @@ use the same hermetic toolchains:
 hermetic GCC toolchain. Auto-detected system C/C++ toolchains are disabled.
 Using the Ferrocene toolchain does not itself qualify the application code.
 
+QNX dependency triples are not enabled in the shared crate index: the pinned
+`rules_rust` crate generator rejects `aarch64-unknown-nto-qnx800` during dependency
+generation. QNX support requires compatible dependency-generation tooling and
+separate validation; restoring those entries alone breaks Linux builds too.
+
 Strict C/C++ warnings are enabled. Warnings are errors for this repository's
 sources in both target and host builds; external dependencies and vendored C
 compiled by Rust build scripts retain nonfatal warnings.
@@ -192,5 +197,6 @@ This repository maintains local patches for upstream dependencies:
 | Patch | Purpose | Status |
 |-------|---------|--------|
 | `classic-diagnostic-adapter-linkme.patch` | Preserves linkme sections in CDA binary | Required — upstream does not include `--no-gc-sections` |
+| `classic-diagnostic-adapter-resource-ids.patch` | Includes routing IDs in CDA resource collections for typed client discovery | Required with the pinned CDA revision |
 | `opensovd-core-expose-tokio.patch` | Exposes tokio and other crate aliases | Required — upstream only exposes gateway target |
 | `opensovd-core-expose-client.patch` | Adds BUILD for opensovd-client | Required — upstream has no Bazel support for client crate |

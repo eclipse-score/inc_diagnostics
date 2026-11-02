@@ -29,6 +29,7 @@ cc_test(
     srcs = ["bridge/read_did_test.cpp"],
     deps = [
         ":read_did_bridge",
+        "//score/mw/diag/uds:negative_response_code",
         "@googletest//:gtest_main",
     ],
 )
