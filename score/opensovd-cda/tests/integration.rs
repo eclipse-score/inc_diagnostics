@@ -86,7 +86,12 @@ async fn cda_serves_version_and_components() {
         if let Some(status) = child.0.try_wait().expect("check CDA process") {
             panic!("CDA exited during startup: {status}");
         }
-        match Client::connect(&url) {
+        match Client::builder()
+            .base_uri(&url)
+            .expect("CDA URL")
+            .timeout(Duration::from_secs(1))
+            .build()
+        {
             Ok(client) => match client.list_components().send().await {
                 Ok(components) => {
                     assert!(child.0.try_wait().expect("check CDA process").is_none());

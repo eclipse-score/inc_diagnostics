@@ -158,6 +158,12 @@ When used with macros like `dash_license_checker`, it allows dynamic selection o
 
 ## 🔧 Toolchain Architecture
 
+The OpenSOVD gateway, CDA and client are root-only development prototypes.
+Run them with this repository as the root Bazel module. Their dependencies are
+marked `dev_dependency`, and their targets are not public integration APIs.
+Consumers of `score_diagnostics` do not inherit its root-only overrides or
+patches and must not depend on these prototype targets.
+
 All Linux targets, including the OpenSOVD gateway, CDA and example client, use
 the `score_diag_x86_64_linux` configuration. Host build tools and target code
 use the same hermetic toolchains:

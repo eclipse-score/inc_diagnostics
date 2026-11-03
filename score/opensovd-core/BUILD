@@ -43,7 +43,7 @@ rust_binary(
     edition = "2021",
     features = ["link_std_cpp_lib"],
     proc_macro_deps = ["@opensovd_core//:async-trait"],
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
     deps = [
         ":read_did_bridge",
         "@opensovd_core//:opensovd-core",
@@ -51,11 +51,23 @@ rust_binary(
         "@opensovd_core//:opensovd-providers",
         "@opensovd_core//:opensovd-server",
         "@opensovd_core//:tokio",
+        "@opensovd_core//:tracing-subscriber",
     ],
 )
 
 rust_test(
     name = "application_registration_test",
     crate = ":opensovd-gateway",
-    deps = ["@opensovd_core//:opensovd-client"],
+    deps = [
+        ":read_did_test_support",
+        "@opensovd_core//:opensovd-client",
+        "@opensovd_core//:tracing",
+    ],
+)
+
+cc_library(
+    name = "read_did_test_support",
+    testonly = True,
+    srcs = ["bridge/read_did_test_support.cpp"],
+    deps = [":read_did_bridge"],
 )

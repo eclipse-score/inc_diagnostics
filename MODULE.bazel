@@ -12,7 +12,7 @@
 # *******************************************************************************
 module(name = "score_diagnostics")
 
-bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0")
+bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0", dev_dependency = True)
 git_override(
     module_name = "classic-diagnostic-adapter",
     commit = "ba10b0b21a06de37169996b18129da4bd478da69",
@@ -24,7 +24,7 @@ git_override(
     remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
 )
 
-bazel_dep(name = "mbedtls-rs", version = "0.1.0")
+bazel_dep(name = "mbedtls-rs", version = "0.1.0", dev_dependency = True)
 git_override(
     module_name = "mbedtls-rs",
     commit = "00247f4486fd4c627db714657af1a9c067720786",
@@ -40,7 +40,7 @@ single_version_override(
     version = "0.17.0",
 )
 
-bazel_dep(name = "opensovd_core", version = "0.0.0")
+bazel_dep(name = "opensovd_core", version = "0.0.0", dev_dependency = True)
 git_override(
     module_name = "opensovd_core",
     commit = "deab38a7c0bd4ca7ded0151bfc8bb56d93779c44",
