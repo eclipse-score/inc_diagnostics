@@ -11,5 +11,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-# Run the pinned CodeQL static analysis with:
+# CodeQL static analysis uses the repository's existing GCC toolchain.
+# Run it with:
 # bazel run --config=codeql //quality/static_analysis:codeql_lint -- --target //score/mw/diag/...
+common:codeql --config=score_diag_x86_64_linux
+common:codeql --platform_suffix=codeql
+common:codeql --sandbox_writable_path=/var/tmp
+common:codeql --nouse_action_cache
+common:codeql --noremote_accept_cached
+common:codeql --noremote_upload_local_results
+common:codeql --disk_cache=

@@ -50,15 +50,6 @@ common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
 common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
 common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
 
-# CodeQL static analysis using the repository's existing GCC toolchain
-common:codeql --config=score_diag_x86_64_linux
-common:codeql --platform_suffix=codeql
-common:codeql --sandbox_writable_path=/var/tmp
-common:codeql --nouse_action_cache
-common:codeql --noremote_accept_cached
-common:codeql --noremote_upload_local_results
-common:codeql --disk_cache=
-
 import %workspace%/quality/static_analysis/static_analysis.bazelrc
 
 # Import custom user settings
