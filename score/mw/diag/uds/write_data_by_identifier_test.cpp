@@ -40,7 +40,7 @@ TEST(WriteDataByIdentifierTest, SimpleWriteDataByIdentifierBridgesResultToFuture
     SimpleWriteDataByIdentifierForTest writer;
     MetaData meta_data{};
     score::cpp::stop_token stop_token{};
-    ByteVector payload{std::byte{0x00}};
+    ByteVector payload{static_cast<std::byte>(0x00U)};
 
     WriteDataByIdentifier& full_interface = writer;
     auto future = full_interface.Write(payload, meta_data, stop_token);
@@ -58,7 +58,7 @@ TEST(WriteDataByIdentifierTest, SimpleWriteDataByIdentifierPropagatesError)
 
     MetaData meta_data{};
     score::cpp::stop_token stop_token{};
-    ByteVector payload{std::byte{0x00}};
+    ByteVector payload{static_cast<std::byte>(0x00U)};
 
     WriteDataByIdentifier& full_interface = writer;
     auto future = full_interface.Write(payload, meta_data, stop_token);

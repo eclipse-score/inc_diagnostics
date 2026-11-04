@@ -1,5 +1,5 @@
 # *******************************************************************************
-# Copyright (c) 2026 Contributors to the Eclipse Foundation
+# Copyright (c) 2025 Contributors to the Eclipse Foundation
 #
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -10,73 +10,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-module(name = "score_diagnostics")
-
-bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0")
-git_override(
-    module_name = "classic-diagnostic-adapter",
-    commit = "a5363acb416c289d301577252d3b4b6750df044d",
-    patch_strip = 1,
-    patches = ["//patches:classic-diagnostic-adapter-linkme.patch"],
-    remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
+module(
+    name = "cpp_rust_template_repository",
+    version = "1.0",
 )
 
-bazel_dep(name = "mbedtls-rs", version = "0.1.0")
-git_override(
-    module_name = "mbedtls-rs",
-    commit = "00247f4486fd4c627db714657af1a9c067720786",
-    remote = "https://github.com/eclipse-opensovd/mbedtls-rs.git",
-)
-
-bazel_dep(name = "opensovd_core", version = "0.0.0")
-git_override(
-    module_name = "opensovd_core",
-    commit = "29e806f3226cbce5fb9985924de737d8e3fb6a47",
-    patch_strip = 1,
-    patches = [
-        "//patches:opensovd-core-expose-tokio.patch",
-        "//patches:opensovd-core-expose-client.patch",
-    ],
-    remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
-)
-
-bazel_dep(name = "score_fault_lib", version = "0.0.1")
-git_override(
-    module_name = "score_fault_lib",
-    commit = "d8ba61084bc71bad56902363f5270699aa8cae71",  # fix/bzlmod: external consumer smoke test
-    remote = "https://github.com/eclipse-opensovd/fault-lib.git",
-)
-
-# testing-utils is a transitive dependency of score_fault_lib (not in any
-# public registry). Bzlmod only applies overrides from the root module, so
-# the git_override from fault-lib's MODULE.bazel does not apply here;
-# replicate it.
-git_override(
-    module_name = "testing-utils",
-    commit = "a847c7464cfa47e000141631d1223b92560d2e58",  # tag v0.2.0
-    remote = "https://github.com/qorix-group/testing_tools.git",
-)
-
-# score-baselibs is a transitive dependency of score_fault_lib (not in any
-# public registry); replicate the git_override from fault-lib's MODULE.bazel.
-git_override(
-    module_name = "score-baselibs",
-    commit = "46923f5c4f302bd9feae0261588687aaf32e3c5c",
-    remote = "https://github.com/eclipse-score/baselibs.git",
-)
-
-# rules_boost is a transitive dependency of score_fault_lib; its bazel_dep has
-# no version, so replicate the archive_override from fault-lib's MODULE.bazel.
-archive_override(
-    module_name = "rules_boost",
-    strip_prefix = "rules_boost-master",
-    urls = ["https://github.com/nelhage/rules_boost/archive/refs/heads/master.tar.gz"],
-)
-
-bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
-
-bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.4", dev_dependency = True)
+bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.1", dev_dependency = True)
+bazel_dep(name = "score_toolchains_rust", version = "0.8.0", dev_dependency = True)
 
 gcc = use_extension("@score_bazel_cpp_toolchains//extensions:gcc.bzl", "gcc", dev_dependency = True)
 gcc.toolchain(
@@ -86,135 +26,86 @@ gcc.toolchain(
     use_default_package = True,
     version = "12.2.0",
 )
-use_repo(
-    gcc,
-    "score_gcc_x86_64_toolchain",
+gcc.toolchain(
+    name = "score_gcc_aarch64_toolchain",
+    target_cpu = "aarch64",
+    target_os = "linux",
+    use_default_package = True,
+    version = "12.2.0",
 )
+use_repo(gcc, "score_gcc_aarch64_toolchain", "score_gcc_x86_64_toolchain")
 
-bazel_dep(name = "rules_python", version = "1.8.3", dev_dependency = True)
+bazel_dep(name = "rules_python", version = "1.5.1")
 
-# Python 3.12: Required for testing infrastructure and code generation tools
-_PYTHON_VERSION = "3.12"
+PYTHON_VERSION = "3.12"
 
-python = use_extension(
-    "@rules_python//python/extensions:python.bzl",
-    "python",
-    dev_dependency = True,
-)
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     is_default = True,
-    python_version = _PYTHON_VERSION,
+    python_version = PYTHON_VERSION,
 )
-
-pip = use_extension(
-    "@rules_python//python/extensions:pip.bzl",
-    "pip",
-    dev_dependency = True,
-)
-pip.parse(
-    envsubst = ["PIP_INDEX_URL"],
-    extra_pip_args = ["--index-url=${PIP_INDEX_URL:-https://pypi.org/simple/}"],
-    hub_name = "module_template_docs_hub_env",
-    python_version = _PYTHON_VERSION,
-    requirements_lock = "@score_docs_as_code//src:requirements.txt",
-)
-use_repo(pip, "module_template_docs_hub_env")
 
 # Add GoogleTest dependency
-bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # Rust rules for Bazel
 bazel_dep(name = "rules_rust", version = "0.70.0")
-bazel_dep(name = "score_crates", version = "0.0.10")
-
-bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
-
-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
-rust.toolchain(
-    edition = "2021",
-    versions = ["1.88.0"],
-)
-use_repo(rust, "rust_toolchains")
-
-register_toolchains("@rust_toolchains//:all")
-
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
-
-# any further required individual rust creates shall get added below
-crate.spec(
-    package = "futures",
-    version = "0.3.31",
-)
-crate.spec(
-    package = "indexmap",
-    version = "2.11.4",
-)
-crate.spec(
-    package = "serde_json",
-    version = "1.0.143",
-)
-crate.spec(
-    package = "tracing",
-    version = "=0.1.41",
-)
-crate.spec(
-    features = [
-        "ansi",
-        "env-filter",
-        "fmt",
-        "std",
-    ],
-    package = "tracing-subscriber",
-    version = "=0.3.19",
-)
-crate.spec(
-    features = [
-        "macros",
-        "net",
-        "rt",
-        "sync",
-        "time",
-    ],
-    package = "tokio",
-    version = "1.47.1",
-)
-crate.from_specs(
-    name = "score_crate_index",
-    supported_platform_triples = [
-        "aarch64-unknown-linux-gnu",
-        "x86_64-unknown-linux-gnu",
-        "x86_64-unknown-none",
-    ],
-)
-use_repo(crate, "score_crate_index")
 
 # C/C++ rules for Bazel
-bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "rules_cc", version = "0.2.17")
 
-# functional deps
-bazel_dep(name = "score_baselibs", version = "0.2.9")
+# LLVM Toolchains Rules - host configuration
+bazel_dep(name = "toolchains_llvm", version = "1.4.0")
 
-# NOTE: score_baselibs has flatbuffers@25.12.19 as a non-dev dependency and that one
-# transitively pulls grpc -> googleapis -> grpc-java@1.66.0 into all consumers.
-# grpc-java@1.66.0 contains a broken use_repo declaration that Bazel 8.x
-# rejects as a hard error.
-#
-# The upstream fix in flatbuffers (google/flatbuffers@2b8e4d3) upgrades grpc to
-# 1.76.0, which drops the problematic grpc-java@1.66.0 dependency. Until such
-# commmit is included in a flatbuffers release, this direct dependency of a
-# transitive dependency serves as a mitigation.
-#
-# TODO: Remove below bazel_dep once flatbuffers releases a version which contains the following fix:
-# https://github.com/google/flatbuffers/commit/2b8e4d3af04a6c38c7a7e19460fc26faa3608c9e
-bazel_dep(name = "grpc", version = "1.76.0")
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+    cxx_standard = {"": "c++17"},
+    llvm_version = "19.1.0",
+)
+use_repo(llvm, "llvm_toolchain")
+use_repo(llvm, "llvm_toolchain_llvm")
+
+register_toolchains("@llvm_toolchain//:all")
 
 # tooling
-bazel_dep(name = "score_tooling", version = "1.1.2", dev_dependency = True)
-bazel_dep(name = "score_devcontainer", version = "1.7.0", dev_dependency = True)
-bazel_dep(name = "aspect_rules_lint", version = "2.3.0", dev_dependency = True)
-bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
+bazel_dep(name = "score_tooling", version = "1.1.2")
+bazel_dep(name = "aspect_rules_lint", version = "2.3.0")
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1")
 
-# docs-as-code
-bazel_dep(name = "score_docs_as_code", version = "4.6.0")
+#docs-as-code
+bazel_dep(name = "score_docs_as_code", version = "2.0.3")
+bazel_dep(name = "score_baselibs", version = "0.2.8")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
 
-bazel_dep(name = "score_process", version = "1.6.0", dev_dependency = True)
+# FIXME: To be removed after https://github.com/eclipse-score/baselibs/issues/266 is resolved
+single_version_override(
+    module_name = "grpc-java",
+    version = "1.70.0",
+)
+
+# ---------------------------------------------------------------------------
+# OpenSOVD upstream dependencies (pinned to Bazel-capable commits)
+#
+# opensovd-core  – gateway/server library
+#   Tracked by: https://github.com/eclipse-opensovd/opensovd-core/pull/90
+#   Pinned commit: accdb704cef8043a1b1b195da0b8845ce22a95be
+#
+# classic-diagnostic-adapter (CDA) – SOVD<->UDS adapter library
+#   Tracked by: https://github.com/eclipse-opensovd/classic-diagnostic-adapter/pull/348
+#   Pinned commit: 0656ae80ebf04b42329b41b47ce3947166753f92
+# ---------------------------------------------------------------------------
+
+bazel_dep(name = "opensovd_core")
+git_override(
+    module_name = "opensovd_core",
+    commit = "accdb704cef8043a1b1b195da0b8845ce22a95be",
+    remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
+)
+
+bazel_dep(name = "classic-diagnostic-adapter")
+git_override(
+    module_name = "classic-diagnostic-adapter",
+    commit = "0656ae80ebf04b42329b41b47ce3947166753f92",
+    remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
+)

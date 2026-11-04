@@ -13,12 +13,9 @@
 
 load("@rules_rust//rust:defs.bzl", "rust_test")
 
-genrule(
-    name = "cda_binary",
-    srcs = ["@classic-diagnostic-adapter//:opensovd-cda"],
-    outs = ["opensovd-cda"],
-    cmd = "cp $(location @classic-diagnostic-adapter//:opensovd-cda) $@ && chmod +x $@",
-    visibility = ["//visibility:public"],
+alias(
+    name = "opensovd-cda",
+    actual = "@classic-diagnostic-adapter//:opensovd-cda",
 )
 
 rust_test(
@@ -28,7 +25,8 @@ rust_test(
         "mdd/functional_groups.mdd",
         "mdd/functional_groups.mdd.license",
         "opensovd-cda.sample.toml",
-        ":cda_binary",
+        ":opensovd-cda",
+        "//score/examples/sovd-client:sovd-client",
     ],
     deps = [
         "@opensovd_core//:opensovd-client",

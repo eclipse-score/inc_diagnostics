@@ -25,9 +25,9 @@ namespace
 class SimpleRoutineControlForTest : public SimpleRoutineControl
 {
   public:
-    Result<ByteVector> start_result{ByteVector{std::byte{0x01}}};
-    Result<ByteVector> stop_result{ByteVector{std::byte{0x02}}};
-    Result<ByteVector> request_results_result{ByteVector{std::byte{0x03}}};
+    Result<ByteVector> start_result{ByteVector{static_cast<std::byte>(0x01U)}};
+    Result<ByteVector> stop_result{ByteVector{static_cast<std::byte>(0x02U)}};
+    Result<ByteVector> request_results_result{ByteVector{static_cast<std::byte>(0x03U)}};
 
     Result<ByteVector> Start(ByteView /*input*/, const MetaData& /*meta_data*/) override
     {
@@ -52,7 +52,7 @@ TEST(RoutineControlTest, SimpleRoutineControlBridgesResultToFuture)
     SimpleRoutineControlForTest routine;
     MetaData meta_data{};
     score::cpp::stop_token stop_token{};
-    ByteVector payload{std::byte{0xFF}};
+    ByteVector payload{static_cast<std::byte>(0xFFU)};
 
     RoutineControl& full_interface = routine;
 
@@ -61,21 +61,21 @@ TEST(RoutineControlTest, SimpleRoutineControlBridgesResultToFuture)
     ASSERT_TRUE(start_outer.has_value());
     auto start_res = start_outer.value();
     ASSERT_TRUE(start_res.has_value());
-    EXPECT_EQ(start_res.value()[0], std::byte{0x01});
+    EXPECT_EQ(start_res.value()[0], static_cast<std::byte>(0x01U));
 
     auto stop_future = full_interface.Stop(payload, meta_data, stop_token);
     auto stop_outer = stop_future.Get(stop_token);
     ASSERT_TRUE(stop_outer.has_value());
     auto stop_res = stop_outer.value();
     ASSERT_TRUE(stop_res.has_value());
-    EXPECT_EQ(stop_res.value()[0], std::byte{0x02});
+    EXPECT_EQ(stop_res.value()[0], static_cast<std::byte>(0x02U));
 
     auto req_future = full_interface.RequestResults(payload, meta_data, stop_token);
     auto req_outer = req_future.Get(stop_token);
     ASSERT_TRUE(req_outer.has_value());
     auto req_res = req_outer.value();
     ASSERT_TRUE(req_res.has_value());
-    EXPECT_EQ(req_res.value()[0], std::byte{0x03});
+    EXPECT_EQ(req_res.value()[0], static_cast<std::byte>(0x03U));
 }
 
 TEST(RoutineControlTest, SimpleRoutineControlPropagatesError)
@@ -85,7 +85,7 @@ TEST(RoutineControlTest, SimpleRoutineControlPropagatesError)
 
     MetaData meta_data{};
     score::cpp::stop_token stop_token{};
-    ByteVector payload{std::byte{0xFF}};
+    ByteVector payload{static_cast<std::byte>(0xFFU)};
 
     RoutineControl& full_interface = routine;
 

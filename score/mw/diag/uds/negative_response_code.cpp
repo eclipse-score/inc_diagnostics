@@ -22,6 +22,11 @@ namespace
 [[nodiscard]] constexpr std::optional<std::string_view> GetMessageForNegativeResponseCode(
     const NegativeResponseCode response_code) noexcept
 {
+    const auto code = static_cast<score::result::ErrorCode>(response_code);
+    if (code >= 0xF0 && code <= 0xFE)
+    {
+        return "Vehicle manufacturer specific conditions not correct";
+    }
     switch (response_code)
     {
         case NegativeResponseCode::GeneralReject:
@@ -155,13 +160,8 @@ class DiagUdsErrorDomain final : public score::result::ErrorDomain
   public:
     std::string_view MessageFor(const score::result::ErrorCode& code) const noexcept override
     {
-        const auto response_code = ToNegativeResponseCode(code);
-        if (!response_code.has_value())
-        {
-            return "Undefined ErrorCode!";
-        }
-
-        return GetMessageForNegativeResponseCode(response_code.value()).value();
+        return GetMessageForNegativeResponseCode(static_cast<NegativeResponseCode>(code))
+            .value_or("Undefined ErrorCode!");
     }
 };
 
@@ -186,6 +186,16 @@ const score::result::ErrorDomain& GetDiagUdsErrorDomain() noexcept
     return GetMessageForNegativeResponseCode(response_code).has_value()
                ? std::optional<NegativeResponseCode>{response_code}
                : std::nullopt;
+}
+
+std::optional<NegativeResponseCode> ToNegativeResponseCode(const score::result::Error& error) noexcept
+{
+    const auto response_code = ToNegativeResponseCode(*error);
+    if (!response_code.has_value() || error != MakeError(*response_code))
+    {
+        return std::nullopt;
+    }
+    return response_code;
 }
 
 score::result::Error MakeError(const NegativeResponseCode code, const std::string_view user_message) noexcept

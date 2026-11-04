@@ -17,12 +17,21 @@ rust_binary(
     name = "sovd-client",
     srcs = ["src/main.rs"],
     edition = "2021",
-    visibility = ["//visibility:public"],
+    visibility = ["//score/opensovd-cda:__pkg__"],
     deps = [
         "@opensovd_core//:opensovd-client",
         "@opensovd_core//:tokio",
         "@score_crate_index//:tracing",
         "@score_crate_index//:tracing-subscriber",
+    ],
+)
+
+rust_test(
+    name = "client_test",
+    crate = ":sovd-client",
+    deps = [
+        "@opensovd_core//:opensovd-core",
+        "@opensovd_core//:opensovd-server",
     ],
 )
 

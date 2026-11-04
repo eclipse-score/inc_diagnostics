@@ -31,6 +31,9 @@ jobs:
   linux-build:
     name: Build & test on host for target platform x86_64-linux
     runs-on: ubuntu-24.04
+    env:
+      BAZEL_BUILD_TARGETS: //examples/... //tests/... //score/...
+      BAZEL_TEST_TARGETS: //examples/... //tests/... //score/...
 
     steps:
       - name: Checkout Repository
@@ -41,19 +44,7 @@ jobs:
         with:
           unique-cache-name: ${{ github.workflow }}-${{ github.job }}
 
-      - name: Bazel Build
-        run: |
-          TARGETS=(//examples/... //tests/... //score/mw/...)
-
-          bazel build --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
-
-      - name: Bazel Test
-        run: |
-          TARGETS=(//examples/... //tests/... //score/mw/...)
-
-          bazel test --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
-
-      - name: Install QM native dependencies
+      - name: Install native dependencies
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
@@ -61,14 +52,14 @@ jobs:
             libssl-dev \
             pkg-config
 
-      - name: Bazel Build QM diagnostics
+      - name: Bazel Build
         run: |
           bazel build --config=score_diag_x86_64_linux_qm -- \
             //score/opensovd-cda \
             //score/opensovd-core:opensovd-gateway \
             //score/examples/sovd-client
 
-      - name: Bazel Test QM diagnostics
+      - name: Bazel Test
         run: |
           TEST_TARGETS=()
           while IFS= read -r target; do
@@ -76,8 +67,4 @@ jobs:
           done < <(bazel query \
             'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-core/... + //score/examples/...)')
 
-          if ((${#TEST_TARGETS[@]} == 0)); then
-            echo "No QM diagnostic test targets found; build verification is covered above."
-          else
-            bazel test --config=score_diag_x86_64_linux_qm -- "${TEST_TARGETS[@]}"
-          fi
+          bazel test --config=score_diag_x86_64_linux_qm -- "${TEST_TARGETS[@]}"

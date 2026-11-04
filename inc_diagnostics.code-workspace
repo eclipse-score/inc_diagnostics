@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../capi"
+		},
+		{
+			"path": "../headers"
+		}
+	],
+	"settings": {
+		"bazel.lsp.command": "bazel",
+		"bazel.lsp.args": [
+			"run",
+			"//:starpls_server"
+		],
+		"remote.autoForwardPorts": true,
+		"remote.autoForwardPortsSource": "process",
+		"esbonio.logging.level": "warning"
+	}
+}
