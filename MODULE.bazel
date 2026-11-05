@@ -174,7 +174,7 @@ bazel_dep(name = "score_baselibs", version = "0.2.9")
 #
 # The upstream fix in flatbuffers (google/flatbuffers@2b8e4d3) upgrades grpc to
 # 1.76.0, which drops the problematic grpc-java@1.66.0 dependency. Until such
-# commmit is included in a flatbuffers release, this direct dependency of a
+# commit is included in a flatbuffers release, this direct dependency of a
 # transitive dependency serves as a mitigation.
 #
 # TODO: Remove below bazel_dep once flatbuffers releases a version which contains the following fix:

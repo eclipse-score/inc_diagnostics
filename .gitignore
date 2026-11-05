@@ -46,7 +46,7 @@
 
 # Bazel
 bazel-*
-#MODULE.bazel.lock
+# MODULE.bazel.lock is tracked to ensure reproducible builds across contributors
 user.bazelrc
 
 # VS Code workspace files (user-specific)

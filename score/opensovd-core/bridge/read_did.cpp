@@ -33,6 +33,9 @@ using score::mw::diag::uds::NegativeResponseCode;
 using score::mw::diag::uds::ReadDataByIdentifier;
 using score::mw::diag::uds::Result;
 
+/// Maximum number of concurrent in-flight read requests per handler.
+constexpr std::size_t kMaxConcurrentReads = 8U;
+
 struct HandlerState
 {
     std::shared_ptr<ReadDataByIdentifier> handler;
@@ -46,7 +49,7 @@ class ActiveRequest final
     static std::optional<ActiveRequest> TryAcquire(const std::shared_ptr<HandlerState>& owner)
     {
         auto active = owner->active_requests.load();
-        while (active < 8U)
+        while (active < kMaxConcurrentReads)
         {
             if (owner->active_requests.compare_exchange_weak(active, active + 1U))
             {
@@ -277,7 +280,10 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
 
 extern "C" void score_diag_read_cancel(ScoreDiagReadRequest* request)
 {
-    score::cpp::ignore = request->state->stop_source.request_stop();
+    if (request != nullptr)
+    {
+        score::cpp::ignore = request->state->stop_source.request_stop();
+    }
 }
 
 extern "C" void score_diag_read_release(ScoreDiagReadRequest* request)
