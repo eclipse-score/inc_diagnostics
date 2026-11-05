@@ -1,0 +1,67 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+#
+# Rationale: Expose hyper, hyper-util, http, serde_json, serde, bytes, and axum
+# crates from opensovd-core's crate_index. These are needed by the SOVD gateway
+# proxy in score to forward requests to downstream CDA instances.
+#
+diff --git a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -48,6 +48,46 @@
+     actual = "//opensovd-client:opensovd_client",
+ )
+ 
++alias(
++    name = "hyper",
++    actual = "@crate_index//:hyper",
++)
++
++alias(
++    name = "hyper-util",
++    actual = "@crate_index//:hyper-util",
++)
++
++alias(
++    name = "http",
++    actual = "@crate_index//:http",
++)
++
++alias(
++    name = "http-body-util",
++    actual = "@crate_index//:http-body-util",
++)
++
++alias(
++    name = "serde_json",
++    actual = "@crate_index//:serde_json",
++)
++
++alias(
++    name = "serde",
++    actual = "@crate_index//:serde",
++)
++
++alias(
++    name = "bytes",
++    actual = "@crate_index//:bytes",
++)
++
++alias(
++    name = "axum",
++    actual = "@crate_index//:axum",
++)
++
+ exports_files([
+     "Cargo.lock",
+     "Cargo.toml",

@@ -1,0 +1,63 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index b85730d..0cb4329 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -18,3 +18,58 @@ alias(
+     name = "opensovd-gateway",
+     actual = "//opensovd-cli/gateway:opensovd_gateway",
+ )
++
++alias(
++    name = "opensovd-core",
++    actual = "//opensovd-core:opensovd_core",
++)
++
++alias(
++    name = "opensovd-models",
++    actual = "//opensovd-models:opensovd_models",
++)
++
++alias(
++    name = "opensovd-providers",
++    actual = "//opensovd-providers:opensovd_providers",
++)
++
++alias(
++    name = "opensovd-server",
++    actual = "//opensovd-server:opensovd_server",
++)
++
++alias(
++    name = "opensovd-client",
++    actual = "//opensovd-client:opensovd_client",
++)
++
++alias(
++    name = "tokio",
++    actual = "@crate_index//:tokio",
++)
++
++alias(
++    name = "tracing",
++    actual = "@crate_index//:tracing",
++)
++
++alias(
++    name = "tracing-subscriber",
++    actual = "@crate_index//:tracing-subscriber",
++)
++
++alias(
++    name = "async-trait",
++    actual = "@crate_index//:async-trait",
++)
++
++alias(
++    name = "serde_json",
++    actual = "@crate_index//:serde_json",
++)
++
++alias(
++    name = "axum",
++    actual = "@crate_index//:axum",
++)

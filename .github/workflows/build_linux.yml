@@ -27,10 +27,17 @@ on:
     types: [checks_requested]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   linux-build:
     name: Build & test on host for target platform x86_64-linux
     runs-on: ubuntu-24.04
+    env:
+      BAZEL_BUILD_TARGETS: //examples/... //tests/... //score/...
+      BAZEL_TEST_TARGETS: //examples/... //tests/... //score/...
 
     steps:
       - name: Checkout Repository
@@ -41,24 +48,27 @@ jobs:
         with:
           unique-cache-name: ${{ github.workflow }}-${{ github.job }}
 
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            liblzma-dev \
+            libssl-dev \
+            pkg-config
+
       - name: Bazel Build
         run: |
-          TARGETS=(//examples/... //tests/...)
-
-          # consider //score/... targets only in case such directory actually contains any Bazel packages.
-          if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
-            TARGETS+=(//score/...)
-          fi
-
-          bazel build --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
+          bazel build --config=score_diag_x86_64_linux_qm -- \
+            //score/opensovd-cda \
+            //score/opensovd-core:opensovd-gateway \
+            //score/examples/sovd-client
 
       - name: Bazel Test
         run: |
-          TARGETS=(//examples/... //tests/...)
+          TEST_TARGETS=()
+          while IFS= read -r target; do
+            TEST_TARGETS+=("${target}")
+          done < <(bazel query \
+            'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-core/... + //score/examples/...)')
 
-          # consider //score/... targets only in case such directory actually contains any Bazel packages.
-          if find score -type f \( -name BUILD -o -name BUILD.bazel \) | grep -q .; then
-            TARGETS+=(//score/...)
-          fi
-
-          bazel test --config=score_diag_x86_64_linux -- "${TARGETS[@]}"
+          bazel test --config=score_diag_x86_64_linux_qm -- "${TEST_TARGETS[@]}"

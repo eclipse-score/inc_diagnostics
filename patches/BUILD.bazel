@@ -10,17 +10,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-name: Formatting checks
-permissions:
-  contents: read
-  actions: write
-on:
-  pull_request:
-    types: [opened, reopened, synchronize]
-  merge_group:
-    types: [checks_requested]
-jobs:
-  formatting-check:
-    uses: eclipse-score/cicd-workflows/.github/workflows/format.yml@d31fdc0ba74985a71acbfa1e994fd45e2bbc5fad
-    with:
-      bazel-target: "test --config=score_diag_x86_64_linux --test_output=errors //:format.check"
+exports_files([
+    "classic-diagnostic-adapter-linkme.patch",
+    "classic-diagnostic-adapter-resource-ids.patch",
+    "opensovd-core-expose-client.patch",
+    "opensovd-core-expose-deps.patch",
+    "opensovd-core-expose-hyper.patch",
+    "opensovd-core-expose-tokio.patch",
+])

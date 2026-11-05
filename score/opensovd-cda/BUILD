@@ -10,10 +10,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-cc_test(
-    name = "cpp_test_main",
-    srcs = ["test_main.cpp"],
+
+load("@rules_rust//rust:defs.bzl", "rust_test")
+
+alias(
+    name = "opensovd-cda",
+    actual = "@classic-diagnostic-adapter//:opensovd-cda",
+)
+
+rust_test(
+    name = "integration_test",
+    srcs = ["tests/integration.rs"],
+    data = [
+        "mdd/functional_groups.mdd",
+        "mdd/functional_groups.mdd.license",
+        "opensovd-cda.sample.toml",
+        ":opensovd-cda",
+        "//score/examples/sovd-client:sovd-client",
+    ],
     deps = [
-        "@googletest//:gtest_main",  # GoogleTest dependency via Bazel Modules
+        "@opensovd_core//:opensovd-client",
+        "@opensovd_core//:tokio",
     ],
 )
