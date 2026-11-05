@@ -49,6 +49,9 @@ bazel-*
 #MODULE.bazel.lock
 user.bazelrc
 
+# VS Code workspace files (user-specific)
+*.code-workspace
+
 # Ruff
 .ruff_cache
 

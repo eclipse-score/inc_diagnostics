@@ -277,7 +277,7 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
 
 extern "C" void score_diag_read_cancel(ScoreDiagReadRequest* request)
 {
-    [[maybe_unused]] const bool stop_requested = request->state->stop_source.request_stop();
+    score::cpp::ignore = request->state->stop_source.request_stop();
 }
 
 extern "C" void score_diag_read_release(ScoreDiagReadRequest* request)
