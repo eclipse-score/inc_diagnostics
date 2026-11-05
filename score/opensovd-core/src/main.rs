@@ -74,7 +74,7 @@ async fn topology_with_sensor(sensor: &application::SensorSource) -> Result<Topo
         let mut registry = topology.write().await;
         registry.add_component(Component::new("score-demo", "SCORE Demo").with_data_provider(provider));
         registry
-            .add_app(App::new("score-diagnostics", "SCORE Diagnostics", "score-demo").with_data_provider(app_provider));
+            .add_app(App::new("score-diagnostics", "SCORE Diagnostics").with_component_id("score-demo").with_data_provider(app_provider));
         registry.add_app(sensor.register()?.into_app(Duration::from_secs(2))?);
     }
     Ok(topology)
@@ -93,7 +93,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // If a CDA backend is configured, register a proxy that forwards
     // component-level requests (including /faults) to the CDA instance.
     if let Some(cda_url) = cda_backend_url() {
-        let backend = cda_proxy::CdaBackend::new(&cda_url)?;
+        let backend = cda_proxy::CdaBackend::new(&cda_url)
+            .map_err(|e| -> Box<dyn std::error::Error> { format!("CDA proxy setup: {e}").into() })?;
         let proxy = cda_proxy::cda_proxy_router(backend);
         builder = builder.service("/sovd/v1/cda", proxy);
     }

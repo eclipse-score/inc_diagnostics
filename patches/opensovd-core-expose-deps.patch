@@ -1,28 +1,37 @@
-# *******************************************************************************
-# Copyright (c) 2026 Contributors to the Eclipse Foundation
-#
-# See the NOTICE file(s) distributed with this work for additional
-# information regarding copyright ownership.
-#
-# This program and the accompanying materials are made available under the
-# terms of the Apache License Version 2.0 which is available at
-# https://www.apache.org/licenses/LICENSE-2.0
-#
-# SPDX-License-Identifier: Apache-2.0
-# *******************************************************************************
-#
-# Rationale: Expose additional crate_index dependencies from opensovd-core that
-# are needed by the score diagnostics gateway. tokio and async-trait are needed
-# for the bridge layer; axum for the CDA reverse proxy; serde_json and tracing
-# for logging and serialisation.
-#
 diff --git a/BUILD.bazel b/BUILD.bazel
+index b85730d..0cb4329 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -38,6 +38,36 @@
-     actual = "//opensovd-server:opensovd_server",
+@@ -18,3 +18,58 @@ alias(
+     name = "opensovd-gateway",
+     actual = "//opensovd-cli/gateway:opensovd_gateway",
  )
- 
++
++alias(
++    name = "opensovd-core",
++    actual = "//opensovd-core:opensovd_core",
++)
++
++alias(
++    name = "opensovd-models",
++    actual = "//opensovd-models:opensovd_models",
++)
++
++alias(
++    name = "opensovd-providers",
++    actual = "//opensovd-providers:opensovd_providers",
++)
++
++alias(
++    name = "opensovd-server",
++    actual = "//opensovd-server:opensovd_server",
++)
++
++alias(
++    name = "opensovd-client",
++    actual = "//opensovd-client:opensovd_client",
++)
++
 +alias(
 +    name = "tokio",
 +    actual = "@crate_index//:tokio",
@@ -52,7 +61,3 @@ diff --git a/BUILD.bazel b/BUILD.bazel
 +    name = "axum",
 +    actual = "@crate_index//:axum",
 +)
-+
- alias(
-     name = "opensovd-mocks",
-     actual = "//opensovd-mocks:opensovd_mocks",

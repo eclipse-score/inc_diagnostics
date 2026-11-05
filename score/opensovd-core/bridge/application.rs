@@ -88,7 +88,7 @@ impl RegisteredApplication {
         let provider = provider
             .build()
             .map_err(|error| DataError::Internal(error.to_string()))?;
-        Ok(App::new(id, name, component).with_data_provider(provider))
+        Ok(App::new(id, name).with_component_id(component).with_data_provider(provider))
     }
 }
 

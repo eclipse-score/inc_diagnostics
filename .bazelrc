@@ -1,42 +1,73 @@
+# *******************************************************************************
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
+common --registry=https://bcr.bazel.build
+# Keep independent module-extension usages from merging their configuration tags.
+common --experimental_isolated_extension_usages
+
 build --java_language_version=17
 build --tool_java_language_version=17
 build --java_runtime_version=remotejdk_17
 build --tool_java_runtime_version=remotejdk_17
 
+test --build_tests_only
 test --test_output=errors
+test --test_tag_filters=-manual
 
-common --registry=https://raw.githubusercontent.com/eclipse-score/bazel_registry/main/
-common --registry=https://bcr.bazel.build
-# Required for classic-diagnostic-adapter and opensovd-core which use
-# isolated extension usages in their MODULE.bazel files.
-common --experimental_isolated_extension_usages
-common --http_connector_attempts=10
-common --http_connector_retry_max_timeout=1s
-common --http_timeout_scaling=2.0
+build --action_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
-# Ferrocene must be common compiler for host to keep proc-macro metadata compatible.
-common --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
-common --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
+# Use the GCC C++ toolchain for x86-64 linux host by default for `bazel run`
+run --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+run --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
 
-build:_bl_stub --@score_baselibs//score/json:base_library=nlohmann
-build:_bl_stub --@score_baselibs//score/memory/shared/flags:use_typedshmd=False
+# Basic build settings
+# C++17 is required for SOVD bridge integration. This is configured via cxxopt rather than
+# toolchain features to avoid conflicts with Rust compilation targets that share the same
+# toolchain configuration. Toolchain feature-based configuration would require separate
+# toolchain definitions for C++ and Rust targets, adding unnecessary complexity.
+build:_score_diag_common_build_settings --cxxopt=-std=c++17
+build:_score_diag_common_build_settings --features=minimal_warnings
+build:_score_diag_common_build_settings --features=strict_warnings
+# Enforce warning errors for main-repository sources only (pattern ^//.* matches internal sources).
+# External dependencies and vendored code are automatically excluded since they don't match the pattern.
+# This is safer than global warnings_as_errors with exceptions, as it ensures no third-party code
+# accidentally gets covered by -Werror, which could block builds due to warnings in external code.
+build:_score_diag_common_build_settings --per_file_copt=^//.*@-Werror
+build:_score_diag_common_build_settings --host_per_file_copt=^//.*@-Werror
+build:_score_diag_common_build_settings --incompatible_strict_action_env
 
-build:_bl_stub --features=minimal_warnings
-build:_bl_stub --features=-strict_warnings
-build:_bl_stub --features=warnings_as_errors
+# Base configuration for building on x86-64 linux host.
+# Use hermetic GCC toolchain with Ferrocene Rust for both host and target.
+# The gcc toolchain is required for native C/C++ dependencies (mbedtls, etc.).
+# The ferrocene toolchain is the qualified Rust compiler for safety-critical builds.
+# rules_foreign_cc 0.17.0+ uses pkgconf instead of pkg-config, eliminating the
+# BootstrapPkgConfig glib build that previously required auto-detected host toolchain.
+common:_score_diag_use_gcc_based_host_platform --host_platform=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+common:_score_diag_use_gcc_based_host_platform --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+common:_score_diag_use_gcc_based_host_platform --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 
-test:_bl_common --build_tests_only
-test:_bl_common --test_tag_filters=-manual
-test:_bl_common --test_output=errors
+# Base configuration for compiling for x86-64 linux as target platform
+# Same toolchains as host for this configuration since we're building on the target platform.
+common:_score_diag_build_for_x86_64_linux_target_platform --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
+common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
+common:_score_diag_build_for_x86_64_linux_target_platform --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
 
-build:_bl_toolchain_common --incompatible_strict_action_env
-build:_bl_toolchain_common --host_platform=@score_bazel_platforms//:x86_64-linux
+# Configuration for x86_64 Linux builds
+common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
+common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
+common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
 
-# BaseLibs Linux target toolchain config.
-build:bl-x86_64-linux --config=_bl_stub
-build:bl-x86_64-linux --config=_bl_toolchain_common
-build:bl-x86_64-linux --platforms=@score_bazel_platforms//:x86_64-linux-gcc_12.2.0-posix
-build:bl-x86_64-linux --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
-build:bl-x86_64-linux --extra_toolchains=@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu
-build:bl-x86_64-linux --@classic-diagnostic-adapter//:tls_backend=mbedtls
-test:bl-x86_64-linux --config=_bl_common
+# Import custom user settings
+# Can be used to e.g. enable custom features without modifying this main .bazelrc
+try-import %workspace%/user.bazelrc
