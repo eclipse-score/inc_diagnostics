@@ -100,6 +100,10 @@ bazel_dep(name = "opensovd_core")
 git_override(
     module_name = "opensovd_core",
     commit = "accdb704cef8043a1b1b195da0b8845ce22a95be",
+    patch_strip = 1,
+    patches = [
+        "//patches:opensovd-core-expose-deps.patch",
+    ],
     remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
 )
 

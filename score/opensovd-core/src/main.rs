@@ -24,10 +24,17 @@ mod read_did;
 #[path = "../bridge/application.rs"]
 mod application;
 
+mod cda_proxy;
+
 const DEFAULT_ADDRESS: &str = "127.0.0.1:7690";
 
 fn address() -> String {
     std::env::var("SCORE_GATEWAY_ADDRESS").unwrap_or_else(|_| DEFAULT_ADDRESS.to_owned())
+}
+
+/// Returns the CDA backend URL if configured via environment variable.
+fn cda_backend_url() -> Option<String> {
+    std::env::var("SCORE_CDA_URL").ok()
 }
 
 async fn topology() -> Result<(Topology, application::SensorSource), Box<dyn std::error::Error>> {
@@ -78,11 +85,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = address();
     let listener = TcpListener::bind(&address).await?;
     let (topology, _sensor) = topology().await?;
-    let server = Server::builder()
+    let mut builder = Server::builder()
         .base_uri(format!("http://{address}/sovd"))?
         .listener(listener)
-        .topology(topology)
-        .build()?;
+        .topology(topology);
+
+    // If a CDA backend is configured, register a proxy that forwards
+    // component-level requests (including /faults) to the CDA instance.
+    if let Some(cda_url) = cda_backend_url() {
+        let backend = cda_proxy::CdaBackend::new(&cda_url)?;
+        let proxy = cda_proxy::cda_proxy_router(backend);
+        builder = builder.service("/sovd/v1/cda", proxy);
+    }
+
+    let server = builder.build()?;
     server.serve().await?;
     Ok(())
 }
