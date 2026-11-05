@@ -56,7 +56,7 @@ static Result<ByteVector> SessionRestrictedRead(const MetaData& meta_data)
     {
         return score::MakeUnexpected(NegativeResponseCode::ConditionsNotCorrect);
     }
-    return ByteVector{std::byte{0x01U}, std::byte{0x02U}};
+    return ByteVector{static_cast<std::byte>(0x01U), static_cast<std::byte>(0x02U)};
 }
 
 TEST(MetaDataTest, HandlerRejectsDefaultSession)
@@ -76,7 +76,7 @@ static Result<ByteVector> SecurityRestrictedRead(const MetaData& meta_data)
     {
         return score::MakeUnexpected(NegativeResponseCode::SecurityAccessDenied);
     }
-    return ByteVector{std::byte{0xAAU}};
+    return ByteVector{static_cast<std::byte>(0xAAU)};
 }
 
 TEST(MetaDataTest, HandlerRejectsWhenSecurityLocked)

@@ -12,7 +12,47 @@
 # *******************************************************************************
 module(name = "score_diagnostics")
 
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0", dev_dependency = True)
+git_override(
+    module_name = "classic-diagnostic-adapter",
+    commit = "213767d340fb4e7167a82b30cc38c7013c36c042",
+    patch_strip = 1,
+    patches = [
+        "//patches:classic-diagnostic-adapter-linkme.patch",
+        "//patches:classic-diagnostic-adapter-resource-ids.patch",
+    ],
+    remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
+)
+
+bazel_dep(name = "mbedtls-rs", version = "0.1.0", dev_dependency = True)
+git_override(
+    module_name = "mbedtls-rs",
+    commit = "1dac0d8c6a80feb3864e86aac80b35cf34b10f87",
+    remote = "https://github.com/eclipse-opensovd/mbedtls-rs.git",
+)
+
+# Override rules_foreign_cc to 0.17.0 which uses pkgconf instead of pkg-config.
+# This eliminates the BootstrapPkgConfig glib build that fails with hermetic
+# toolchains due to glib's use of GNU 'asm' extensions (incompatible with -std=c11).
+bazel_dep(name = "rules_foreign_cc", version = "0.17.0")
+single_version_override(
+    module_name = "rules_foreign_cc",
+    version = "0.17.0",
+)
+
+bazel_dep(name = "opensovd_core", version = "0.0.0", dev_dependency = True)
+git_override(
+    module_name = "opensovd_core",
+    commit = "30ac7995e3c850de567fc0308813b04d09dc667e",
+    patch_strip = 1,
+    patches = [
+        "//patches:opensovd-core-expose-tokio.patch",
+        "//patches:opensovd-core-expose-client.patch",
+    ],
+    remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
+)
+
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
 
 bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.4", dev_dependency = True)
@@ -25,10 +65,7 @@ gcc.toolchain(
     use_default_package = True,
     version = "12.2.0",
 )
-use_repo(
-    gcc,
-    "score_gcc_x86_64_toolchain",
-)
+use_repo(gcc, "score_gcc_x86_64_toolchain")
 
 bazel_dep(name = "rules_python", version = "1.8.3", dev_dependency = True)
 
@@ -63,10 +100,16 @@ use_repo(pip, "module_template_docs_hub_env")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
 # Rust rules for Bazel
-bazel_dep(name = "rules_rust", version = "0.68.1-score")
+bazel_dep(name = "rules_rust", version = "0.70.0")
 bazel_dep(name = "score_crates", version = "0.0.10")
 
 bazel_dep(name = "score_toolchains_rust", version = "0.9.1", dev_dependency = True)
+
+# Use the qualified Ferrocene toolchain for the supported Linux target.
+register_toolchains(
+    "@score_toolchains_rust//toolchains/ferrocene:ferrocene_x86_64_unknown_linux_gnu",
+    dev_dependency = True,
+)
 
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 
@@ -84,8 +127,23 @@ crate.spec(
     version = "1.0.143",
 )
 crate.spec(
+    package = "tracing",
+    version = "=0.1.41",
+)
+crate.spec(
+    features = [
+        "ansi",
+        "env-filter",
+        "fmt",
+        "std",
+    ],
+    package = "tracing-subscriber",
+    version = "=0.3.19",
+)
+crate.spec(
     features = [
         "macros",
+        "net",
         "rt",
         "sync",
         "time",
@@ -97,8 +155,6 @@ crate.from_specs(
     name = "score_crate_index",
     supported_platform_triples = [
         "aarch64-unknown-linux-gnu",
-        "aarch64-unknown-nto-qnx800",
-        "x86_64-pc-nto-qnx800",
         "x86_64-unknown-linux-gnu",
         "x86_64-unknown-none",
     ],
@@ -118,7 +174,7 @@ bazel_dep(name = "score_baselibs", version = "0.2.9")
 #
 # The upstream fix in flatbuffers (google/flatbuffers@2b8e4d3) upgrades grpc to
 # 1.76.0, which drops the problematic grpc-java@1.66.0 dependency. Until such
-# commmit is included in a flatbuffers release, this direct dependency of a
+# commit is included in a flatbuffers release, this direct dependency of a
 # transitive dependency serves as a mitigation.
 #
 # TODO: Remove below bazel_dep once flatbuffers releases a version which contains the following fix:
