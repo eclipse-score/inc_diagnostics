@@ -33,6 +33,7 @@ unsafe extern "C" {
 }
 
 type Reply = Result<Vec<u8>, DataError>;
+type CompletionContext = (oneshot::Sender<Reply>, Arc<std::sync::atomic::AtomicBool>);
 
 struct Handler(NonNull<c_void>);
 
@@ -47,7 +48,7 @@ impl Drop for Handler {
 
 struct Request {
     handle: NonNull<c_void>,
-    completed: bool,
+    completed: Arc<std::sync::atomic::AtomicBool>,
 }
 
 unsafe impl Send for Request {}
@@ -55,7 +56,7 @@ unsafe impl Send for Request {}
 impl Drop for Request {
     fn drop(&mut self) {
         unsafe {
-            if !self.completed {
+            if !self.completed.load(std::sync::atomic::Ordering::Acquire) {
                 score_diag_read_cancel(self.handle.as_ptr());
             }
             score_diag_read_release(self.handle.as_ptr());
@@ -70,7 +71,9 @@ unsafe extern "C" fn complete(
     data: *const u8,
     size: usize,
 ) {
-    let sender = unsafe { Box::from_raw(context.cast::<oneshot::Sender<Reply>>()) };
+    let (sender, completed) =
+        *unsafe { Box::from_raw(context.cast::<CompletionContext>()) };
+    completed.store(true, std::sync::atomic::Ordering::Release);
     let reply = match status {
         0 if size == 0 => Ok(Vec::new()),
         0 => Ok(unsafe { std::slice::from_raw_parts(data, size) }.to_vec()),
@@ -105,19 +108,17 @@ impl ReadableDataResource for ReadDid {
 
     async fn read(&self) -> Result<Self::Value, DataError> {
         let (sender, receiver) = oneshot::channel::<Reply>();
-        let context = Box::into_raw(Box::new(sender)).cast();
+        let completed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let context = Box::into_raw(Box::new((sender, completed.clone()))).cast();
         let request = unsafe { score_diag_read_start(self.handler.0.as_ptr(), context, complete) };
-        let mut request = NonNull::new(request).map(|handle| Request {
+        let request = NonNull::new(request).map(|handle| Request {
             handle,
-            completed: false,
+            completed,
         });
         let result = tokio::time::timeout(self.timeout, receiver)
             .await
             .map_err(|_| DataError::Internal("diagnostic read timed out".to_owned()))?
             .map_err(|_| DataError::Internal("diagnostic completion unavailable".to_owned()))?;
-        if let Some(request) = request.as_mut() {
-            request.completed = true;
-        }
         drop(request);
         result.map(Value::new)
     }
