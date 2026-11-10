@@ -25,7 +25,7 @@ namespace
 class SimpleGenericDataIdentifierForTest : public SimpleGenericDataIdentifier
 {
   public:
-    Result<ByteVector> read_result{ByteVector{std::byte{0xDE}, std::byte{0xAD}}};
+    Result<ByteVector> read_result{ByteVector{static_cast<std::byte>(0xDEU), static_cast<std::byte>(0xADU)}};
     Result<void> write_result{};
 
     Result<ByteVector> Read(const MetaData& /*meta_data*/) override
@@ -46,7 +46,7 @@ TEST(GenericDataIdentifierTest, SimpleGenericDataIdentifierReadAndWrite)
     SimpleGenericDataIdentifierForTest gdid;
     MetaData meta_data{};
     score::cpp::stop_token stop_token{};
-    ByteVector payload{std::byte{0x01}};
+    ByteVector payload{static_cast<std::byte>(0x01U)};
 
     ReadDataByIdentifier& read_interface = gdid;
     auto read_future = read_interface.Read(meta_data, stop_token);

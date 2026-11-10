@@ -25,7 +25,7 @@ namespace
 class SimpleReadDataByIdentifierForTest : public SimpleReadDataByIdentifier
 {
   public:
-    Result<ByteVector> result{ByteVector{std::byte{0x12}, std::byte{0x34}}};
+    Result<ByteVector> result{ByteVector{static_cast<std::byte>(0x12U), static_cast<std::byte>(0x34U)}};
 
     Result<ByteVector> Read(const MetaData& /*meta_data*/) override
     {
@@ -49,7 +49,7 @@ TEST(ReadDataByIdentifierTest, SimpleReadDataByIdentifierBridgesResultToFuture)
     auto result = outer_res.value();
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().size(), 2U);
-    EXPECT_EQ(result.value()[0], std::byte{0x12});
+    EXPECT_EQ(result.value()[0], static_cast<std::byte>(0x12U));
 }
 
 TEST(ReadDataByIdentifierTest, SimpleReadDataByIdentifierPropagatesError)
