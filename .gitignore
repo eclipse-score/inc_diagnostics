@@ -46,8 +46,11 @@
 
 # Bazel
 bazel-*
-#MODULE.bazel.lock
+# MODULE.bazel.lock is tracked to ensure reproducible builds across contributors
 user.bazelrc
+
+# VS Code workspace files (user-specific)
+*.code-workspace
 
 # Ruff
 .ruff_cache
@@ -161,3 +164,4 @@ tools/puncover_tool/output/
 doc/doxygenOut
 doc/doc-coverage.info
 doc/DoxygenWarningLog.txt
+.venv_docs/

@@ -23,7 +23,7 @@ inputs:
     required: false
 runs:
   using: "docker"
-  image: "jorisroovers/gitlint:0.19.1"
+  image: "docker://jorisroovers/gitlint:0.19.1"
   entrypoint: /bin/sh
   args:
     - -c

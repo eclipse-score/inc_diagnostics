@@ -10,10 +10,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-cc_test(
-    name = "cpp_test_main",
-    srcs = ["test_main.cpp"],
-    deps = [
-        "@googletest//:gtest_main",  # GoogleTest dependency via Bazel Modules
-    ],
-)
+exports_files([
+    "classic-diagnostic-adapter-linkme.patch",
+    "classic-diagnostic-adapter-resource-ids.patch",
+    "opensovd-core-expose-client.patch",
+    "opensovd-core-expose-tokio.patch",
+])
