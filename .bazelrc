@@ -68,6 +68,8 @@ common:score_diag_x86_64_linux --config=_score_diag_common_build_settings
 common:score_diag_x86_64_linux --config=_score_diag_use_gcc_based_host_platform
 common:score_diag_x86_64_linux --config=_score_diag_build_for_x86_64_linux_target_platform
 
+import %workspace%/quality/static_analysis/static_analysis.bazelrc
+
 # Import custom user settings
 # Can be used to e.g. enable custom features without modifying this main .bazelrc
 try-import %workspace%/user.bazelrc
