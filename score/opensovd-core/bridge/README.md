@@ -25,11 +25,13 @@ The boxed channel sender survives dropped receivers until the worker completes c
 This is an in-process example, not remote application registration. Applications can supply C++ handler/resource catalogs,
 which Rust consumes through the ownership-transfer registration API described below. The original asynchronous demo reader remains
 for version and scheduling tests; the sensor catalog uses application-owned source state instead of that demo constructor.
+The Bazel integration is root-only/dev-only and is not exported to downstream modules.
 The worker model is bounded per handler, not a production shared executor. Producers must cooperate with stop tokens to release their own work.
 
 Only unrestricted reads are supported. The shim explicitly supplies Default/Physical metadata, locked security and unknown addresses.
 It does not populate session/security from HTTP headers or claim to propagate authenticated UDS context.
 Core's current `DataError` cannot carry a typed UDS NRC, so NRCs are retained as `UDS NRC 0xXX` in an Internal error message.
+The gateway installs a subscriber from OpenSOVD's crate index so upstream HTTP 500 details are retained in logs, with filtering controlled by `RUST_LOG`.
 A structured cross-protocol error model is an upstream integration requirement, not implemented by this prototype.
 
 WriteDID, routines, fault-lib, process registration, and authenticated context mapping are deferred to the canonical
@@ -38,7 +40,7 @@ WriteDID, routines, fault-lib, process registration, and authenticated context m
 ## Checks
 
 ```sh
-bazel test --config=score_diag_x86_64_linux_qm //score/opensovd-core:read_did_bridge_test //score/opensovd-core:application_registration_test
+bazel test --config=score_diag_x86_64_linux //score/opensovd-core:read_did_bridge_test //score/opensovd-core:application_registration_test
 ```
 
 The C++ tests cover request lifetime, metadata, byte copying and cancellation with a real unresolved promise.
@@ -73,7 +75,7 @@ Timestamp-based freshness and platform health sources are not implemented yet.
 Start the server in one terminal (loopback only, no production authorization):
 
 ```sh
-bazel run --config=score_diag_x86_64_linux_qm //score/opensovd-core:opensovd-gateway
+bazel run --config=score_diag_x86_64_linux //score/opensovd-core:opensovd-gateway
 ```
 
 Query it from another terminal:

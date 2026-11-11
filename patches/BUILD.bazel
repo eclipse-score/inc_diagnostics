@@ -18,3 +18,4 @@ exports_files([
     "opensovd-core-expose-hyper.patch",
     "opensovd-core-expose-tokio.patch",
 ])
+])

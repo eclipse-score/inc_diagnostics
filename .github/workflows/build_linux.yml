@@ -58,17 +58,12 @@ jobs:
 
       - name: Bazel Build
         run: |
-          bazel build --config=score_diag_x86_64_linux_qm -- \
-            //score/opensovd-cda \
-            //score/opensovd-core:opensovd-gateway \
-            //score/examples/sovd-client
+          read -r -a targets <<< "${BAZEL_BUILD_TARGETS}"
+
+          bazel build --config=score_diag_x86_64_linux -- "${targets[@]}"
 
       - name: Bazel Test
         run: |
-          TEST_TARGETS=()
-          while IFS= read -r target; do
-            TEST_TARGETS+=("${target}")
-          done < <(bazel query \
-            'kind(".*_test rule", //score/opensovd-cda/... + //score/opensovd-core/... + //score/examples/...)')
+          read -r -a targets <<< "${BAZEL_TEST_TARGETS}"
 
-          bazel test --config=score_diag_x86_64_linux_qm -- "${TEST_TARGETS[@]}"
+          bazel test --config=score_diag_x86_64_linux -- "${targets[@]}"

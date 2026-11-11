@@ -17,6 +17,7 @@ use opensovd_providers::data::{Constant, DataProviderBuilder};
 use opensovd_server::{Server, Topology};
 use std::time::Duration;
 use tokio::net::TcpListener;
+use tracing_subscriber::EnvFilter;
 
 #[path = "../bridge/read_did.rs"]
 mod read_did;
@@ -30,6 +31,11 @@ const DEFAULT_ADDRESS: &str = "127.0.0.1:7690";
 
 fn address() -> String {
     std::env::var("SCORE_GATEWAY_ADDRESS").unwrap_or_else(|_| DEFAULT_ADDRESS.to_owned())
+}
+
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
 /// Returns the CDA backend URL if configured via environment variable.
@@ -82,6 +88,7 @@ async fn topology_with_sensor(sensor: &application::SensorSource) -> Result<Topo
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_tracing();
     let address = address();
     let listener = TcpListener::bind(&address).await?;
     let (topology, _sensor) = topology().await?;
@@ -108,6 +115,79 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use opensovd_client::Client;
+    use std::io::{self, Write};
+    use std::sync::{Arc, Mutex};
+
+    struct LogWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for LogWriter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0.lock().expect("log buffer").extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn upstream_internal_errors_are_logged() {
+        let output = Arc::new(Mutex::new(Vec::new()));
+        let buffer = output.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || LogWriter(buffer.clone()))
+            .without_time()
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
+        let address = listener.local_addr().expect("address");
+        let provider = DataProviderBuilder::new()
+            .read_data(
+                "denied",
+                "Denied",
+                &DataCategory::IdentData,
+                read_did::ReadDid::demo(0, 0x33, Duration::from_secs(1)).expect("reader"),
+            )
+            .build()
+            .expect("provider");
+        let topology = Topology::new();
+        topology
+            .write()
+            .await
+            .add_component(Component::new("denied", "Denied").with_data_provider(provider));
+        let server = Server::builder()
+            .base_uri(format!("http://{address}/sovd"))
+            .expect("base URI")
+            .listener(listener)
+            .topology(topology)
+            .build()
+            .expect("server");
+        let server_task = tokio::spawn(async move { server.serve().await });
+        let client = Client::builder()
+            .base_uri(format!("http://{address}/sovd/v1"))
+            .expect("URL")
+            .timeout(Duration::from_secs(1))
+            .build()
+            .expect("client");
+        let result = client
+            .component("denied")
+            .data("denied")
+            .read()
+            .send()
+            .await;
+        server_task.abort();
+        let _ = server_task.await;
+        assert!(
+            matches!(result, Err(opensovd_client::Error::ApiError { status, .. }) if status.as_u16() == 500)
+        );
+        let logs =
+            String::from_utf8(output.lock().expect("log buffer").clone()).expect("UTF-8 logs");
+        assert!(
+            logs.contains("UDS NRC 0x33"),
+            "internal error detail missing: {logs}"
+        );
+    }
 
     #[tokio::test(flavor = "current_thread")]
     async fn registered_application_is_discoverable_and_serves_data() {
