@@ -62,7 +62,6 @@ rust_binary(
         "@opensovd_core//:opensovd-server",
         "@opensovd_core//:serde_json",
         "@opensovd_core//:tokio",
-        "@opensovd_core//:tracing",
         "@opensovd_core//:tracing-subscriber",
     ],
 )
@@ -72,7 +71,6 @@ rust_test(
     crate = ":opensovd-gateway",
     deps = [
         "@opensovd_core//:opensovd-client",
-        "@opensovd_core//:tracing",
-        "@opensovd_core//:tracing-subscriber",
+    ],
     ],
 )
