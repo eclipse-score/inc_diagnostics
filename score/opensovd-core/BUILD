@@ -72,5 +72,4 @@ rust_test(
     deps = [
         "@opensovd_core//:opensovd-client",
     ],
-    ],
 )
