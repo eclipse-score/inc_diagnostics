@@ -46,7 +46,7 @@ jobs:
       - name: Setup Bazel Cache
         uses: eclipse-score/cicd-actions/setup-bazel-cache@e2a2a587a759b681632040ec1e1294015a0405f5
         with:
-          unique-cache-name: ${{ github.workflow }}-${{ github.job }}
+          disk-cache-key: ${{ github.workflow }}-${{ github.job }}
 
       - name: Install native dependencies
         run: |
