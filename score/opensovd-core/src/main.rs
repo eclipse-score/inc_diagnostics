@@ -203,12 +203,17 @@ mod tests {
             .expect("server");
         let server_task = tokio::spawn(async move { server.serve().await });
         let url = format!("http://{address}/sovd/v1");
-        let client = Client::connect(&url).expect("client");
+        let client = Client::builder()
+            .base_uri(&url)
+            .expect("URL")
+            .timeout(Duration::from_secs(1))
+            .build()
+            .expect("client");
         let apps = client.list_apps().send().await.expect("list apps");
-        assert!(apps.data.items.iter().any(|app| app.id == "score-diagnostics"));
+        assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
         let app = client.app("score-diagnostics");
-        let location = app.is_located_on().await.expect("app location");
-        assert!(location.items.iter().any(|component| component.id == "score-demo"));
+        let location = app.located_on().await.expect("app location");
+        assert!(location.is_some_and(|component| component.id == "score-demo"));
         let version = app
             .data("application.version")
             .read()
@@ -238,13 +243,17 @@ mod tests {
             .expect("server");
         let server_task = tokio::spawn(async move { server.serve().await });
         let url = format!("http://{address}/sovd/v1");
-        let client = Client::connect(&url).expect("client");
+        let client = Client::builder()
+            .base_uri(&url)
+            .expect("URL")
+            .timeout(Duration::from_secs(5))
+            .build()
+            .expect("client");
         let apps = client.list_apps().send().await.expect("apps");
-        assert!(apps.data.items.iter().any(|app| app.id == "score-sensor"));
+        assert!(apps.items.iter().any(|app| app.id == "score-sensor"));
         let app = client.app("score-sensor");
         let resources = app.list_data().send().await.expect("resources");
         assert!(resources
-            .data
             .items
             .iter()
             .any(|resource| resource.id == "temperature.celsius"));
@@ -288,7 +297,7 @@ mod tests {
         assert!(app.data("temperature.celsius").read().send().await.is_err());
         retained_topology.write().await.remove_app("score-sensor");
         let apps = client.list_apps().send().await.expect("apps after removal");
-        assert!(!apps.data.items.iter().any(|app| app.id == "score-sensor"));
+        assert!(!apps.items.iter().any(|app| app.id == "score-sensor"));
         assert!(app.data("temperature.celsius").read().send().await.is_err());
         server_task.abort();
         let _ = server_task.await;
