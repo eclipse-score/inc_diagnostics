@@ -41,7 +41,7 @@ bazel_dep(name = "rules_foreign_cc", version = "0.17.0")
 bazel_dep(name = "opensovd_core", version = "0.0.0", dev_dependency = True)
 git_override(
     module_name = "opensovd_core",
-    commit = "30ac7995e3c850de567fc0308813b04d09dc667e",
+    commit = "5f69ad62e37271928465a267d9e36e47b0cc1051",
     patch_strip = 1,
     patches = [
         "//patches:opensovd-core-expose-deps.patch",
