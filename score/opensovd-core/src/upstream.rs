@@ -291,6 +291,7 @@ mod tests {
         UpstreamProxy::new(&url.parse().expect("URL")).expect("proxy")
     }
 
+    // # req-Id: comp_req__sovd_gateway__reference_rewrite
     #[test]
     fn references_to_the_cda_refer_to_the_gateway() {
         let proxy = proxy("http://cda:20002/vehicle/v15");
@@ -307,6 +308,7 @@ mod tests {
         assert_eq!(proxy.at_server(r#"{"id":"sovd2uds"}"#, server), None);
     }
 
+    // # req-Id: comp_req__sovd_gateway__forwarding
     #[test]
     fn requests_go_below_the_upstream_base() {
         let proxy = proxy("http://cda:20002/vehicle/v15/");
@@ -317,6 +319,7 @@ mod tests {
         );
     }
 
+    // # req-Id: comp_req__sovd_gateway__upstream_config
     #[test]
     fn only_plain_http_upstreams_are_accepted() {
         assert!(upstream("https://cda:20002/vehicle/v15").is_err());
@@ -324,6 +327,7 @@ mod tests {
         assert!(upstream("http://cda:20002/vehicle/v15").is_ok());
     }
 
+    // # req-Id: comp_req__sovd_gateway__forwarding
     #[test]
     fn hop_by_hop_headers_are_dropped() {
         let mut headers = HeaderMap::new();

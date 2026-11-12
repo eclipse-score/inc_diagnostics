@@ -65,7 +65,7 @@ gcc.toolchain(
 )
 use_repo(gcc, "score_gcc_x86_64_toolchain")
 
-bazel_dep(name = "rules_python", version = "1.8.3", dev_dependency = True)
+bazel_dep(name = "rules_python", version = "1.9.0", dev_dependency = True)
 
 # Python 3.12: Required for testing infrastructure and code generation tools
 _PYTHON_VERSION = "3.12"
@@ -181,15 +181,15 @@ bazel_dep(name = "grpc", version = "1.76.0")
 
 # tooling
 bazel_dep(name = "score_tooling", version = "1.1.2", dev_dependency = True)
-bazel_dep(name = "score_devcontainer", version = "1.7.0", dev_dependency = True)
+bazel_dep(name = "score_devcontainer", version = "1.9.0", dev_dependency = True)
 bazel_dep(name = "aspect_rules_lint", version = "2.3.0", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 
 # docs-as-code
-bazel_dep(name = "score_docs_as_code", version = "4.6.0")
+bazel_dep(name = "score_docs_as_code", version = "6.0.0")
 
-bazel_dep(name = "score_process", version = "1.6.0", dev_dependency = True)
+bazel_dep(name = "score_process", version = "2.0.2", dev_dependency = True)
 
 # Feature requirements that the component requirements in docs/ are derived from.
-# 0.6.0 is the newest release built with a docs-as-code compatible with 4.6.0.
-bazel_dep(name = "score_platform", version = "0.6.0", dev_dependency = True)
+# 0.6.3 is the first release with the diagnostics feature (feat__diagnostics).
+bazel_dep(name = "score_platform", version = "0.6.3", dev_dependency = True)

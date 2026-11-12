@@ -144,6 +144,7 @@ mod tests {
         (task, client)
     }
 
+    // # req-Id: comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__utf8_data
     #[tokio::test(flavor = "current_thread")]
     async fn registered_application_is_discoverable_and_serves_data() {
         let (task, client) = serve(None).await;
@@ -163,6 +164,7 @@ mod tests {
         let _ = task.await;
     }
 
+    // # req-Id: comp_req__sovd_gateway__upstream_unavailable, comp_req__sovd_gateway__upstream_config
     #[tokio::test(flavor = "current_thread")]
     async fn unreachable_upstream_keeps_local_entities_available() {
         let unused = std::net::TcpListener::bind("127.0.0.1:0").expect("port");
@@ -171,7 +173,20 @@ mod tests {
         let (task, client) = serve(Some(&url)).await;
         let apps = client.list_apps().send().await.expect("list apps");
         assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
-        assert!(client.app("sovd2uds").list_data().send().await.is_err());
+        let error = client
+            .app("sovd2uds")
+            .list_data()
+            .send()
+            .await
+            .expect_err("forwarded request");
+        assert!(
+            matches!(&error, opensovd_client::Error::ApiError { status, .. } if status.as_u16() == 502),
+            "{error:?}"
+        );
+        assert!(
+            !format!("{error:?}").contains(&url),
+            "upstream address leaked: {error:?}"
+        );
         task.abort();
         let _ = task.await;
     }

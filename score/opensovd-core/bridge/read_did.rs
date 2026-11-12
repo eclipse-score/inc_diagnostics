@@ -200,11 +200,14 @@ impl ReadableDataResource for Utf8 {
     type Value = Value<String>;
 
     async fn read(&self) -> Result<Self::Value, DataError> {
-        let bytes = self.0.read_bytes().await?;
-        String::from_utf8(bytes)
-            .map(Value::new)
-            .map_err(|_| DataError::Internal("DID payload is not UTF-8".to_owned()))
+        utf8_value(self.0.read_bytes().await?)
     }
+}
+
+fn utf8_value(bytes: Vec<u8>) -> Result<Value<String>, DataError> {
+    String::from_utf8(bytes)
+        .map(Value::new)
+        .map_err(|_| DataError::Internal("DID payload is not UTF-8".to_owned()))
 }
 
 #[cfg(test)]
@@ -292,6 +295,7 @@ mod tests {
         assert_eq!(std::mem::size_of::<ReadStatus>(), 1);
     }
 
+    // # req-Id: comp_req__uds_data_bridge__nrc_errors
     #[test]
     fn read_errors_keep_nrc_and_map_out_of_range_to_not_found() {
         assert!(matches!(DataError::from(ReadError::Nrc(0x31)), DataError::NotFound(m) if m == "UDS NRC 0x31"));
@@ -310,6 +314,7 @@ mod tests {
         assert!(unsafe { ReadDid::from_registration(std::ptr::null_mut(), Duration::from_secs(1)) }.is_err());
     }
 
+    // # req-Id: comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__nrc_errors
     #[tokio::test(flavor = "current_thread")]
     async fn cpp_handler_returns_bytes_and_nrc() {
         let reader = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("reader");
@@ -318,12 +323,20 @@ mod tests {
         assert_eq!(denied.read_bytes().await, Err(ReadError::Nrc(0x33)));
     }
 
+    // # req-Id: comp_req__uds_data_bridge__utf8_data
     #[tokio::test(flavor = "current_thread")]
     async fn utf8_payload_renders_as_string() {
         let reader = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("reader");
         assert_eq!(Utf8(reader).read().await.expect("utf8").value, "1.0.0");
     }
 
+    // # req-Id: comp_req__uds_data_bridge__utf8_data
+    #[test]
+    fn non_utf8_payload_is_an_error() {
+        assert!(matches!(utf8_value(vec![0xff, 0xfe]), Err(DataError::Internal(_))));
+    }
+
+    // # req-Id: comp_req__uds_data_bridge__non_blocking_reads
     #[tokio::test(flavor = "current_thread")]
     async fn pending_read_does_not_block_runtime() {
         let control = Control::new();
@@ -337,6 +350,7 @@ mod tests {
         assert_eq!(task.await.expect("task").expect("pending read"), b"ok");
     }
 
+    // # req-Id: comp_req__uds_data_bridge__read_timeout
     #[tokio::test(flavor = "current_thread")]
     async fn timeout_and_dropped_read_cancel_safely() {
         let control = Control::new();
@@ -353,6 +367,7 @@ mod tests {
         assert_eq!(quick.read_bytes().await.expect("subsequent read"), b"1.0.0");
     }
 
+    // # req-Id: comp_req__uds_data_bridge__read_admission
     #[tokio::test(flavor = "current_thread")]
     async fn saturated_handler_rejects_additional_work() {
         let control = Control::new();

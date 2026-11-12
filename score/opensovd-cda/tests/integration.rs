@@ -151,6 +151,7 @@ async fn start_cda(binary: &Path, config: &Path, url: &str) -> Option<(ChildGuar
     panic!("CDA did not become reachable: {last_error:?}");
 }
 
+// # req-Id: comp_req__sovd_gateway__single_entry_point, comp_req__sovd_gateway__forwarding, comp_req__sovd_gateway__merged_discovery, comp_req__sovd_gateway__reference_rewrite, comp_req__cda__http_server_port, comp_req__cda__components_collection, comp_req__cda__database_loading
 #[tokio::test(flavor = "current_thread")]
 async fn cda_serves_version_and_components() {
     let binary = runfile("classic-diagnostic-adapter+/cda-main/opensovd-cda");

@@ -34,3 +34,11 @@ rust_test(
         "@opensovd_core//:tokio",
     ],
 )
+
+filegroup(
+    name = "requirement_sources",
+    srcs = [
+        "tests/integration.rs",
+    ],
+    visibility = ["//:__pkg__"],
+)
