@@ -16,15 +16,8 @@ load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 
 cc_library(
     name = "read_did_bridge",
-    srcs = [
-        "bridge/application.cpp",
-        "bridge/read_did.cpp",
-    ],
-    hdrs = [
-        "bridge/application.h",
-        "bridge/read_did.h",
-    ],
-    visibility = ["//score:__subpackages__"],
+    srcs = ["bridge/read_did.cpp"],
+    hdrs = ["bridge/read_did.h"],
     deps = [
         "//score/mw/diag/uds",
         "//score/mw/diag/uds:negative_response_code",
@@ -43,22 +36,29 @@ cc_test(
 rust_binary(
     name = "opensovd-gateway",
     srcs = [
-        "bridge/application.rs",
         "bridge/read_did.rs",
         "src/main.rs",
+        "src/upstream.rs",
     ],
     edition = "2021",
     features = ["link_std_cpp_lib"],
     proc_macro_deps = ["@opensovd_core//:async-trait"],
-    visibility = ["//visibility:public"],
+    visibility = ["//score:__subpackages__"],
     deps = [
         ":read_did_bridge",
-        "@opensovd_core//:opensovd-client",
+        "@opensovd_core//:bytes",
+        "@opensovd_core//:http",
+        "@opensovd_core//:http-body-util",
+        "@opensovd_core//:hyper-util",
         "@opensovd_core//:opensovd-core",
+        "@opensovd_core//:opensovd-extra",
         "@opensovd_core//:opensovd-models",
         "@opensovd_core//:opensovd-providers",
         "@opensovd_core//:opensovd-server",
+        "@opensovd_core//:serde_json",
         "@opensovd_core//:tokio",
+        "@opensovd_core//:tower",
+        "@opensovd_core//:tracing",
         "@opensovd_core//:tracing-subscriber",
     ],
 )

@@ -27,6 +27,7 @@ rust_test(
         "opensovd-cda.sample.toml",
         ":opensovd-cda",
         "//score/examples/sovd-client",
+        "//score/opensovd-core:opensovd-gateway",
     ],
     deps = [
         "@opensovd_core//:opensovd-client",

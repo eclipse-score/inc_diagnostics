@@ -82,6 +82,40 @@ fn free_port() -> u16 {
         .port()
 }
 
+/// Starts the gateway forwarding to the CDA at `upstream`. Returns `None` if it exited during startup.
+async fn start_gateway(binary: &Path, upstream: &str) -> Option<(ChildGuard, Client, String)> {
+    let address = format!("127.0.0.1:{}", free_port());
+    let mut child = ChildGuard(
+        Command::new(binary)
+            .env("SCORE_GATEWAY_ADDRESS", &address)
+            .env("SCORE_UPSTREAM_URL", upstream)
+            .stdout(Stdio::null())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .expect("spawn gateway"),
+    );
+    let url = format!("http://{address}/sovd/v1");
+    let client = Client::builder()
+        .base_uri(&url)
+        .expect("gateway URL")
+        .timeout(Duration::from_secs(5))
+        .build()
+        .expect("gateway client");
+    let mut last_error = None;
+    for _ in 0..120 {
+        if let Some(status) = child.0.try_wait().expect("check gateway process") {
+            eprintln!("gateway exited during startup: {status}");
+            return None;
+        }
+        match client.list_apps().send().await {
+            Ok(_) => return Some((child, client, url)),
+            Err(error) => last_error = Some(error.to_string()),
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    panic!("gateway did not become reachable: {last_error:?}");
+}
+
 /// Starts the CDA and waits until it serves `/components`. Returns `None` if it exited during startup.
 async fn start_cda(binary: &Path, config: &Path, url: &str) -> Option<(ChildGuard, Client)> {
     let mut child = ChildGuard(
@@ -160,10 +194,60 @@ async fn cda_serves_version_and_components() {
         network.data
     );
     let example = runfile("score/examples/sovd-client/sovd-client");
-    let output = Command::new(example).arg(&url).output().expect("run example client");
+    let output = Command::new(&example).arg(&url).output().expect("run example client");
     assert!(
         output.status.success(),
         "example client failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+
+    // UC02/UC06 through the gateway: the CDA's entities are discovered next to the gateway's own
+    // and their data is read through the gateway, with references pointing at the gateway.
+    let gateway = runfile("score/opensovd-core/opensovd-gateway");
+    let mut started = None;
+    for _ in 0..START_ATTEMPTS {
+        if let Some(gateway) = start_gateway(&gateway, &url).await {
+            started = Some(gateway);
+            break;
+        }
+    }
+    let (mut gateway, gateway_client, gateway_url) = started.expect("gateway did not start on any free port");
+    let apps = gateway_client
+        .list_apps()
+        .send()
+        .await
+        .expect("discover apps through gateway");
+    assert!(apps.items.iter().any(|app| app.id == "sovd2uds"));
+    assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
+    let listing = format!("{:?}", apps.items);
+    assert!(
+        !listing.contains(&url),
+        "upstream URL leaked through gateway: {listing}"
+    );
+    let forwarded = gateway_client
+        .app("sovd2uds")
+        .data("networkstructure")
+        .read()
+        .send()
+        .await
+        .expect("read CDA data through gateway");
+    assert_eq!(forwarded.data, network.data);
+    let local = gateway_client
+        .app("score-diagnostics")
+        .data("application.version")
+        .read()
+        .send()
+        .await
+        .expect("read gateway data");
+    assert_eq!(local.data["value"].as_str(), Some("1.0.0"));
+    let output = Command::new(&example)
+        .arg(&gateway_url)
+        .output()
+        .expect("run example client against gateway");
+    assert!(
+        output.status.success(),
+        "example client failed through gateway: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(gateway.0.try_wait().expect("check gateway process").is_none());
 }

@@ -192,19 +192,6 @@ impl ReadDid {
     }
 }
 
-/// Raw DID payload as a lowercase hexadecimal string.
-pub struct Hex(pub ReadDid);
-
-#[async_trait]
-impl ReadableDataResource for Hex {
-    type Value = Value<String>;
-
-    async fn read(&self) -> Result<Self::Value, DataError> {
-        let bytes = self.0.read_bytes().await?;
-        Ok(Value::new(bytes.iter().map(|byte| format!("{byte:02x}")).collect()))
-    }
-}
-
 /// DID payload that is UTF-8 text, e.g. a version or identification string.
 pub struct Utf8(pub ReadDid);
 
@@ -332,10 +319,9 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn encodings_render_readable_strings() {
+    async fn utf8_payload_renders_as_string() {
         let reader = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("reader");
-        assert_eq!(Utf8(reader.clone()).read().await.expect("utf8").value, "1.0.0");
-        assert_eq!(Hex(reader).read().await.expect("hex").value, "312e302e30");
+        assert_eq!(Utf8(reader).read().await.expect("utf8").value, "1.0.0");
     }
 
     #[tokio::test(flavor = "current_thread")]

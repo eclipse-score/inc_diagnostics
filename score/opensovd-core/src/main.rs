@@ -12,23 +12,32 @@
 // *******************************************************************************
 
 use opensovd_core::{App, Component};
+use opensovd_extra::{Federation, FederationLayer};
 use opensovd_models::data::DataCategory;
 use opensovd_providers::data::{Constant, DataProviderBuilder};
-use opensovd_server::{Server, Topology};
+use opensovd_server::{Server, Topology, VendorInfo};
 use std::time::Duration;
 use tokio::net::TcpListener;
+use tower::layer::util::{Identity, Stack};
+use tower::util::Either;
 use tracing_subscriber::EnvFilter;
 
 #[path = "../bridge/read_did.rs"]
 mod read_did;
 
-#[path = "../bridge/application.rs"]
-mod application;
+mod upstream;
 
 const DEFAULT_ADDRESS: &str = "127.0.0.1:7690";
+const BASE_PATH: &str = "/sovd";
 
 fn address() -> String {
     std::env::var("SCORE_GATEWAY_ADDRESS").unwrap_or_else(|_| DEFAULT_ADDRESS.to_owned())
+}
+
+/// Base URL of the SOVD server the gateway forwards to, such as the CDA at
+/// `http://127.0.0.1:20002/vehicle/v15`. Without it the gateway serves only its own entities.
+fn upstream_url() -> Option<String> {
+    std::env::var("SCORE_UPSTREAM_URL").ok().filter(|url| !url.is_empty())
 }
 
 fn init_tracing() {
@@ -36,14 +45,7 @@ fn init_tracing() {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
-async fn topology() -> Result<(Topology, application::SensorSource), Box<dyn std::error::Error>> {
-    let sensor = application::SensorSource::new()?;
-    sensor.publish(2150, true);
-    let topology = topology_with_sensor(&sensor).await?;
-    Ok((topology, sensor))
-}
-
-async fn topology_with_sensor(sensor: &application::SensorSource) -> Result<Topology, Box<dyn std::error::Error>> {
+async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
     let provider = DataProviderBuilder::new()
         .read_data(
             "demo.version",
@@ -77,22 +79,46 @@ async fn topology_with_sensor(sensor: &application::SensorSource) -> Result<Topo
                 .with_component_id("score-demo")
                 .with_data_provider(app_provider),
         );
-        registry.add_app(sensor.register()?.into_app(Duration::from_secs(2))?);
     }
     Ok(topology)
+}
+
+type Gateway = Server<VendorInfo, Stack<Either<FederationLayer, Identity>, Identity>>;
+
+/// The gateway on `listener`. With `upstream_url`, what it does not host is forwarded there and
+/// discovery lists the upstream's entities next to its own.
+fn gateway(
+    listener: TcpListener,
+    topology: Topology,
+    upstream_url: Option<&str>,
+) -> Result<Gateway, Box<dyn std::error::Error>> {
+    let address = listener.local_addr()?;
+    let federation = match upstream_url {
+        Some(url) => {
+            tracing::info!(target: "forwarding", "Forwarding to {url}");
+            let upstream = upstream::upstream(url)?;
+            Some(
+                Federation::new(vec![upstream], topology.clone())?
+                    .base(BASE_PATH)
+                    .into_layer(),
+            )
+        },
+        None => None,
+    };
+    let server = Server::builder()
+        .layer(tower::util::option_layer(federation))
+        .base_uri(format!("http://{address}{BASE_PATH}"))?
+        .listener(listener)
+        .topology(topology)
+        .build()?;
+    Ok(server)
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_tracing();
-    let address = address();
-    let listener = TcpListener::bind(&address).await?;
-    let (topology, _sensor) = topology().await?;
-    let server = Server::builder()
-        .base_uri(format!("http://{address}/sovd"))?
-        .listener(listener)
-        .topology(topology)
-        .build()?;
+    let listener = TcpListener::bind(address()).await?;
+    let server = gateway(listener, topology().await?, upstream_url().as_deref())?;
     server.serve().await?;
     Ok(())
 }
@@ -102,26 +128,25 @@ mod tests {
     use super::*;
     use opensovd_client::Client;
 
-    #[tokio::test(flavor = "current_thread")]
-    async fn registered_application_is_discoverable_and_serves_data() {
+    async fn serve(upstream_url: Option<&str>) -> (tokio::task::JoinHandle<()>, Client) {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
         let address = listener.local_addr().expect("address");
-        let (topology, _sensor) = topology().await.expect("topology");
-        let server = Server::builder()
-            .base_uri(format!("http://{address}/sovd"))
-            .expect("base URI")
-            .listener(listener)
-            .topology(topology)
-            .build()
-            .expect("server");
-        let server_task = tokio::spawn(async move { server.serve().await });
-        let url = format!("http://{address}/sovd/v1");
+        let server = gateway(listener, topology().await.expect("topology"), upstream_url).expect("server");
+        let task = tokio::spawn(async move {
+            let _ = server.serve().await;
+        });
         let client = Client::builder()
-            .base_uri(&url)
+            .base_uri(&format!("http://{address}/sovd/v1"))
             .expect("URL")
-            .timeout(Duration::from_secs(1))
+            .timeout(Duration::from_secs(5))
             .build()
             .expect("client");
+        (task, client)
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn registered_application_is_discoverable_and_serves_data() {
+        let (task, client) = serve(None).await;
         let apps = client.list_apps().send().await.expect("list apps");
         assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
         let app = client.app("score-diagnostics");
@@ -134,83 +159,20 @@ mod tests {
             .await
             .expect("app version");
         assert_eq!(version.data["value"].as_str(), Some("1.0.0"));
-        server_task.abort();
-        let _ = server_task.await;
+        task.abort();
+        let _ = task.await;
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn application_owned_sample_changes_are_visible_over_http() {
-        let sensor = application::SensorSource::new().expect("sensor source");
-        let topology = topology_with_sensor(&sensor).await.expect("topology");
-        let retained_topology = topology.clone();
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
-        let address = listener.local_addr().expect("address");
-        let server = Server::builder()
-            .base_uri(format!("http://{address}/sovd"))
-            .expect("base URI")
-            .listener(listener)
-            .topology(topology)
-            .build()
-            .expect("server");
-        let server_task = tokio::spawn(async move { server.serve().await });
-        let url = format!("http://{address}/sovd/v1");
-        let client = Client::builder()
-            .base_uri(&url)
-            .expect("URL")
-            .timeout(Duration::from_secs(5))
-            .build()
-            .expect("client");
-        let apps = client.list_apps().send().await.expect("apps");
-        assert!(apps.items.iter().any(|app| app.id == "score-sensor"));
-        let app = client.app("score-sensor");
-        let resources = app.list_data().send().await.expect("resources");
-        assert!(resources
-            .items
-            .iter()
-            .any(|resource| resource.id == "temperature.celsius"));
-        let initial = app
-            .data("temperature.celsius")
-            .read()
-            .send()
-            .await
-            .expect("temperature");
-        assert_eq!(initial.data["value"].as_f64(), Some(21.5));
-        sensor.publish(-1250, true);
-        let changed = app
-            .data("temperature.celsius")
-            .read()
-            .schema(true)
-            .send()
-            .await
-            .expect("changed temperature");
-        assert_eq!(changed.data["value"].as_f64(), Some(-12.5));
-        assert!(changed.schema.is_some());
-        sensor.publish(0, false);
-        let health = app.data("sensor.healthy").read().send().await.expect("health");
-        assert_eq!(health.data["value"].as_bool(), Some(false));
-        assert!(app.data("temperature.celsius").read().send().await.is_err());
-        sensor.publish(2475, true);
-        let recovered = app
-            .data("temperature.celsius")
-            .read()
-            .send()
-            .await
-            .expect("recovered temperature");
-        assert_eq!(recovered.data["value"].as_f64(), Some(24.75));
-        drop(sensor);
-        let health = app
-            .data("sensor.healthy")
-            .read()
-            .send()
-            .await
-            .expect("health after source shutdown");
-        assert_eq!(health.data["value"].as_bool(), Some(false));
-        assert!(app.data("temperature.celsius").read().send().await.is_err());
-        retained_topology.write().await.remove_app("score-sensor");
-        let apps = client.list_apps().send().await.expect("apps after removal");
-        assert!(!apps.items.iter().any(|app| app.id == "score-sensor"));
-        assert!(app.data("temperature.celsius").read().send().await.is_err());
-        server_task.abort();
-        let _ = server_task.await;
+    async fn unreachable_upstream_keeps_local_entities_available() {
+        let unused = std::net::TcpListener::bind("127.0.0.1:0").expect("port");
+        let url = format!("http://{}/vehicle/v15", unused.local_addr().expect("address"));
+        drop(unused);
+        let (task, client) = serve(Some(&url)).await;
+        let apps = client.list_apps().send().await.expect("list apps");
+        assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
+        assert!(client.app("sovd2uds").list_data().send().await.is_err());
+        task.abort();
+        let _ = task.await;
     }
 }

@@ -1,8 +1,8 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index b85730d..0cb4329 100644
+index b85730d..f5e5726 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -18,3 +18,58 @@ alias(
+@@ -18,3 +18,88 @@ alias(
      name = "opensovd-gateway",
      actual = "//opensovd-cli/gateway:opensovd_gateway",
  )
@@ -60,4 +60,34 @@ index b85730d..0cb4329 100644
 +alias(
 +    name = "axum",
 +    actual = "@crate_index//:axum",
++)
++
++alias(
++    name = "opensovd-extra",
++    actual = "//opensovd-extra:opensovd_extra",
++)
++
++alias(
++    name = "bytes",
++    actual = "@crate_index//:bytes",
++)
++
++alias(
++    name = "http",
++    actual = "@crate_index//:http",
++)
++
++alias(
++    name = "http-body-util",
++    actual = "@crate_index//:http-body-util",
++)
++
++alias(
++    name = "hyper-util",
++    actual = "@crate_index//:hyper-util",
++)
++
++alias(
++    name = "tower",
++    actual = "@crate_index//:tower",
 +)
