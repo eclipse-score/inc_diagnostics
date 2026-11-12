@@ -40,7 +40,7 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__classic_diagnostic_adapter
 
-   The classic diagnostic adapter shall fulfil `req~sovd-api-http-server-port <https://eclipse-opensovd.github.io/classic-diagnostic-adapter/02_requirements/02_sovd.html#req~sovd-api-http-server-port>`_.
+   The classic diagnostic adapter shall fulfil :need:`req~sovd-api-http-server-port`.
 
 .. comp_req:: CDA Components Collection
    :id: comp_req__cda__components_collection
@@ -52,7 +52,7 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__classic_diagnostic_adapter
 
-   The classic diagnostic adapter shall fulfil `req~sovd-api-components-entity-collection <https://eclipse-opensovd.github.io/classic-diagnostic-adapter/02_requirements/02_sovd.html#req~sovd-api-components-entity-collection>`_.
+   The classic diagnostic adapter shall fulfil :need:`req~sovd-api-components-entity-collection`.
 
 .. comp_req:: CDA Database Loading
    :id: comp_req__cda__database_loading
@@ -64,4 +64,4 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__classic_diagnostic_adapter
 
-   The classic diagnostic adapter shall fulfil `req~dt-database-loading <https://eclipse-opensovd.github.io/classic-diagnostic-adapter/02_requirements/03_diagnostic_tester.html#req~dt-database-loading>`_.
+   The classic diagnostic adapter shall fulfil :need:`req~dt-database-loading`.

@@ -47,3 +47,19 @@ templates_path = ["templates"]
 
 # Enable numref
 numfig = True
+
+# The CDA requirements are built from the pinned CDA sources by
+# //score/opensovd-cda:needs_json. Link them to the CDA's published documentation
+# instead of the docs-as-code default of <project_url>/main.
+CDA_DOCS_URL = "https://eclipse-opensovd.github.io/classic-diagnostic-adapter"
+
+
+def _link_cda_needs_to_cda_docs(app, config):
+    for source in config.needs_external_needs:
+        if "/score/opensovd-cda/needs_json/" in str(source.get("json_path", "")):
+            source["base_url"] = CDA_DOCS_URL
+
+
+def setup(app):
+    # After score_metamodel registers the external needs (priority 425).
+    app.connect("config-inited", _link_cda_needs_to_cda_docs, priority=500)
