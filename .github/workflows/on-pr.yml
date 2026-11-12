@@ -17,6 +17,9 @@ on:
     types: [opened, reopened, synchronize]
   merge_group:
     types: [checks_requested]
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -32,3 +35,15 @@ jobs:
         run: pip install pre-commit
       - name: ✅ Run pre-commit
         run: pre-commit run --all-files
+
+  # Builds the documentation artifact; docs.yml publishes it and comments the
+  # preview link on the PR once this workflow has succeeded.
+  docs-build:
+    name: Build documentation
+    uses: eclipse-score/cicd-workflows/.github/workflows/docs.yml@8d80e8df150cae21d53cbc8031d0f970648f7a67 # v0.0.3
+    permissions:
+      contents: read
+    with:
+      # the bazel-target depends on your repo specific docs_targets configuration (e.g. "suffix")
+      bazel-target: "--lockfile_mode=error //:docs -- --github_user=${{ github.repository_owner }} --github_repo=${{ github.event.repository.name }}"
+      retention-days: 3
