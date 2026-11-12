@@ -26,7 +26,8 @@ typedef enum ScoreDiagEncoding
 {
     SCORE_DIAG_BYTES = 0,
     SCORE_DIAG_TEMPERATURE_CENTIDEGREES = 1,
-    SCORE_DIAG_HEALTHY_BOOLEAN = 2
+    SCORE_DIAG_HEALTHY_BOOLEAN = 2,
+    SCORE_DIAG_UTF8 = 3
 } ScoreDiagEncoding;
 
 const char* score_diag_application_id(const ScoreDiagApplication* application);

@@ -19,6 +19,11 @@
 #include <thread>
 #include <utility>
 
+static_assert(sizeof(ScoreDiagReadStatus) == 1U, "Rust declares ReadStatus as repr(u8)");
+static_assert(SCORE_DIAG_READ_OK == 0 && SCORE_DIAG_READ_NRC == 1 && SCORE_DIAG_READ_CANCELLED == 2 &&
+                  SCORE_DIAG_READ_FAILED == 3 && SCORE_DIAG_READ_BUSY == 4,
+              "status values must match ReadStatus in read_did.rs");
+
 namespace
 {
 using score::mw::diag::ByteVector;

@@ -17,6 +17,10 @@
 #include <set>
 #include <utility>
 
+static_assert(SCORE_DIAG_BYTES == 0 && SCORE_DIAG_TEMPERATURE_CENTIDEGREES == 1 && SCORE_DIAG_HEALTHY_BOOLEAN == 2 &&
+                  SCORE_DIAG_UTF8 == 3,
+              "encoding values must match Encoding in application.rs");
+
 namespace
 {
 using score::mw::diag::ByteVector;
@@ -107,7 +111,7 @@ ScoreDiagApplication* RegisterApplication(std::string id,
     for (auto& resource : resources)
     {
         if (resource.id.empty() || resource.name.empty() || !resource.handler ||
-            !identifiers.insert(resource.id).second || resource.encoding > SCORE_DIAG_HEALTHY_BOOLEAN ||
+            !identifiers.insert(resource.id).second || resource.encoding > SCORE_DIAG_UTF8 ||
             resource.encoding < SCORE_DIAG_BYTES)
         {
             return nullptr;

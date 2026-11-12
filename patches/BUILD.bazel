@@ -15,7 +15,5 @@ exports_files([
     "classic-diagnostic-adapter-resource-ids.patch",
     "opensovd-core-expose-client.patch",
     "opensovd-core-expose-deps.patch",
-    "opensovd-core-expose-hyper.patch",
     "opensovd-core-expose-tokio.patch",
-])
 ])

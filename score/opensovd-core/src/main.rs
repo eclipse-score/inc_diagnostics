@@ -25,8 +25,6 @@ mod read_did;
 #[path = "../bridge/application.rs"]
 mod application;
 
-mod cda_proxy;
-
 const DEFAULT_ADDRESS: &str = "127.0.0.1:7690";
 
 fn address() -> String {
@@ -36,11 +34,6 @@ fn address() -> String {
 fn init_tracing() {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     tracing_subscriber::fmt().with_env_filter(filter).init();
-}
-
-/// Returns the CDA backend URL if configured via environment variable.
-fn cda_backend_url() -> Option<String> {
-    std::env::var("SCORE_CDA_URL").ok()
 }
 
 async fn topology() -> Result<(Topology, application::SensorSource), Box<dyn std::error::Error>> {
@@ -71,7 +64,7 @@ async fn topology_with_sensor(sensor: &application::SensorSource) -> Result<Topo
             "application.version",
             "Application Version",
             &DataCategory::IdentData,
-            read_did::ReadDid::demo(0, 0, Duration::from_secs(2))?,
+            read_did::Utf8(read_did::ReadDid::demo(0, 0, Duration::from_secs(2))?),
         )
         .build()?;
 
@@ -79,8 +72,11 @@ async fn topology_with_sensor(sensor: &application::SensorSource) -> Result<Topo
     {
         let mut registry = topology.write().await;
         registry.add_component(Component::new("score-demo", "SCORE Demo").with_data_provider(provider));
-        registry
-            .add_app(App::new("score-diagnostics", "SCORE Diagnostics").with_component_id("score-demo").with_data_provider(app_provider));
+        registry.add_app(
+            App::new("score-diagnostics", "SCORE Diagnostics")
+                .with_component_id("score-demo")
+                .with_data_provider(app_provider),
+        );
         registry.add_app(sensor.register()?.into_app(Duration::from_secs(2))?);
     }
     Ok(topology)
@@ -92,21 +88,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = address();
     let listener = TcpListener::bind(&address).await?;
     let (topology, _sensor) = topology().await?;
-    let mut builder = Server::builder()
+    let server = Server::builder()
         .base_uri(format!("http://{address}/sovd"))?
         .listener(listener)
-        .topology(topology);
-
-    // If a CDA backend is configured, register a proxy that forwards
-    // component-level requests (including /faults) to the CDA instance.
-    if let Some(cda_url) = cda_backend_url() {
-        let backend = cda_proxy::CdaBackend::new(&cda_url)
-            .map_err(|e| -> Box<dyn std::error::Error> { format!("CDA proxy setup: {e}").into() })?;
-        let proxy = cda_proxy::cda_proxy_router(backend);
-        builder = builder.service("/sovd/v1/cda", proxy);
-    }
-
-    let server = builder.build()?;
+        .topology(topology)
+        .build()?;
     server.serve().await?;
     Ok(())
 }
@@ -147,9 +133,7 @@ mod tests {
             .send()
             .await
             .expect("app version");
-        let bytes = version.data["value"].as_array().expect("byte array");
-        let bytes: Vec<u8> = bytes.iter().map(|value| value.as_u64().expect("byte") as u8).collect();
-        assert_eq!(bytes, b"1.0.0");
+        assert_eq!(version.data["value"].as_str(), Some("1.0.0"));
         server_task.abort();
         let _ = server_task.await;
     }

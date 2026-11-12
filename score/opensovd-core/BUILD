@@ -45,7 +45,6 @@ rust_binary(
     srcs = [
         "bridge/application.rs",
         "bridge/read_did.rs",
-        "src/cda_proxy.rs",
         "src/main.rs",
     ],
     edition = "2021",
@@ -54,13 +53,11 @@ rust_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":read_did_bridge",
-        "@opensovd_core//:axum",
         "@opensovd_core//:opensovd-client",
         "@opensovd_core//:opensovd-core",
         "@opensovd_core//:opensovd-models",
         "@opensovd_core//:opensovd-providers",
         "@opensovd_core//:opensovd-server",
-        "@opensovd_core//:serde_json",
         "@opensovd_core//:tokio",
         "@opensovd_core//:tracing-subscriber",
     ],
@@ -70,6 +67,15 @@ rust_test(
     name = "application_registration_test",
     crate = ":opensovd-gateway",
     deps = [
+        ":read_did_test_support",
         "@opensovd_core//:opensovd-client",
     ],
+)
+
+cc_library(
+    name = "read_did_test_support",
+    testonly = True,
+    srcs = ["bridge/read_did_test_support.cpp"],
+    hdrs = ["bridge/read_did_test_support.h"],
+    deps = [":read_did_bridge"],
 )

@@ -18,10 +18,7 @@ use tracing_subscriber::EnvFilter;
 const DEFAULT_URL: &str = "http://127.0.0.1:7690/sovd/v1";
 
 fn connect(url: &str) -> Result<Client, opensovd_client::BuilderError> {
-    Client::builder()
-        .base_uri(url)?
-        .timeout(Duration::from_secs(5))
-        .build()
+    Client::builder().base_uri(url)?.timeout(Duration::from_secs(5)).build()
 }
 
 fn init_tracing() {
@@ -45,8 +42,8 @@ async fn run(client: &Client) -> Result<(), opensovd_client::Error> {
                 for item in &data.items {
                     tracing::info!("  data: {} ({})", item.id, item.name);
                 }
-            }
-            Err(error) if is_unsupported_collection(&error) => {}
+            },
+            Err(error) if is_unsupported_collection(&error) => {},
             Err(error) => return Err(error),
         }
     }
@@ -61,8 +58,8 @@ async fn run(client: &Client) -> Result<(), opensovd_client::Error> {
             for area in &areas.items {
                 tracing::info!("area: {} ({})", area.id, area.name);
             }
-        }
-        Err(error) if is_unsupported_collection(&error) => {}
+        },
+        Err(error) if is_unsupported_collection(&error) => {},
         Err(error) => return Err(error),
     }
 
@@ -97,10 +94,7 @@ mod tests {
         let result = run(&client).await;
         server_task.abort();
         let _ = server_task.await;
-        assert!(
-            result.is_ok(),
-            "unsupported data must not abort discovery: {result:?}"
-        );
+        assert!(result.is_ok(), "unsupported data must not abort discovery: {result:?}");
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -115,10 +109,7 @@ mod tests {
         let result = tokio::time::timeout(Duration::from_secs(6), run(&client)).await;
         peer.abort();
         let _ = peer.await;
-        assert!(matches!(
-            result,
-            Ok(Err(opensovd_client::Error::Timeout(_)))
-        ));
+        assert!(matches!(result, Ok(Err(opensovd_client::Error::Timeout(_)))));
     }
 
     #[test]

@@ -23,16 +23,19 @@ extern "C" {
 typedef struct ScoreDiagReader ScoreDiagReader;
 typedef struct ScoreDiagReadRequest ScoreDiagReadRequest;
 
-typedef enum ScoreDiagReadStatus
+/* Fixed one-byte status shared with Rust's #[repr(u8)] ReadStatus; C enums have an int-sized underlying type. */
+typedef uint8_t ScoreDiagReadStatus;
+enum
 {
     SCORE_DIAG_READ_OK = 0,
     SCORE_DIAG_READ_NRC = 1,
     SCORE_DIAG_READ_CANCELLED = 2,
     SCORE_DIAG_READ_FAILED = 3,
     SCORE_DIAG_READ_BUSY = 4
-} ScoreDiagReadStatus;
+};
 
-typedef void (*ScoreDiagReadCompletion)(void* context, uint8_t status, uint8_t nrc, const uint8_t* data, size_t size);
+typedef void (
+    *ScoreDiagReadCompletion)(void* context, ScoreDiagReadStatus status, uint8_t nrc, const uint8_t* data, size_t size);
 
 ScoreDiagReader* score_diag_demo_reader_create(uint32_t delay_ms, uint8_t nrc);
 ScoreDiagReader* score_diag_reader_clone(const ScoreDiagReader* reader);
