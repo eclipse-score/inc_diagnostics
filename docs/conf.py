@@ -11,6 +11,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
+from collections.abc import Callable
+from typing import cast
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -54,12 +57,18 @@ numfig = True
 CDA_DOCS_URL = "https://eclipse-opensovd.github.io/classic-diagnostic-adapter"
 
 
-def _link_cda_needs_to_cda_docs(app, config):
-    for source in config.needs_external_needs:
-        if "/score/opensovd-cda/needs_json/" in str(source.get("json_path", "")):
-            source["base_url"] = CDA_DOCS_URL
+def _link_cda_needs_to_cda_docs(_app: object, config: object) -> None:
+    sources: object = getattr(config, "needs_external_needs", [])
+    if not isinstance(sources, list):
+        return
+    for source in cast(list[object], sources):
+        if isinstance(source, dict):
+            entry = cast(dict[str, object], source)
+            if "/score/opensovd-cda/needs_json/" in str(entry.get("json_path", "")):
+                entry["base_url"] = CDA_DOCS_URL
 
 
-def setup(app):
+def setup(app: object) -> None:
     # After score_metamodel registers the external needs (priority 425).
-    app.connect("config-inited", _link_cda_needs_to_cda_docs, priority=500)
+    connect = cast(Callable[..., object], getattr(app, "connect"))
+    _ = connect("config-inited", _link_cda_needs_to_cda_docs, priority=500)
