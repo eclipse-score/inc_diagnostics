@@ -10,34 +10,28 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-
-name: Documentation
-
-permissions:
-  contents: write
-  pages: write
-  pull-requests: write
-  id-token: write
+name: Publish Documentation
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize] # Allows forks to trigger the docs build
-  push:
-    branches:
-      - main
-  merge_group:
-    types: [checks_requested]
+  workflow_run:
+    workflows: ["On PR"]
+    types: [completed]
 
 jobs:
-  build-docs:
-    uses: eclipse-score/cicd-workflows/.github/workflows/docs.yml@8d80e8df150cae21d53cbc8031d0f970648f7a67 # v0.0.3
+  docs-publish:
+    # Only publish for events that produce a real, addressable doc version.
+    # merge_group runs are ephemeral (merge-queue checks) and would otherwise
+    # cause unintended Pages publishes / preview-folder churn.
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      contains(fromJSON('["pull_request", "push", "release"]'), github.event.workflow_run.event)
+    uses: eclipse-score/cicd-workflows/.github/workflows/docs-publish.yml@d241348e8670bf5b8902d67ff3ac77e7f60f9ec7 # fix fork PR lookup after v0.0.3
     permissions:
+      actions: write
       contents: write
+      id-token: write
       pages: write
       pull-requests: write
-      id-token: write
-
-    with:
-      # the bazel-target depends on your repo specific docs_targets configuration (e.g. "suffix")
-      bazel-target: "--lockfile_mode=error //:docs -- --github_user=${{ github.repository_owner }} --github_repo=${{ github.event.repository.name }}"
-      retention-days: 3
+    concurrency:
+      group: docs-publish
+      cancel-in-progress: false
