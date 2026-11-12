@@ -38,10 +38,10 @@ requests into UDS for classic ECUs. It is the upstream SOVD server of the :doc:`
 Motivation and Rationale
 ========================
 
-The CDA is specified and developed in https://github.com/eclipse-opensovd/classic-diagnostic-adapter. The
-requirements below are stubs: each one names a CDA requirement that the v1.0 integration relies on and links
-to it, so the CDA requirements are traced to :need:`feat_req__diagnostics__classic_adapter` without being
-repeated here.
+The CDA is specified and developed in https://github.com/eclipse-opensovd/classic-diagnostic-adapter. Its
+requirements are built from the pinned CDA sources (``//score/opensovd-cda:needs_json``) and referenced
+directly. The requirements below only name the CDA requirements that the v1.0 integration relies on and trace
+them to :need:`feat_req__diagnostics__classic_adapter`, without repeating them.
 
 Component
 =========
@@ -58,7 +58,7 @@ Component
 Specification
 =============
 
-Content and acceptance criteria are those of the linked CDA requirement in its published documentation.
+Content and acceptance criteria are those of the referenced CDA requirement.
 
 * :need:`comp_req__cda__http_server_port`
 * :need:`comp_req__cda__components_collection`

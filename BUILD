@@ -44,6 +44,7 @@ use_format_targets()
 
 docs(
     data = [
+        "//score/opensovd-cda:needs_json",
         "@score_platform//:needs_json",
         "@score_process//:needs_json",
     ],

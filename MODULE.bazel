@@ -16,6 +16,10 @@ bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0")
 git_override(
     module_name = "classic-diagnostic-adapter",
     commit = "4c443a0f8849e61a374a45a312328d5408d7efe5",
+    patch_strip = 1,
+    patches = [
+        "//patches:classic-diagnostic-adapter-export-requirements.patch",
+    ],
     remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
 )
 
