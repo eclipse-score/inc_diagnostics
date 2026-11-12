@@ -133,6 +133,7 @@ mod tests {
         (task, client)
     }
 
+    // # req-Id: comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__utf8_data
     #[tokio::test(flavor = "current_thread")]
     async fn registered_application_is_discoverable_and_serves_data() {
         let (task, client) = serve(None).await;
@@ -152,6 +153,7 @@ mod tests {
         let _ = task.await;
     }
 
+    // # req-Id: comp_req__sovd_gateway__upstream_unavailable, comp_req__sovd_gateway__upstream_config
     #[tokio::test(flavor = "current_thread")]
     async fn unreachable_upstream_keeps_local_entities_available() {
         let socket = std::env::temp_dir().join(format!("opensovd-unreachable-{}.sock", std::process::id()));

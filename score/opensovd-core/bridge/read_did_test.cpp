@@ -148,6 +148,13 @@ class GatedReader final : public ReadDataByIdentifier
 
 TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__uds_data_bridge__read_handlers");
+    RecordProperty("Description",
+                   "Check that a read started on a registered ReadDataByIdentifier handler completes with its data "
+                   "after the registration is released.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto handler = std::make_shared<DeferredReader>();
     auto* reader = Register(handler);
     Completion reply;
@@ -171,6 +178,13 @@ TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
 
 TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__uds_data_bridge__read_timeout");
+    RecordProperty(
+        "Description",
+        "Check that cancelling a pending read completes it once as cancelled and requests the handler to stop.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto handler = std::make_shared<DeferredReader>();
     auto* reader = Register(handler);
     Completion reply;

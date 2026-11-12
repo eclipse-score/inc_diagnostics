@@ -85,3 +85,14 @@ cc_library(
     hdrs = ["bridge/read_did_test_support.h"],
     deps = [":read_did_bridge"],
 )
+
+filegroup(
+    name = "requirement_sources",
+    srcs = [
+        "bridge/read_did.rs",
+        "bridge/read_did_test.cpp",
+        "src/main.rs",
+        "src/upstream.rs",
+    ],
+    visibility = ["//:__pkg__"],
+)

@@ -29,30 +29,42 @@ SOVD Gateway
 
    requirements/index.rst
 
-
 Abstract
 ========
 
 The S-CORE SOVD gateway (``//score/opensovd-core:opensovd-gateway``) is the single SOVD entry point of a
 system. It is built on Eclipse OpenSOVD Core: it hosts the entities of the S-CORE platform itself and forwards
-everything else to an upstream SOVD server, such as the classic diagnostic adapter (CDA) for UDS ECUs.
+everything else to an upstream SOVD server, such as the :doc:`classic diagnostic adapter <../cda/index>`
+for UDS ECUs. Data of its own entities comes from the :doc:`UDS data bridge <../uds_data_bridge/index>`.
 
 Motivation and Rationale
 ========================
 
 Testers need one SOVD API for the whole vehicle instead of one per network domain or protocol
-(:need:`feat_req__diagnostics__sovd_gateway`). Data of S-CORE components is provided by existing C++ UDS
-handlers of ``score::mw::diag``, so the gateway reads them through a C++/Rust bridge instead of
-requiring a second implementation.
+(:need:`feat_req__diagnostics__sovd_gateway`).
+
+Component
+=========
+
+.. comp:: SOVD Gateway
+   :id: comp__sovd_gateway
+   :security: YES
+   :safety: QM
+   :status: valid
+   :version: 1
+   :tags: sovd_gateway
+   :belongs_to: feat__diagnostics
 
 Specification
 =============
 
-The requirements describe only what the S-CORE integration adds on top of ISO 17978 (SOVD). Resources,
-methods, payload formats and error responses of the SOVD API itself are defined by the standard and are not
-repeated here (:need:`feat_req__diagnostics__sovd_std`).
+The requirements describe only what this component adds on top of ISO 17978 (SOVD). Resources, methods, payload
+formats and error responses of the SOVD API itself are defined by the standard
+(:need:`feat_req__diagnostics__sovd_std`) and are not repeated here.
 
-Forwarding and discovery:
+The v1.0 gateway has no authentication, TLS or service discovery and forwards to one upstream over TCP.
+These are tracked as v1.0 work items in https://github.com/eclipse-score/inc_diagnostics/issues/66; until
+then :need:`aou_req__sovd_gateway__trusted_network` applies.
 
 * :need:`comp_req__sovd_gateway__single_entry_point`
 * :need:`comp_req__sovd_gateway__upstream_config`
@@ -60,16 +72,3 @@ Forwarding and discovery:
 * :need:`comp_req__sovd_gateway__merged_discovery`
 * :need:`comp_req__sovd_gateway__reference_rewrite`
 * :need:`comp_req__sovd_gateway__upstream_unavailable`
-
-Data from UDS handlers of S-CORE components:
-
-* :need:`comp_req__sovd_gateway__uds_data_bridge`
-* :need:`comp_req__sovd_gateway__utf8_data`
-* :need:`comp_req__sovd_gateway__nrc_errors`
-* :need:`comp_req__sovd_gateway__read_timeout`
-* :need:`comp_req__sovd_gateway__read_admission`
-* :need:`comp_req__sovd_gateway__non_blocking_reads`
-
-The v1.0 gateway has no authentication, TLS or service discovery and forwards to one upstream over TCP.
-These are tracked as v1.0 work items in https://github.com/eclipse-score/inc_diagnostics/issues/66; until
-then :need:`aou_req__sovd_gateway__trusted_network` applies.

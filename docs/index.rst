@@ -37,6 +37,8 @@ Requirements
    :security: YES
    :reqtype: Functional
    :rationale: Ensure documentation builds are possible for all modules
+   :valid_from: v1.0.0
+   :version: 1
 
 
 Project Layout
@@ -88,3 +90,5 @@ Components
    :maxdepth: 1
 
    components/sovd_gateway/index
+   components/uds_data_bridge/index
+   components/cda/index
