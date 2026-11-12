@@ -58,7 +58,7 @@ jobs:
           }
           werror //score/mw/diag/uds:negative_response_code all \
             || { echo "-Werror missing on main-repository compile actions"; exit 1; }
-          werror @score_baselibs//score/result:result 'any | not' \
+          werror @score_baselibs//score/result:error 'any | not' \
             || { echo "-Werror applied to external repository compile actions"; exit 1; }
 
       - name: Bazel Build
