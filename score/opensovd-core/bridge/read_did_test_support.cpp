@@ -10,8 +10,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
-#include "score/opensovd-core/bridge/read_did.h"
+#include "score/opensovd-core/bridge/read_did_test_support.h"
 
+#include <memory>
 #include <mutex>
 #include <vector>
 
@@ -24,6 +25,7 @@ using score::mw::diag::uds::MetaData;
 using score::mw::diag::uds::ReadDataByIdentifier;
 using score::mw::diag::uds::Result;
 
+/// Reader whose reads stay pending until the test completes them, so tests synchronize on state instead of time.
 class ControlledReader final : public ReadDataByIdentifier
 {
   public:
@@ -45,17 +47,18 @@ class ControlledReader final : public ReadDataByIdentifier
         return tokens_.size();
     }
 
-    bool Stopped()
+    std::size_t Stopped()
     {
         std::lock_guard<std::mutex> guard{mutex_};
+        std::size_t stopped{0U};
         for (const auto& token : tokens_)
         {
             if (token.stop_requested())
             {
-                return true;
+                ++stopped;
             }
         }
-        return false;
+        return stopped;
     }
 
     void Complete()
@@ -67,7 +70,7 @@ class ControlledReader final : public ReadDataByIdentifier
         }
         for (auto& promise : promises)
         {
-            score::cpp::ignore = promise.SetValue(Result<ByteVector>{ByteVector{}});
+            score::cpp::ignore = promise.SetValue(Result<ByteVector>{ByteVector{std::byte{0x6f}, std::byte{0x6b}}});
         }
     }
 
@@ -76,36 +79,39 @@ class ControlledReader final : public ReadDataByIdentifier
     std::vector<Promise<Result<ByteVector>>> promises_;
     std::vector<score::cpp::stop_token> tokens_;
 };
-
-using Control = std::shared_ptr<ControlledReader>;
 }  // namespace
 
-extern "C" void* score_diag_test_control_create()
+struct ScoreDiagTestControl
 {
-    return new Control{std::make_shared<ControlledReader>()};
+    std::shared_ptr<ControlledReader> reader;
+};
+
+extern "C" ScoreDiagTestControl* score_diag_test_control_create(void)
+{
+    return new ScoreDiagTestControl{std::make_shared<ControlledReader>()};
 }
 
-extern "C" ScoreDiagReader* score_diag_test_control_register(void* control)
+extern "C" ScoreDiagReader* score_diag_test_control_register(const ScoreDiagTestControl* control)
 {
-    return score::opensovd::bridge::RegisterReadDataByIdentifier(*static_cast<Control*>(control)).release();
+    return score::opensovd::bridge::RegisterReadDataByIdentifier(control->reader);
 }
 
-extern "C" void score_diag_test_control_release(void* control)
+extern "C" size_t score_diag_test_control_started(const ScoreDiagTestControl* control)
 {
-    delete static_cast<Control*>(control);
+    return control->reader->Started();
 }
 
-extern "C" std::size_t score_diag_test_control_started(void* control)
+extern "C" size_t score_diag_test_control_stopped(const ScoreDiagTestControl* control)
 {
-    return (*static_cast<Control*>(control))->Started();
+    return control->reader->Stopped();
 }
 
-extern "C" bool score_diag_test_control_stopped(void* control)
+extern "C" void score_diag_test_control_complete(ScoreDiagTestControl* control)
 {
-    return (*static_cast<Control*>(control))->Stopped();
+    control->reader->Complete();
 }
 
-extern "C" void score_diag_test_control_complete(void* control)
+extern "C" void score_diag_test_control_release(ScoreDiagTestControl* control)
 {
-    (*static_cast<Control*>(control))->Complete();
+    delete control;
 }

@@ -17,30 +17,28 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-#include "score/mw/diag/uds/read_data_by_identifier.h"
-#include <memory>
-
 extern "C" {
 #endif
 
 typedef struct ScoreDiagReader ScoreDiagReader;
 typedef struct ScoreDiagReadRequest ScoreDiagReadRequest;
 
-typedef enum ScoreDiagReadStatus
-#ifdef __cplusplus
-    : int32_t
-#endif
+/* Fixed one-byte status shared with Rust's #[repr(u8)] ReadStatus; C enums have an int-sized underlying type. */
+typedef uint8_t ScoreDiagReadStatus;
+enum
 {
     SCORE_DIAG_READ_OK = 0,
     SCORE_DIAG_READ_NRC = 1,
     SCORE_DIAG_READ_CANCELLED = 2,
     SCORE_DIAG_READ_FAILED = 3,
     SCORE_DIAG_READ_BUSY = 4
-} ScoreDiagReadStatus;
+};
 
-typedef void (*ScoreDiagReadCompletion)(void* context, uint8_t status, uint8_t nrc, const uint8_t* data, size_t size);
+typedef void (
+    *ScoreDiagReadCompletion)(void* context, ScoreDiagReadStatus status, uint8_t nrc, const uint8_t* data, size_t size);
 
 ScoreDiagReader* score_diag_demo_reader_create(uint32_t delay_ms, uint8_t nrc);
+ScoreDiagReader* score_diag_reader_clone(const ScoreDiagReader* reader);
 void score_diag_reader_release(ScoreDiagReader* reader);
 ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader, void* context, ScoreDiagReadCompletion completion);
 void score_diag_read_cancel(ScoreDiagReadRequest* request);
@@ -49,34 +47,13 @@ void score_diag_read_release(ScoreDiagReadRequest* request);
 #ifdef __cplusplus
 }
 
+#include "score/mw/diag/uds/read_data_by_identifier.h"
+#include <memory>
+
 namespace score::opensovd::bridge
 {
-struct ReaderDeleter
-{
-    void operator()(ScoreDiagReader* reader) const noexcept
-    {
-        score_diag_reader_release(reader);
-    }
-};
-
-struct ReadRequestDeleter
-{
-    void operator()(ScoreDiagReadRequest* request) const noexcept
-    {
-        score_diag_read_release(request);
-    }
-};
-
-using ReaderPtr = std::unique_ptr<ScoreDiagReader, ReaderDeleter>;
-using ReadRequestPtr = std::unique_ptr<ScoreDiagReadRequest, ReadRequestDeleter>;
-
-ReaderPtr RegisterReadDataByIdentifier(std::shared_ptr<score::mw::diag::uds::ReadDataByIdentifier> handler);
-
-inline ReadRequestPtr StartRead(ScoreDiagReader* reader, void* context, ScoreDiagReadCompletion completion)
-{
-    return ReadRequestPtr{score_diag_read_start(reader, context, completion)};
+ScoreDiagReader* RegisterReadDataByIdentifier(std::shared_ptr<score::mw::diag::uds::ReadDataByIdentifier> handler);
 }
-}  // namespace score::opensovd::bridge
 #endif
 
 #endif

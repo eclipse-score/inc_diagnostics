@@ -26,7 +26,8 @@ rust_test(
         "mdd/functional_groups.mdd.license",
         "opensovd-cda.sample.toml",
         ":opensovd-cda",
-        "//score/examples/sovd-client:sovd-client",
+        "//score/examples/sovd-client",
+        "//score/opensovd-core:opensovd-gateway",
     ],
     deps = [
         "@opensovd_core//:opensovd-client",

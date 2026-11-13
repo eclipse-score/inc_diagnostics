@@ -29,7 +29,6 @@ cc_test(
     srcs = ["bridge/read_did_test.cpp"],
     deps = [
         ":read_did_bridge",
-        "//score/mw/diag/uds:negative_response_code",
         "@googletest//:gtest_main",
     ],
 )
@@ -39,18 +38,27 @@ rust_binary(
     srcs = [
         "bridge/read_did.rs",
         "src/main.rs",
+        "src/upstream.rs",
     ],
     edition = "2021",
     features = ["link_std_cpp_lib"],
     proc_macro_deps = ["@opensovd_core//:async-trait"],
-    visibility = ["//visibility:private"],
+    visibility = ["//score:__subpackages__"],
     deps = [
         ":read_did_bridge",
+        "@opensovd_core//:bytes",
+        "@opensovd_core//:http",
+        "@opensovd_core//:http-body-util",
+        "@opensovd_core//:hyper-util",
         "@opensovd_core//:opensovd-core",
+        "@opensovd_core//:opensovd-extra",
         "@opensovd_core//:opensovd-models",
         "@opensovd_core//:opensovd-providers",
         "@opensovd_core//:opensovd-server",
+        "@opensovd_core//:serde_json",
         "@opensovd_core//:tokio",
+        "@opensovd_core//:tower",
+        "@opensovd_core//:tracing",
         "@opensovd_core//:tracing-subscriber",
     ],
 )
@@ -61,7 +69,6 @@ rust_test(
     deps = [
         ":read_did_test_support",
         "@opensovd_core//:opensovd-client",
-        "@opensovd_core//:tracing",
     ],
 )
 
@@ -69,5 +76,6 @@ cc_library(
     name = "read_did_test_support",
     testonly = True,
     srcs = ["bridge/read_did_test_support.cpp"],
+    hdrs = ["bridge/read_did_test_support.h"],
     deps = [":read_did_bridge"],
 )

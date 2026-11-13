@@ -11,6 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // *******************************************************************************
 use std::ffi::c_void;
+use std::fmt;
+use std::marker::{PhantomData, PhantomPinned};
 use std::ptr::NonNull;
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,23 +22,100 @@ use opensovd_core::DataError;
 use opensovd_providers::data::{ReadableDataResource, Value};
 use tokio::sync::oneshot;
 
-unsafe extern "C" {
-    fn score_diag_demo_reader_create(delay_ms: u32, nrc: u8) -> *mut c_void;
-    fn score_diag_reader_release(reader: *mut c_void);
-    fn score_diag_read_start(
-        reader: *mut c_void,
-        context: *mut c_void,
-        completion: unsafe extern "C" fn(*mut c_void, u8, u8, *const u8, usize),
-    ) -> *mut c_void;
-    fn score_diag_read_cancel(request: *mut c_void);
-    fn score_diag_read_release(request: *mut c_void);
+/// Opaque C++ reader registration (`ScoreDiagReader` in read_did.h).
+#[repr(C)]
+pub struct ScoreDiagReader {
+    _private: [u8; 0],
+    _marker: PhantomData<(*mut u8, PhantomPinned)>,
 }
 
-type Reply = Result<Vec<u8>, DataError>;
-type CompletionContext = (oneshot::Sender<Reply>, Arc<std::sync::atomic::AtomicBool>);
+/// Opaque C++ read request (`ScoreDiagReadRequest` in read_did.h).
+#[repr(C)]
+pub struct ScoreDiagReadRequest {
+    _private: [u8; 0],
+    _marker: PhantomData<(*mut u8, PhantomPinned)>,
+}
 
-struct Handler(NonNull<c_void>);
+/// Mirrors `ScoreDiagReadStatus`; read_did.cpp static_asserts the same values and size.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReadStatus {
+    Ok = 0,
+    Nrc = 1,
+    Cancelled = 2,
+    Failed = 3,
+    Busy = 4,
+}
 
+impl ReadStatus {
+    fn from_raw(raw: u8) -> Option<Self> {
+        [Self::Ok, Self::Nrc, Self::Cancelled, Self::Failed, Self::Busy]
+            .into_iter()
+            .find(|status| *status as u8 == raw)
+    }
+}
+
+type ReadCompletion = unsafe extern "C" fn(*mut c_void, u8, u8, *const u8, usize);
+
+unsafe extern "C" {
+    fn score_diag_demo_reader_create(delay_ms: u32, nrc: u8) -> *mut ScoreDiagReader;
+    #[cfg(test)]
+    fn score_diag_reader_clone(reader: *const ScoreDiagReader) -> *mut ScoreDiagReader;
+    fn score_diag_reader_release(reader: *mut ScoreDiagReader);
+    fn score_diag_read_start(
+        reader: *mut ScoreDiagReader,
+        context: *mut c_void,
+        completion: ReadCompletion,
+    ) -> *mut ScoreDiagReadRequest;
+    fn score_diag_read_cancel(request: *mut ScoreDiagReadRequest);
+    fn score_diag_read_release(request: *mut ScoreDiagReadRequest);
+}
+
+/// Failure of a single diagnostic read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadError {
+    /// The UDS handler answered with this negative response code.
+    Nrc(u8),
+    /// The handler already has the maximum number of outstanding reads.
+    Busy,
+    Cancelled,
+    Timeout,
+    Failed,
+}
+
+/// ISO 14229-1 negative response code for "requestOutOfRange".
+const NRC_REQUEST_OUT_OF_RANGE: u8 = 0x31;
+
+impl fmt::Display for ReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Nrc(nrc) => write!(f, "UDS NRC 0x{nrc:02X}"),
+            Self::Busy => f.write_str("diagnostic reader busy"),
+            Self::Cancelled => f.write_str("diagnostic read cancelled"),
+            Self::Timeout => f.write_str("diagnostic read timed out"),
+            Self::Failed => f.write_str("diagnostic read failed"),
+        }
+    }
+}
+
+impl From<ReadError> for DataError {
+    /// Core's `DataError` has no variants for access denied, conflict, busy or timeout, so only
+    /// requestOutOfRange gets a distinct status (404). Everything else stays Internal (HTTP 500) until
+    /// Core offers a typed provider error; the NRC is kept in the message either way.
+    fn from(error: ReadError) -> Self {
+        match error {
+            ReadError::Nrc(NRC_REQUEST_OUT_OF_RANGE) => DataError::NotFound(error.to_string()),
+            _ => DataError::Internal(error.to_string()),
+        }
+    }
+}
+
+type Reply = Result<Vec<u8>, ReadError>;
+
+struct Handler(NonNull<ScoreDiagReader>);
+
+// SAFETY: the handle is immutable from Rust; C++ shares handler state via shared_ptr, counts requests
+// atomically and serializes Read dispatch behind a mutex.
 unsafe impl Send for Handler {}
 unsafe impl Sync for Handler {}
 
@@ -46,41 +125,30 @@ impl Drop for Handler {
     }
 }
 
-struct Request {
-    handle: NonNull<c_void>,
-    completed: Arc<std::sync::atomic::AtomicBool>,
-}
+struct Request(NonNull<ScoreDiagReadRequest>);
 
+// SAFETY: a request has a single owner; cancel and release are never called concurrently.
 unsafe impl Send for Request {}
 
 impl Drop for Request {
     fn drop(&mut self) {
         unsafe {
-            if !self.completed.load(std::sync::atomic::Ordering::Acquire) {
-                score_diag_read_cancel(self.handle.as_ptr());
-            }
-            score_diag_read_release(self.handle.as_ptr());
+            score_diag_read_cancel(self.0.as_ptr());
+            score_diag_read_release(self.0.as_ptr());
         }
     }
 }
 
-unsafe extern "C" fn complete(
-    context: *mut c_void,
-    status: u8,
-    nrc: u8,
-    data: *const u8,
-    size: usize,
-) {
-    let (sender, completed) =
-        *unsafe { Box::from_raw(context.cast::<CompletionContext>()) };
-    completed.store(true, std::sync::atomic::Ordering::Release);
-    let reply = match status {
-        0 if size == 0 => Ok(Vec::new()),
-        0 => Ok(unsafe { std::slice::from_raw_parts(data, size) }.to_vec()),
-        1 => Err(DataError::Internal(format!("UDS NRC 0x{nrc:02X}"))),
-        2 => Err(DataError::Internal("diagnostic read cancelled".to_owned())),
-        4 => Err(DataError::Internal("diagnostic reader busy".to_owned())),
-        _ => Err(DataError::Internal("diagnostic read failed".to_owned())),
+unsafe extern "C" fn complete(context: *mut c_void, status: u8, nrc: u8, data: *const u8, size: usize) {
+    let sender = unsafe { Box::from_raw(context.cast::<oneshot::Sender<Reply>>()) };
+    let reply = match ReadStatus::from_raw(status) {
+        Some(ReadStatus::Ok) if size == 0 => Ok(Vec::new()),
+        Some(ReadStatus::Ok) if data.is_null() => Err(ReadError::Failed),
+        Some(ReadStatus::Ok) => Ok(unsafe { std::slice::from_raw_parts(data, size) }.to_vec()),
+        Some(ReadStatus::Nrc) => Err(ReadError::Nrc(nrc)),
+        Some(ReadStatus::Cancelled) => Err(ReadError::Cancelled),
+        Some(ReadStatus::Busy) => Err(ReadError::Busy),
+        Some(ReadStatus::Failed) | None => Err(ReadError::Failed),
     };
     let _ = sender.send(reply);
 }
@@ -93,86 +161,77 @@ pub struct ReadDid {
 
 impl ReadDid {
     pub fn demo(delay_ms: u32, nrc: u8, timeout: Duration) -> Result<Self, DataError> {
-        let handler = NonNull::new(unsafe { score_diag_demo_reader_create(delay_ms, nrc) })
-            .ok_or_else(|| DataError::Internal("could not register C++ handler".to_owned()))?;
+        unsafe { Self::from_registration(score_diag_demo_reader_create(delay_ms, nrc), timeout) }
+    }
+
+    /// Takes ownership of a registration returned by the C++ bridge.
+    ///
+    /// # Safety
+    /// A non-null handle must be live and exclusively owned by the caller, which relinquishes it here.
+    pub unsafe fn from_registration(handle: *mut ScoreDiagReader, timeout: Duration) -> Result<Self, DataError> {
+        let handler =
+            NonNull::new(handle).ok_or_else(|| DataError::Internal("could not register C++ handler".to_owned()))?;
         Ok(Self {
             handler: Arc::new(Handler(handler)),
             timeout,
         })
     }
-}
 
-#[async_trait]
-impl ReadableDataResource for ReadDid {
-    type Value = Value<Vec<u8>>;
-
-    async fn read(&self) -> Result<Self::Value, DataError> {
+    /// Reads the raw DID payload.
+    pub async fn read_bytes(&self) -> Result<Vec<u8>, ReadError> {
         let (sender, receiver) = oneshot::channel::<Reply>();
-        let completed = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let context = Box::into_raw(Box::new((sender, completed.clone()))).cast();
+        let context = Box::into_raw(Box::new(sender)).cast();
         let request = unsafe { score_diag_read_start(self.handler.0.as_ptr(), context, complete) };
-        let request = NonNull::new(request).map(|handle| Request {
-            handle,
-            completed,
-        });
+        let request = NonNull::new(request).map(Request);
         let result = tokio::time::timeout(self.timeout, receiver)
             .await
-            .map_err(|_| DataError::Internal("diagnostic read timed out".to_owned()))?
-            .map_err(|_| DataError::Internal("diagnostic completion unavailable".to_owned()))?;
+            .map_err(|_| ReadError::Timeout)?
+            .map_err(|_| ReadError::Failed)?;
         drop(request);
-        result.map(Value::new)
+        result
+    }
+}
+
+/// DID payload that is UTF-8 text, e.g. a version or identification string.
+pub struct Utf8(pub ReadDid);
+
+#[async_trait]
+impl ReadableDataResource for Utf8 {
+    type Value = Value<String>;
+
+    async fn read(&self) -> Result<Self::Value, DataError> {
+        let bytes = self.0.read_bytes().await?;
+        String::from_utf8(bytes)
+            .map(Value::new)
+            .map_err(|_| DataError::Internal("DID payload is not UTF-8".to_owned()))
     }
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod test_support {
     use super::*;
 
+    #[repr(C)]
+    pub struct ScoreDiagTestControl {
+        _private: [u8; 0],
+        _marker: PhantomData<(*mut u8, PhantomPinned)>,
+    }
+
     unsafe extern "C" {
-        fn score_diag_test_control_create() -> *mut c_void;
-        fn score_diag_test_control_register(control: *mut c_void) -> *mut c_void;
-        fn score_diag_test_control_release(control: *mut c_void);
-        fn score_diag_test_control_started(control: *mut c_void) -> usize;
-        fn score_diag_test_control_stopped(control: *mut c_void) -> bool;
-        fn score_diag_test_control_complete(control: *mut c_void);
+        fn score_diag_test_control_create() -> *mut ScoreDiagTestControl;
+        fn score_diag_test_control_register(control: *const ScoreDiagTestControl) -> *mut ScoreDiagReader;
+        fn score_diag_test_control_started(control: *const ScoreDiagTestControl) -> usize;
+        fn score_diag_test_control_stopped(control: *const ScoreDiagTestControl) -> usize;
+        fn score_diag_test_control_complete(control: *mut ScoreDiagTestControl);
+        fn score_diag_test_control_release(control: *mut ScoreDiagTestControl);
     }
 
-    struct Control(NonNull<c_void>);
+    /// C++ reader whose reads stay pending until `complete`, so tests wait for state rather than time.
+    pub struct Control(NonNull<ScoreDiagTestControl>);
 
-    impl Control {
-        fn new() -> (Self, ReadDid) {
-            let control =
-                NonNull::new(unsafe { score_diag_test_control_create() }).expect("control");
-            let handler =
-                NonNull::new(unsafe { score_diag_test_control_register(control.as_ptr()) })
-                    .expect("register controlled reader");
-            (
-                Self(control),
-                ReadDid {
-                    handler: Arc::new(Handler(handler)),
-                    timeout: Duration::from_secs(5),
-                },
-            )
-        }
-
-        async fn wait_for_reads(&self, count: usize) {
-            tokio::time::timeout(Duration::from_secs(2), async {
-                while unsafe { score_diag_test_control_started(self.0.as_ptr()) } != count {
-                    tokio::task::yield_now().await;
-                }
-            })
-            .await
-            .expect("reads dispatched");
-        }
-
-        fn complete(&self) {
-            unsafe { score_diag_test_control_complete(self.0.as_ptr()) };
-        }
-
-        fn stopped(&self) -> bool {
-            unsafe { score_diag_test_control_stopped(self.0.as_ptr()) }
-        }
-    }
+    // SAFETY: the C++ control serializes all access behind a mutex.
+    unsafe impl Send for Control {}
+    unsafe impl Sync for Control {}
 
     impl Drop for Control {
         fn drop(&mut self) {
@@ -180,93 +239,134 @@ mod tests {
         }
     }
 
-    #[tokio::test(flavor = "current_thread")]
-    async fn completed_read_does_not_cancel_retained_token() {
-        let (control, reader) = Control::new();
-        let task = tokio::spawn(async move { reader.read().await });
-        control.wait_for_reads(1).await;
-        control.complete();
-        assert!(task.await.expect("task").expect("read").value.is_empty());
-        assert!(
-            !control.stopped(),
-            "completed reads must not stop the handler token"
-        );
+    impl Control {
+        pub fn new() -> Self {
+            Self(NonNull::new(unsafe { score_diag_test_control_create() }).expect("control"))
+        }
+
+        pub fn reader(&self, timeout: Duration) -> ReadDid {
+            unsafe { ReadDid::from_registration(score_diag_test_control_register(self.0.as_ptr()), timeout) }
+                .expect("controlled reader")
+        }
+
+        pub fn started(&self) -> usize {
+            unsafe { score_diag_test_control_started(self.0.as_ptr()) }
+        }
+
+        pub fn stopped(&self) -> usize {
+            unsafe { score_diag_test_control_stopped(self.0.as_ptr()) }
+        }
+
+        pub fn complete(&self) {
+            unsafe { score_diag_test_control_complete(self.0.as_ptr()) }
+        }
+    }
+
+    /// Polls a condition driven by C++ worker threads. The deadline only bounds a hung test.
+    pub async fn wait_until(condition: impl Fn() -> bool) {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+        while !condition() {
+            assert!(tokio::time::Instant::now() < deadline, "condition not reached");
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_support::{wait_until, Control};
+    use super::*;
+
+    #[test]
+    fn status_values_match_c_header() {
+        for (raw, status) in [
+            (0, ReadStatus::Ok),
+            (1, ReadStatus::Nrc),
+            (2, ReadStatus::Cancelled),
+            (3, ReadStatus::Failed),
+            (4, ReadStatus::Busy),
+        ] {
+            assert_eq!(ReadStatus::from_raw(raw), Some(status));
+        }
+        assert_eq!(ReadStatus::from_raw(5), None);
+        assert_eq!(std::mem::size_of::<ReadStatus>(), 1);
+    }
+
+    #[test]
+    fn read_errors_keep_nrc_and_map_out_of_range_to_not_found() {
+        assert!(matches!(DataError::from(ReadError::Nrc(0x31)), DataError::NotFound(m) if m == "UDS NRC 0x31"));
+        assert!(matches!(DataError::from(ReadError::Nrc(0x33)), DataError::Internal(m) if m == "UDS NRC 0x33"));
+        assert!(matches!(DataError::from(ReadError::Busy), DataError::Internal(_)));
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn abandoned_read_cancels_retained_token() {
-        let (control, reader) = Control::new();
-        let task = tokio::spawn(async move { reader.read().await });
-        control.wait_for_reads(1).await;
-        task.abort();
-        assert!(task.await.expect_err("aborted task").is_cancelled());
-        assert!(
-            control.stopped(),
-            "abandoned reads must stop the handler token"
-        );
+    async fn accepts_owned_registration_after_original_handle_is_released() {
+        let original = unsafe { score_diag_demo_reader_create(0, 0) };
+        assert!(!original.is_null());
+        let cloned = unsafe { score_diag_reader_clone(original) };
+        unsafe { score_diag_reader_release(original) };
+        let reader = unsafe { ReadDid::from_registration(cloned, Duration::from_secs(5)) }.expect("registration");
+        assert_eq!(reader.read_bytes().await.expect("read"), b"1.0.0");
+        assert!(unsafe { ReadDid::from_registration(std::ptr::null_mut(), Duration::from_secs(1)) }.is_err());
     }
 
     #[tokio::test(flavor = "current_thread")]
     async fn cpp_handler_returns_bytes_and_nrc() {
-        let reader = ReadDid::demo(0, 0, Duration::from_secs(1)).expect("reader");
-        assert_eq!(reader.read().await.expect("read").value, b"1.0.0");
-        let denied = ReadDid::demo(0, 0x33, Duration::from_secs(1)).expect("denied reader");
-        assert!(
-            matches!(denied.read().await, Err(DataError::Internal(error)) if error == "UDS NRC 0x33")
-        );
+        let reader = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("reader");
+        assert_eq!(reader.read_bytes().await.expect("read"), b"1.0.0");
+        let denied = ReadDid::demo(0, 0x33, Duration::from_secs(5)).expect("denied reader");
+        assert_eq!(denied.read_bytes().await, Err(ReadError::Nrc(0x33)));
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn delayed_read_does_not_block_runtime() {
-        let delayed = ReadDid::demo(200, 0, Duration::from_secs(1)).expect("delayed reader");
-        let task = tokio::spawn(async move { delayed.read().await });
-        tokio::task::yield_now().await;
-        let quick = ReadDid::demo(0, 0, Duration::from_secs(1)).expect("quick reader");
-        let result = tokio::time::timeout(Duration::from_millis(100), quick.read()).await;
-        assert_eq!(
-            result
-                .expect("runtime responsive")
-                .expect("quick read")
-                .value,
-            b"1.0.0"
-        );
+    async fn utf8_payload_renders_as_string() {
+        let reader = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("reader");
+        assert_eq!(Utf8(reader).read().await.expect("utf8").value, "1.0.0");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn pending_read_does_not_block_runtime() {
+        let control = Control::new();
+        let pending = control.reader(Duration::from_secs(30));
+        let task = tokio::spawn(async move { pending.read_bytes().await });
+        wait_until(|| control.started() == 1).await;
+        let quick = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("quick reader");
+        assert_eq!(quick.read_bytes().await.expect("quick read"), b"1.0.0");
         assert!(!task.is_finished());
-        assert_eq!(
-            task.await.expect("task").expect("delayed read").value,
-            b"1.0.0"
-        );
+        control.complete();
+        assert_eq!(task.await.expect("task").expect("pending read"), b"ok");
     }
 
     #[tokio::test(flavor = "current_thread")]
     async fn timeout_and_dropped_read_cancel_safely() {
-        let reader = ReadDid::demo(200, 0, Duration::from_millis(10)).expect("reader");
-        assert!(
-            matches!(reader.read().await, Err(DataError::Internal(error)) if error == "diagnostic read timed out")
-        );
-        let delayed = ReadDid::demo(200, 0, Duration::from_secs(1)).expect("delayed reader");
-        let task = tokio::spawn(async move { delayed.read().await });
-        tokio::task::yield_now().await;
+        let control = Control::new();
+        let reader = control.reader(Duration::from_millis(10));
+        assert_eq!(reader.read_bytes().await, Err(ReadError::Timeout));
+        wait_until(|| control.stopped() == 1).await;
+        let pending = control.reader(Duration::from_secs(30));
+        let task = tokio::spawn(async move { pending.read_bytes().await });
+        wait_until(|| control.started() == 2).await;
         task.abort();
         assert!(task.await.expect_err("aborted task").is_cancelled());
-        let quick = ReadDid::demo(0, 0, Duration::from_secs(1)).expect("quick reader");
-        assert_eq!(quick.read().await.expect("subsequent read").value, b"1.0.0");
+        wait_until(|| control.stopped() == 2).await;
+        let quick = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("quick reader");
+        assert_eq!(quick.read_bytes().await.expect("subsequent read"), b"1.0.0");
     }
 
     #[tokio::test(flavor = "current_thread")]
     async fn saturated_handler_rejects_additional_work() {
-        let (control, reader) = Control::new();
+        let control = Control::new();
+        let reader = control.reader(Duration::from_secs(30));
         let mut tasks = Vec::new();
         for _ in 0..8 {
             let reader = reader.clone();
-            tasks.push(tokio::spawn(async move { reader.read().await }));
+            tasks.push(tokio::spawn(async move { reader.read_bytes().await }));
         }
-        control.wait_for_reads(8).await;
-        assert!(
-            matches!(reader.read().await, Err(DataError::Internal(error)) if error == "diagnostic reader busy")
-        );
+        wait_until(|| control.started() == 8).await;
+        assert_eq!(reader.read_bytes().await, Err(ReadError::Busy));
         control.complete();
         for task in tasks {
-            assert!(task.await.expect("task").expect("read").value.is_empty());
+            assert_eq!(task.await.expect("task").expect("read"), b"ok");
         }
     }
 }

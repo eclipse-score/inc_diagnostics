@@ -204,5 +204,5 @@ This repository maintains local patches for upstream dependencies:
 |-------|---------|--------|
 | `classic-diagnostic-adapter-linkme.patch` | Preserves linkme sections in CDA binary | Required — upstream does not include `--no-gc-sections` |
 | `classic-diagnostic-adapter-resource-ids.patch` | Includes routing IDs in CDA resource collections for typed client discovery | Required with the pinned CDA revision |
-| `opensovd-core-expose-tokio.patch` | Exposes tokio and other crate aliases | Required — upstream only exposes gateway target |
-| `opensovd-core-expose-client.patch` | Adds BUILD for opensovd-client | Required — upstream has no Bazel support for client crate |
+| `opensovd-core-expose-deps.patch` | Public aliases for the Core crates and shared crates (tokio, tracing, ...) | Required until eclipse-opensovd/opensovd-core#247; upstream limits them to its own workspace |
+| `opensovd-core-expose-client.patch` | Adds BUILD for opensovd-client | Required until eclipse-opensovd/opensovd-core#247; upstream has no Bazel target for the client crate |

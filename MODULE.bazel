@@ -31,22 +31,20 @@ git_override(
     remote = "https://github.com/eclipse-opensovd/mbedtls-rs.git",
 )
 
-# Override rules_foreign_cc to 0.17.0 which uses pkgconf instead of pkg-config.
-# This eliminates the BootstrapPkgConfig glib build that fails with hermetic
-# toolchains due to glib's use of GNU 'asm' extensions (incompatible with -std=c11).
+# Not used directly. The classic-diagnostic-adapter dependency graph builds glib
+# with rules_foreign_cc; versions before 0.17.0 bootstrap pkg-config from glib
+# (BootstrapPkgConfig), which fails with the hermetic GCC toolchain because glib
+# uses GNU 'asm' extensions that -std=c11 rejects. 0.17.0 uses pkgconf instead.
+# As root module this bazel_dep raises the resolved version to at least 0.17.0.
 bazel_dep(name = "rules_foreign_cc", version = "0.17.0")
-single_version_override(
-    module_name = "rules_foreign_cc",
-    version = "0.17.0",
-)
 
 bazel_dep(name = "opensovd_core", version = "0.0.0", dev_dependency = True)
 git_override(
     module_name = "opensovd_core",
-    commit = "30ac7995e3c850de567fc0308813b04d09dc667e",
+    commit = "3fd31487c89b344985c8201ad9b27c0dd5b0262b",
     patch_strip = 1,
     patches = [
-        "//patches:opensovd-core-expose-tokio.patch",
+        "//patches:opensovd-core-expose-deps.patch",
         "//patches:opensovd-core-expose-client.patch",
     ],
     remote = "https://github.com/eclipse-opensovd/opensovd-core.git",
