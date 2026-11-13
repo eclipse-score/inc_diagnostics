@@ -159,9 +159,11 @@ When used with macros like `dash_license_checker`, it allows dynamic selection o
 ## 🔧 Toolchain Architecture
 
 The OpenSOVD gateway, CDA and client are development prototypes. The gateway
-and client targets are public, and `opensovd_core`, `classic-diagnostic-adapter`
-and `mbedtls-rs` are regular `bazel_dep`s, so another Bazel module can build
-them.
+target is public, `//score/opensovd-core:gateway_files` and
+`//score/opensovd-cda:cda_files` package the gateway and the CDA for an image,
+and `opensovd_core`, `classic-diagnostic-adapter` and `mbedtls-rs` are regular
+`bazel_dep`s, so another Bazel module can build them. The example client stays
+visible only to the CDA package.
 
 Bazel only honours `git_override` and patches in the root module. A consumer of
 `score_diagnostics` must therefore repeat the `git_override`s and `patches`
