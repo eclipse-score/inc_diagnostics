@@ -158,11 +158,17 @@ When used with macros like `dash_license_checker`, it allows dynamic selection o
 
 ## 🔧 Toolchain Architecture
 
-The OpenSOVD gateway, CDA and client are root-only development prototypes.
-Run them with this repository as the root Bazel module. Their dependencies are
-marked `dev_dependency`, and their targets are not public integration APIs.
-Consumers of `score_diagnostics` do not inherit its root-only overrides or
-patches and must not depend on these prototype targets.
+The OpenSOVD gateway, CDA and client are development prototypes. The gateway
+and client targets are public, and `opensovd_core`, `classic-diagnostic-adapter`
+and `mbedtls-rs` are regular `bazel_dep`s, so another Bazel module can build
+them.
+
+Bazel only honours `git_override` and patches in the root module. A consumer of
+`score_diagnostics` must therefore repeat the `git_override`s and `patches`
+that this repository declares for these three modules (see
+[MODULE.bazel](MODULE.bazel) and [patches](patches)), and enable
+`--experimental_isolated_extension_usages` in its `.bazelrc`. This can go away
+once the patches are no longer needed (eclipse-opensovd/opensovd-core#247).
 
 All Linux targets, including the OpenSOVD gateway, CDA and example client, use
 the `score_diag_x86_64_linux` configuration. Host build tools and target code
