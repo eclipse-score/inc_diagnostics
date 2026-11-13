@@ -17,7 +17,7 @@ rust_binary(
     name = "sovd-client",
     srcs = ["src/main.rs"],
     edition = "2021",
-    visibility = ["//visibility:public"],
+    visibility = ["//score/opensovd-cda:__pkg__"],
     deps = [
         "@opensovd_core//:opensovd-client",
         "@opensovd_core//:tokio",
