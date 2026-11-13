@@ -64,9 +64,9 @@ so the faults it holds are not served through SOVD. The requirements describe th
 implemented in fault-lib, so that the integration has a baseline. How faults are represented in SOVD is defined
 by ISO 17978 and not repeated here.
 
-* :need:`Functional`
-* :need:`Functional`
-* :need:`Functional`
-* :need:`Functional`
-* :need:`Functional`
-* :need:`Interface`
+* :need:`comp_req__fault_manager__catalog_aggregation`
+* :need:`comp_req__fault_manager__status`
+* :need:`comp_req__fault_manager__env_data`
+* :need:`comp_req__fault_manager__aging`
+* :need:`comp_req__fault_manager__persistence`
+* :need:`comp_req__fault_manager__queries`
