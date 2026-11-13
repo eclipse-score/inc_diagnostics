@@ -43,7 +43,7 @@ rust_binary(
     edition = "2021",
     features = ["link_std_cpp_lib"],
     proc_macro_deps = ["@opensovd_core//:async-trait"],
-    visibility = ["//visibility:private"],
+    visibility = ["//visibility:public"],
     deps = [
         ":read_did_bridge",
         "@opensovd_core//:opensovd-core",
