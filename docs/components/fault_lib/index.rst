@@ -66,10 +66,10 @@ it is implemented in fault-lib, so that the integration has a baseline.
 The fault library relays faults over iceoryx2. :need:`feat_req__diagnostics__internal_com` asks for
 S-CORE::COM, which is open.
 
-* :need:`Interface`
-* :need:`Functional`
-* :need:`Non-Functional`
-* :need:`Functional`
-* :need:`Functional`
-* :need:`Functional`
-* :need:`Functional`
+* :need:`comp_req__fault_lib__catalog`
+* :need:`comp_req__fault_lib__reporting`
+* :need:`comp_req__fault_lib__framework_agnostic`
+* :need:`comp_req__fault_lib__debounce`
+* :need:`comp_req__fault_lib__enabling_conditions`
+* :need:`comp_req__fault_lib__relay`
+* :need:`comp_req__fault_lib__report_errors`
