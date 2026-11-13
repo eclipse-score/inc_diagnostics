@@ -103,6 +103,8 @@ TEST(UdsErrorTest, ConversionRejectsMatchingCodeFromUnrelatedDomain)
     const ForeignDomain domain;
     const score::result::Error foreign{0x33, domain, ""};
     EXPECT_FALSE(ToNegativeResponseCode(foreign).has_value());
+    const score::result::Error foreign_with_message{0x33, domain, "context"};
+    EXPECT_FALSE(ToNegativeResponseCode(foreign_with_message).has_value());
     const auto uds = MakeError(NegativeResponseCode::SecurityAccessDenied, "context");
     EXPECT_EQ(ToNegativeResponseCode(uds), NegativeResponseCode::SecurityAccessDenied);
 }

@@ -37,6 +37,8 @@ Requirements
    :security: YES
    :reqtype: Functional
    :rationale: Ensure documentation builds are possible for all modules
+   :valid_from: v1.0.0
+   :version: 1
 
 
 Project Layout
@@ -80,3 +82,15 @@ Example:
    }
 
 This enables conditional behavior (e.g., choosing `clang-tidy` for C++ or `clippy` for Rust).
+
+Components
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   components/sovd_gateway/index
+   components/uds_data_bridge/index
+   components/cda/index
+   components/fault_lib/index
+   components/fault_manager/index

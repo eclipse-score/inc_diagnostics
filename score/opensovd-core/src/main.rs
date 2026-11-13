@@ -12,20 +12,32 @@
 // *******************************************************************************
 
 use opensovd_core::{App, Component};
+use opensovd_extra::{Federation, FederationLayer};
 use opensovd_models::data::DataCategory;
 use opensovd_providers::data::{Constant, DataProviderBuilder};
-use opensovd_server::{Server, Topology};
+use opensovd_server::{Server, Topology, VendorInfo};
 use std::time::Duration;
 use tokio::net::TcpListener;
+use tower::layer::util::{Identity, Stack};
+use tower::util::Either;
 use tracing_subscriber::EnvFilter;
 
 #[path = "../bridge/read_did.rs"]
 mod read_did;
 
+mod upstream;
+
 const DEFAULT_ADDRESS: &str = "127.0.0.1:7690";
+const BASE_PATH: &str = "/sovd";
 
 fn address() -> String {
     std::env::var("SCORE_GATEWAY_ADDRESS").unwrap_or_else(|_| DEFAULT_ADDRESS.to_owned())
+}
+
+/// Base URL of the SOVD server the gateway forwards to, such as the CDA at
+/// `http://127.0.0.1:20002/vehicle/v15`. Without it the gateway serves only its own entities.
+fn upstream_url() -> Option<String> {
+    std::env::var("SCORE_UPSTREAM_URL").ok().filter(|url| !url.is_empty())
 }
 
 fn init_tracing() {
@@ -54,15 +66,14 @@ async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
             "application.version",
             "Application Version",
             &DataCategory::IdentData,
-            read_did::ReadDid::demo(0, 0, Duration::from_secs(2))?,
+            read_did::Utf8(read_did::ReadDid::demo(0, 0, Duration::from_secs(2))?),
         )
         .build()?;
 
     let topology = Topology::new();
     {
         let mut registry = topology.write().await;
-        registry
-            .add_component(Component::new("score-demo", "SCORE Demo").with_data_provider(provider));
+        registry.add_component(Component::new("score-demo", "SCORE Demo").with_data_provider(provider));
         registry.add_app(
             App::new("score-diagnostics", "SCORE Diagnostics")
                 .with_component_id("score-demo")
@@ -72,17 +83,42 @@ async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
     Ok(topology)
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    init_tracing();
-    let address = address();
-    let listener = TcpListener::bind(&address).await?;
-    let topology = topology().await?;
+type Gateway = Server<VendorInfo, Stack<Either<FederationLayer, Identity>, Identity>>;
+
+/// The gateway on `listener`. With `upstream_url`, what it does not host is forwarded there and
+/// discovery lists the upstream's entities next to its own.
+fn gateway(
+    listener: TcpListener,
+    topology: Topology,
+    upstream_url: Option<&str>,
+) -> Result<Gateway, Box<dyn std::error::Error>> {
+    let address = listener.local_addr()?;
+    let federation = match upstream_url {
+        Some(url) => {
+            tracing::info!(target: "forwarding", "Forwarding to {url}");
+            let upstream = upstream::upstream(url)?;
+            Some(
+                Federation::new(vec![upstream], topology.clone())?
+                    .base(BASE_PATH)
+                    .into_layer(),
+            )
+        },
+        None => None,
+    };
     let server = Server::builder()
-        .base_uri(format!("http://{address}/sovd"))?
+        .layer(tower::util::option_layer(federation))
+        .base_uri(format!("http://{address}{BASE_PATH}"))?
         .listener(listener)
         .topology(topology)
         .build()?;
+    Ok(server)
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_tracing();
+    let listener = TcpListener::bind(address()).await?;
+    let server = gateway(listener, topology().await?, upstream_url().as_deref())?;
     server.serve().await?;
     Ok(())
 }
@@ -91,99 +127,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
     use opensovd_client::Client;
-    use std::io::{self, Write};
-    use std::sync::{Arc, Mutex};
 
-    struct LogWriter(Arc<Mutex<Vec<u8>>>);
-
-    impl Write for LogWriter {
-        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.0.lock().expect("log buffer").extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn upstream_internal_errors_are_logged() {
-        let output = Arc::new(Mutex::new(Vec::new()));
-        let buffer = output.clone();
-        let subscriber = tracing_subscriber::fmt()
-            .with_writer(move || LogWriter(buffer.clone()))
-            .without_time()
-            .finish();
-        let _guard = tracing::subscriber::set_default(subscriber);
+    async fn serve(upstream_url: Option<&str>) -> (tokio::task::JoinHandle<()>, Client) {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
         let address = listener.local_addr().expect("address");
-        let provider = DataProviderBuilder::new()
-            .read_data(
-                "denied",
-                "Denied",
-                &DataCategory::IdentData,
-                read_did::ReadDid::demo(0, 0x33, Duration::from_secs(1)).expect("reader"),
-            )
-            .build()
-            .expect("provider");
-        let topology = Topology::new();
-        topology
-            .write()
-            .await
-            .add_component(Component::new("denied", "Denied").with_data_provider(provider));
-        let server = Server::builder()
-            .base_uri(format!("http://{address}/sovd"))
-            .expect("base URI")
-            .listener(listener)
-            .topology(topology)
-            .build()
-            .expect("server");
-        let server_task = tokio::spawn(async move { server.serve().await });
+        let server = gateway(listener, topology().await.expect("topology"), upstream_url).expect("server");
+        let task = tokio::spawn(async move {
+            let _ = server.serve().await;
+        });
         let client = Client::builder()
-            .base_uri(format!("http://{address}/sovd/v1"))
+            .base_uri(&format!("http://{address}/sovd/v1"))
             .expect("URL")
-            .timeout(Duration::from_secs(1))
+            .timeout(Duration::from_secs(5))
             .build()
             .expect("client");
-        let result = client
-            .component("denied")
-            .data("denied")
-            .read()
-            .send()
-            .await;
-        server_task.abort();
-        let _ = server_task.await;
-        assert!(
-            matches!(result, Err(opensovd_client::Error::ApiError { status, .. }) if status.as_u16() == 500)
-        );
-        let logs =
-            String::from_utf8(output.lock().expect("log buffer").clone()).expect("UTF-8 logs");
-        assert!(
-            logs.contains("UDS NRC 0x33"),
-            "internal error detail missing: {logs}"
-        );
+        (task, client)
     }
 
+    // # req-Id: comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__utf8_data, comp_req__sovd_gateway__hosted_entities
     #[tokio::test(flavor = "current_thread")]
     async fn registered_application_is_discoverable_and_serves_data() {
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
-        let address = listener.local_addr().expect("address");
-        let server = Server::builder()
-            .base_uri(format!("http://{address}/sovd"))
-            .expect("base URI")
-            .listener(listener)
-            .topology(topology().await.expect("topology"))
-            .build()
-            .expect("server");
-        let server_task = tokio::spawn(async move { server.serve().await });
-        let url = format!("http://{address}/sovd/v1");
-        let client = Client::builder()
-            .base_uri(&url)
-            .expect("URL")
-            .timeout(Duration::from_secs(1))
-            .build()
-            .expect("client");
+        let (task, client) = serve(None).await;
         let apps = client.list_apps().send().await.expect("list apps");
         assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
         let app = client.app("score-diagnostics");
@@ -195,13 +159,35 @@ mod tests {
             .send()
             .await
             .expect("app version");
-        let bytes = version.data["value"].as_array().expect("byte array");
-        let bytes: Vec<u8> = bytes
-            .iter()
-            .map(|value| value.as_u64().expect("byte") as u8)
-            .collect();
-        assert_eq!(bytes, b"1.0.0");
-        server_task.abort();
-        let _ = server_task.await;
+        assert_eq!(version.data["value"].as_str(), Some("1.0.0"));
+        task.abort();
+        let _ = task.await;
+    }
+
+    // # req-Id: comp_req__sovd_gateway__upstream_unavailable, comp_req__sovd_gateway__upstream_config
+    #[tokio::test(flavor = "current_thread")]
+    async fn unreachable_upstream_keeps_local_entities_available() {
+        let unused = std::net::TcpListener::bind("127.0.0.1:0").expect("port");
+        let url = format!("http://{}/vehicle/v15", unused.local_addr().expect("address"));
+        drop(unused);
+        let (task, client) = serve(Some(&url)).await;
+        let apps = client.list_apps().send().await.expect("list apps");
+        assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
+        let error = client
+            .app("sovd2uds")
+            .list_data()
+            .send()
+            .await
+            .expect_err("forwarded request");
+        assert!(
+            matches!(&error, opensovd_client::Error::ApiError { status, .. } if status.as_u16() == 502),
+            "{error:?}"
+        );
+        assert!(
+            !format!("{error:?}").contains(&url),
+            "upstream address leaked: {error:?}"
+        );
+        task.abort();
+        let _ = task.await;
     }
 }

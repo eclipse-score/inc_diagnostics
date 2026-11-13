@@ -15,26 +15,23 @@
 
 #include <atomic>
 #include <chrono>
-#include <map>
 #include <mutex>
-#include <optional>
 #include <thread>
-#include <type_traits>
 #include <utility>
+
+static_assert(sizeof(ScoreDiagReadStatus) == 1U, "Rust declares ReadStatus as repr(u8)");
+static_assert(SCORE_DIAG_READ_OK == 0 && SCORE_DIAG_READ_NRC == 1 && SCORE_DIAG_READ_CANCELLED == 2 &&
+                  SCORE_DIAG_READ_FAILED == 3 && SCORE_DIAG_READ_BUSY == 4,
+              "status values must match ReadStatus in read_did.rs");
 
 namespace
 {
-static_assert(std::is_same_v<std::uint8_t, unsigned char>);
-
 using score::mw::diag::ByteVector;
 using score::mw::diag::Future;
 using score::mw::diag::uds::MetaData;
 using score::mw::diag::uds::NegativeResponseCode;
 using score::mw::diag::uds::ReadDataByIdentifier;
 using score::mw::diag::uds::Result;
-
-/// Maximum number of concurrent in-flight read requests per handler.
-constexpr std::size_t kMaxConcurrentReads = 8U;
 
 struct HandlerState
 {
@@ -43,48 +40,17 @@ struct HandlerState
     std::atomic<std::size_t> active_requests{0U};
 };
 
-class ActiveRequest final
-{
-  public:
-    static std::optional<ActiveRequest> TryAcquire(const std::shared_ptr<HandlerState>& owner)
-    {
-        auto active = owner->active_requests.load();
-        while (active < kMaxConcurrentReads)
-        {
-            if (owner->active_requests.compare_exchange_weak(active, active + 1U))
-            {
-                return ActiveRequest{owner};
-            }
-        }
-        return std::nullopt;
-    }
-
-    ActiveRequest(ActiveRequest&& other) noexcept : owner_{std::move(other.owner_)} {}
-    ActiveRequest& operator=(ActiveRequest&&) = delete;
-    ActiveRequest(const ActiveRequest&) = delete;
-    ActiveRequest& operator=(const ActiveRequest&) = delete;
-
-    ~ActiveRequest()
-    {
-        if (owner_)
-        {
-            score::cpp::ignore = owner_->active_requests.fetch_sub(1U);
-        }
-    }
-
-    HandlerState& owner() const noexcept
-    {
-        return *owner_;
-    }
-
-  private:
-    explicit ActiveRequest(std::shared_ptr<HandlerState> owner) : owner_{std::move(owner)} {}
-
-    std::shared_ptr<HandlerState> owner_;
-};
-
 struct RequestState
 {
+    ~RequestState()
+    {
+        if (owner)
+        {
+            score::cpp::ignore = owner->active_requests.fetch_sub(1U);
+        }
+    }
+
+    std::shared_ptr<HandlerState> owner;
     score::cpp::stop_source stop_source;
     void* context;
     ScoreDiagReadCompletion completion;
@@ -93,7 +59,7 @@ struct RequestState
 class DemoReader final : public ReadDataByIdentifier
 {
   public:
-    DemoReader(std::uint32_t delay_ms, std::uint8_t nrc) : ReadDataByIdentifier{}, delay_ms_{delay_ms}, nrc_{nrc} {}
+    DemoReader(std::uint32_t delay_ms, std::uint8_t nrc) : delay_ms_{delay_ms}, nrc_{nrc} {}
 
     Future<Result<ByteVector>> Read(const MetaData& meta_data, score::cpp::stop_token stop_token) override
     {
@@ -120,11 +86,8 @@ class DemoReader final : public ReadDataByIdentifier
             }
             else
             {
-                score::cpp::ignore = promise.SetValue(Result<ByteVector>{ByteVector{static_cast<std::byte>(0x31U),
-                                                                                    static_cast<std::byte>(0x2eU),
-                                                                                    static_cast<std::byte>(0x30U),
-                                                                                    static_cast<std::byte>(0x2eU),
-                                                                                    static_cast<std::byte>(0x30U)}});
+                score::cpp::ignore = promise.SetValue(Result<ByteVector>{
+                    ByteVector{std::byte{0x31}, std::byte{0x2e}, std::byte{0x30}, std::byte{0x2e}, std::byte{0x30}}});
             }
         }).detach();
         return future;
@@ -135,19 +98,14 @@ class DemoReader final : public ReadDataByIdentifier
     std::uint8_t nrc_;
 };
 
-void CompleteRead(const std::shared_ptr<RequestState>& state, HandlerState& owner)
+void CompleteRead(const std::shared_ptr<RequestState>& state)
 {
     try
     {
-        std::unique_lock<std::mutex> guard{owner.dispatch_mutex};
-        if (state->stop_source.stop_requested())
-        {
-            guard.unlock();
-            state->completion(state->context, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
-            return;
-        }
-        auto future = owner.handler->Read(MetaData{}, state->stop_source.get_token());
-        guard.unlock();
+        auto future = [&state]() {
+            std::lock_guard<std::mutex> guard{state->owner->dispatch_mutex};
+            return state->owner->handler->Read(MetaData{}, state->stop_source.get_token());
+        }();
         auto completion = future.Get(state->stop_source.get_token());
         if (state->stop_source.stop_requested())
         {
@@ -159,7 +117,7 @@ void CompleteRead(const std::shared_ptr<RequestState>& state, HandlerState& owne
         }
         else if (!completion.value().has_value())
         {
-            const auto nrc = score::mw::diag::uds::ToNegativeResponseCode(completion.value().error());
+            const auto nrc = score::mw::diag::uds::ToNegativeResponseCode(*completion.value().error());
             if (nrc.has_value())
             {
                 state->completion(
@@ -199,35 +157,15 @@ struct ScoreDiagReadRequest
 
 namespace score::opensovd::bridge
 {
-ReaderPtr RegisterReadDataByIdentifier(std::shared_ptr<ReadDataByIdentifier> handler)
+ScoreDiagReader* RegisterReadDataByIdentifier(std::shared_ptr<ReadDataByIdentifier> handler)
 {
     if (!handler)
     {
-        return {};
+        return nullptr;
     }
-    static std::mutex registry_mutex;
-    static std::map<ReadDataByIdentifier*, std::weak_ptr<HandlerState>> registry;
-    std::lock_guard<std::mutex> guard{registry_mutex};
-    for (auto entry = registry.begin(); entry != registry.end();)
-    {
-        if (entry->second.expired())
-        {
-            entry = registry.erase(entry);
-        }
-        else
-        {
-            ++entry;
-        }
-    }
-    auto& registered = registry[handler.get()];
-    auto state = registered.lock();
-    if (!state)
-    {
-        state = std::make_shared<HandlerState>();
-        state->handler = std::move(handler);
-        registered = state;
-    }
-    return ReaderPtr{new ScoreDiagReader{std::move(state)}};
+    auto state = std::make_shared<HandlerState>();
+    state->handler = std::move(handler);
+    return new ScoreDiagReader{std::move(state)};
 }
 }  // namespace score::opensovd::bridge
 
@@ -235,8 +173,19 @@ extern "C" ScoreDiagReader* score_diag_demo_reader_create(std::uint32_t delay_ms
 {
     try
     {
-        return score::opensovd::bridge::RegisterReadDataByIdentifier(std::make_shared<DemoReader>(delay_ms, nrc))
-            .release();
+        return score::opensovd::bridge::RegisterReadDataByIdentifier(std::make_shared<DemoReader>(delay_ms, nrc));
+    }
+    catch (...)
+    {
+        return nullptr;
+    }
+}
+
+extern "C" ScoreDiagReader* score_diag_reader_clone(const ScoreDiagReader* reader)
+{
+    try
+    {
+        return reader == nullptr ? nullptr : new ScoreDiagReader{reader->state};
     }
     catch (...)
     {
@@ -256,18 +205,19 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
     std::unique_ptr<ScoreDiagReadRequest> request;
     try
     {
-        auto active_request = ActiveRequest::TryAcquire(reader->state);
-        if (!active_request)
+        auto state = std::make_shared<RequestState>();
+        if (reader->state->active_requests.fetch_add(1U) >= 8U)
         {
+            score::cpp::ignore = reader->state->active_requests.fetch_sub(1U);
             completion(context, SCORE_DIAG_READ_BUSY, 0U, nullptr, 0U);
             return nullptr;
         }
-        auto state = std::make_shared<RequestState>();
+        state->owner = reader->state;
         state->context = context;
         state->completion = completion;
         request = std::make_unique<ScoreDiagReadRequest>(ScoreDiagReadRequest{state});
-        std::thread([state, active_request = std::move(*active_request)]() {
-            CompleteRead(state, active_request.owner());
+        std::thread([state]() {
+            CompleteRead(state);
         }).detach();
         return request.release();
     }
@@ -280,10 +230,7 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
 
 extern "C" void score_diag_read_cancel(ScoreDiagReadRequest* request)
 {
-    if (request != nullptr)
-    {
-        score::cpp::ignore = request->state->stop_source.request_stop();
-    }
+    score::cpp::ignore = request->state->stop_source.request_stop();
 }
 
 extern "C" void score_diag_read_release(ScoreDiagReadRequest* request)
