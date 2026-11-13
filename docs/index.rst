@@ -92,3 +92,5 @@ Components
    components/sovd_gateway/index
    components/uds_data_bridge/index
    components/cda/index
+   components/fault_lib/index
+   components/fault_manager/index

@@ -72,3 +72,42 @@ then :need:`aou_req__sovd_gateway__trusted_network` applies.
 * :need:`comp_req__sovd_gateway__merged_discovery`
 * :need:`comp_req__sovd_gateway__reference_rewrite`
 * :need:`comp_req__sovd_gateway__upstream_unavailable`
+* :need:`comp_req__sovd_gateway__hosted_entities`
+* :need:`comp_req__sovd_gateway__vehicle_lock`
+* :need:`comp_req__sovd_gateway__discovery_timeout`
+* :need:`comp_req__sovd_gateway__dot_segments`
+
+OpenSOVD Core Usage
+===================
+
+The gateway uses these parts of OpenSOVD Core. Each is covered by a requirement of this or another component of
+this repository, or is not used and ruled out by an assumption of use.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - OpenSOVD Core
+     - Covered by
+   * - ``opensovd_server``: ``Server``, ``Topology``, ``VendorInfo``
+     - :need:`comp_req__sovd_gateway__single_entry_point`, :need:`comp_req__sovd_gateway__upstream_config`,
+       :need:`comp_req__sovd_gateway__hosted_entities`
+   * - ``opensovd_core``: ``Component``, ``App``
+     - :need:`comp_req__sovd_gateway__hosted_entities`
+   * - ``opensovd_providers``: ``DataProviderBuilder``, ``Constant``, ``ReadableDataResource``, ``Value``
+     - :need:`comp_req__sovd_gateway__hosted_entities`, :need:`comp_req__uds_data_bridge__read_handlers`,
+       :need:`comp_req__uds_data_bridge__utf8_data`
+   * - ``opensovd_core::DataError``, ``opensovd_models``: ``GenericError``, ``DataCategory``
+     - :need:`comp_req__uds_data_bridge__nrc_errors`, :need:`comp_req__uds_data_bridge__read_timeout`
+   * - ``opensovd_extra``: ``Federation``, ``Upstream``, ``ForwardRoute`` ``Entities``, ``Functions``,
+       ``Collections``, ``CustomCollections``
+     - :need:`comp_req__sovd_gateway__forwarding`, :need:`comp_req__sovd_gateway__merged_discovery`,
+       :need:`comp_req__sovd_gateway__discovery_timeout`, :need:`comp_req__sovd_gateway__dot_segments`
+   * - ``opensovd_extra``: ``ForwardRoute::Locks``
+     - :need:`comp_req__sovd_gateway__vehicle_lock`
+   * - ``opensovd_extra``: ``ServerUri``
+     - :need:`comp_req__sovd_gateway__reference_rewrite`
+   * - ``opensovd_extra``: ``ForwardRoute::Authorize``, ``opensovd_server``: ``Authenticator``, ``Authorizer``
+     - Not used: :need:`aou_req__sovd_gateway__trusted_network`
+   * - ``opensovd_client``: ``Client``
+     - Used only by tests and the ``sovd-client`` example, not part of a component of this repository

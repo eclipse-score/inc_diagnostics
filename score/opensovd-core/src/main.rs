@@ -144,7 +144,7 @@ mod tests {
         (task, client)
     }
 
-    // # req-Id: comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__utf8_data
+    // # req-Id: comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__utf8_data, comp_req__sovd_gateway__hosted_entities
     #[tokio::test(flavor = "current_thread")]
     async fn registered_application_is_discoverable_and_serves_data() {
         let (task, client) = serve(None).await;
