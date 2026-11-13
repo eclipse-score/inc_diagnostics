@@ -12,6 +12,7 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 
 cc_library(
@@ -70,4 +71,14 @@ cc_library(
     testonly = True,
     srcs = ["bridge/read_did_test_support.cpp"],
     deps = [":read_did_bridge"],
+)
+
+# Packaging for deployment into an image. The install location is chosen by the consumer
+# (for example with pkg_filegroup(prefix = ...)).
+pkg_files(
+    name = "gateway_files",
+    srcs = [":opensovd-gateway"],
+    attributes = pkg_attributes(mode = "0755"),
+    strip_prefix = strip_prefix.files_only(),
+    visibility = ["//visibility:public"],
 )
