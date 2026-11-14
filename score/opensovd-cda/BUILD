@@ -11,6 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_rust//rust:defs.bzl", "rust_test")
 
 alias(
@@ -33,4 +34,24 @@ rust_test(
         "@opensovd_core//:opensovd-client",
         "@opensovd_core//:tokio",
     ],
+)
+
+# Packaging for deployment into an image. The install location is chosen by the consumer
+# (for example with pkg_filegroup(prefix = ...)).
+pkg_files(
+    name = "cda_files",
+    srcs = [":opensovd-cda"],
+    attributes = pkg_attributes(mode = "0755"),
+    strip_prefix = strip_prefix.files_only(),
+    visibility = ["//visibility:public"],
+)
+
+# The ECU databases (MDD) of the CDA's ECU simulator, for an image that runs the CDA against it.
+# They are test data, not the databases of a vehicle.
+pkg_files(
+    name = "cda_test_databases_files",
+    srcs = ["@classic-diagnostic-adapter//testcontainer/odx:mdd"],
+    attributes = pkg_attributes(mode = "0644"),
+    strip_prefix = strip_prefix.files_only(),
+    visibility = ["//visibility:public"],
 )
