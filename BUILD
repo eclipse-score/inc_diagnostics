@@ -12,7 +12,7 @@
 # *******************************************************************************
 
 load("@score_docs_as_code//:docs.bzl", "docs")
-load("@score_tooling//:defs.bzl", "copyright_checker", "dash_license_checker", "setup_starpls", "use_format_targets")
+load("@score_tooling//:defs.bzl", "copyright_checker", "dash_license_checker", "setup_starpls")
 load("//:project_config.bzl", "PROJECT_CONFIG")
 
 setup_starpls(
@@ -38,9 +38,6 @@ dash_license_checker(
     project_config = PROJECT_CONFIG,
     visibility = ["//visibility:public"],
 )
-
-# Add target for formatting checks
-use_format_targets()
 
 docs(
     source_dir = "docs",

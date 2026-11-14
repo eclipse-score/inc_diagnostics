@@ -12,7 +12,7 @@
 # *******************************************************************************
 module(name = "score_diagnostics")
 
-bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0", dev_dependency = True)
+bazel_dep(name = "classic-diagnostic-adapter", version = "0.1.0")
 git_override(
     module_name = "classic-diagnostic-adapter",
     commit = "213767d340fb4e7167a82b30cc38c7013c36c042",
@@ -20,11 +20,12 @@ git_override(
     patches = [
         "//patches:classic-diagnostic-adapter-linkme.patch",
         "//patches:classic-diagnostic-adapter-resource-ids.patch",
+        "//patches:classic-diagnostic-adapter-test-databases.patch",
     ],
     remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
 )
 
-bazel_dep(name = "mbedtls-rs", version = "0.1.0", dev_dependency = True)
+bazel_dep(name = "mbedtls-rs", version = "0.1.0")
 git_override(
     module_name = "mbedtls-rs",
     commit = "1dac0d8c6a80feb3864e86aac80b35cf34b10f87",
@@ -37,8 +38,7 @@ git_override(
 # uses GNU 'asm' extensions that -std=c11 rejects. 0.17.0 uses pkgconf instead.
 # As root module this bazel_dep raises the resolved version to at least 0.17.0.
 bazel_dep(name = "rules_foreign_cc", version = "0.17.0")
-
-bazel_dep(name = "opensovd_core", version = "0.0.0", dev_dependency = True)
+bazel_dep(name = "opensovd_core", version = "0.0.0")
 git_override(
     module_name = "opensovd_core",
     commit = "3fd31487c89b344985c8201ad9b27c0dd5b0262b",
@@ -51,6 +51,7 @@ git_override(
 )
 
 bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "score_bazel_platforms", version = "0.1.2")
 
 bazel_dep(name = "score_bazel_cpp_toolchains", version = "0.5.4", dev_dependency = True)
@@ -180,10 +181,12 @@ bazel_dep(name = "score_baselibs", version = "0.2.9")
 bazel_dep(name = "grpc", version = "1.76.0")
 
 # tooling
-bazel_dep(name = "score_tooling", version = "1.1.2", dev_dependency = True)
+bazel_dep(name = "score_tooling", version = "1.1.2")
+
 bazel_dep(name = "score_devcontainer", version = "1.7.0", dev_dependency = True)
 bazel_dep(name = "aspect_rules_lint", version = "2.3.0", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
+bazel_dep(name = "toolchains_llvm", version = "1.8.0", dev_dependency = True)
 
 # docs-as-code
 bazel_dep(name = "score_docs_as_code", version = "4.6.0")

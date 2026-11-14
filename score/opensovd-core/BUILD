@@ -12,6 +12,7 @@
 # *******************************************************************************
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
 
 cc_library(
@@ -43,7 +44,7 @@ rust_binary(
     edition = "2021",
     features = ["link_std_cpp_lib"],
     proc_macro_deps = ["@opensovd_core//:async-trait"],
-    visibility = ["//score:__subpackages__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":read_did_bridge",
         "@opensovd_core//:bytes",
@@ -78,4 +79,14 @@ cc_library(
     srcs = ["bridge/read_did_test_support.cpp"],
     hdrs = ["bridge/read_did_test_support.h"],
     deps = [":read_did_bridge"],
+)
+
+# Packaging for deployment into an image. The install location is chosen by the consumer
+# (for example with pkg_filegroup(prefix = ...)).
+pkg_files(
+    name = "gateway_files",
+    srcs = [":opensovd-gateway"],
+    attributes = pkg_attributes(mode = "0755"),
+    strip_prefix = strip_prefix.files_only(),
+    visibility = ["//visibility:public"],
 )
