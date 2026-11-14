@@ -158,11 +158,19 @@ When used with macros like `dash_license_checker`, it allows dynamic selection o
 
 ## 🔧 Toolchain Architecture
 
-The OpenSOVD gateway, CDA and client are root-only development prototypes.
-Run them with this repository as the root Bazel module. Their dependencies are
-marked `dev_dependency`, and their targets are not public integration APIs.
-Consumers of `score_diagnostics` do not inherit its root-only overrides or
-patches and must not depend on these prototype targets.
+The OpenSOVD gateway, CDA and client are development prototypes. The gateway
+target is public, `//score/opensovd-core:gateway_files` and
+`//score/opensovd-cda:cda_files` package the gateway and the CDA for an image,
+and `opensovd_core`, `classic-diagnostic-adapter` and `mbedtls-rs` are regular
+`bazel_dep`s, so another Bazel module can build them. The example client stays
+visible only to the CDA package.
+
+Bazel only honours `git_override` and patches in the root module. A consumer of
+`score_diagnostics` must therefore repeat the `git_override`s and `patches`
+that this repository declares for these three modules (see
+[MODULE.bazel](MODULE.bazel) and [patches](patches)), and enable
+`--experimental_isolated_extension_usages` in its `.bazelrc`. This can go away
+once the patches are no longer needed (eclipse-opensovd/opensovd-core#247).
 
 All Linux targets, including the OpenSOVD gateway, CDA and example client, use
 the `score_diag_x86_64_linux` configuration. Host build tools and target code
@@ -196,6 +204,14 @@ bazel build --config=score_diag_x86_64_linux //examples/... //tests/... //score/
 bazel test --config=score_diag_x86_64_linux //examples/... //tests/... //score/...
 ```
 
+### ECU simulator test data
+
+`//score/opensovd-cda:cda_test_databases_files` packages all ECU databases (MDD) of the ECU
+simulator of the classic diagnostic adapter (CDA). Some of its ECUs only work with the settings
+that the integration tests of the CDA make for them (`ignore_protocol`, the logical gateway
+addresses, com-params): `score/opensovd-cda/cda-ecu-sim.toml` has exactly those and nothing else.
+A consumer appends it to its own CDA configuration, which sets the paths, address and port.
+
 ### Patches
 
 This repository maintains local patches for upstream dependencies:
@@ -205,4 +221,5 @@ This repository maintains local patches for upstream dependencies:
 | `classic-diagnostic-adapter-linkme.patch` | Preserves linkme sections in CDA binary | Required — upstream does not include `--no-gc-sections` |
 | `classic-diagnostic-adapter-resource-ids.patch` | Includes routing IDs in CDA resource collections for typed client discovery | Required with the pinned CDA revision |
 | `opensovd-core-expose-deps.patch` | Public aliases for the Core crates and shared crates (tokio, tracing, ...) | Required until eclipse-opensovd/opensovd-core#247; upstream limits them to its own workspace |
+| `classic-diagnostic-adapter-test-databases.patch` | Adds a Bazel package for the ECU databases of the CDA's ECU simulator (`testcontainer/odx`), packaged by `//score/opensovd-cda:cda_test_databases_files` | Required to ship test databases in an image — upstream has no Bazel package for them |
 | `opensovd-core-expose-client.patch` | Adds BUILD for opensovd-client | Required until eclipse-opensovd/opensovd-core#247; upstream has no Bazel target for the client crate |
