@@ -212,5 +212,6 @@ This repository maintains local patches for upstream dependencies:
 |-------|---------|--------|
 | `classic-diagnostic-adapter-linkme.patch` | Preserves linkme sections in CDA binary | Required — upstream does not include `--no-gc-sections` |
 | `classic-diagnostic-adapter-resource-ids.patch` | Includes routing IDs in CDA resource collections for typed client discovery | Required with the pinned CDA revision |
+| `classic-diagnostic-adapter-test-databases.patch` | Adds a Bazel package for the ECU databases of the CDA's ECU simulator (`testcontainer/odx`), packaged by `//score/opensovd-cda:cda_test_databases_files` | Required to ship test databases in an image — upstream has no Bazel package for them |
 | `opensovd-core-expose-tokio.patch` | Exposes tokio and other crate aliases | Required — upstream only exposes gateway target |
 | `opensovd-core-expose-client.patch` | Adds BUILD for opensovd-client | Required — upstream has no Bazel support for client crate |

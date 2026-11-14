@@ -44,3 +44,13 @@ pkg_files(
     strip_prefix = strip_prefix.files_only(),
     visibility = ["//visibility:public"],
 )
+
+# The ECU databases (MDD) of the CDA's ECU simulator, for an image that runs the CDA against it.
+# They are test data, not the databases of a vehicle.
+pkg_files(
+    name = "cda_test_databases_files",
+    srcs = ["@classic-diagnostic-adapter//testcontainer/odx:mdd"],
+    attributes = pkg_attributes(mode = "0644"),
+    strip_prefix = strip_prefix.files_only(),
+    visibility = ["//visibility:public"],
+)

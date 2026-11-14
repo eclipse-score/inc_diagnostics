@@ -20,6 +20,7 @@ git_override(
     patches = [
         "//patches:classic-diagnostic-adapter-linkme.patch",
         "//patches:classic-diagnostic-adapter-resource-ids.patch",
+        "//patches:classic-diagnostic-adapter-test-databases.patch",
     ],
     remote = "https://github.com/eclipse-opensovd/classic-diagnostic-adapter.git",
 )
