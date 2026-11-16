@@ -171,7 +171,20 @@ mod tests {
         let (task, client) = serve(Some(&url)).await;
         let apps = client.list_apps().send().await.expect("list apps");
         assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
-        assert!(client.app("sovd2uds").list_data().send().await.is_err());
+        let error = client
+            .app("sovd2uds")
+            .list_data()
+            .send()
+            .await
+            .expect_err("forwarded request");
+        assert!(
+            matches!(&error, opensovd_client::Error::ApiError { status, .. } if status.as_u16() == 502),
+            "{error:?}"
+        );
+        assert!(
+            !format!("{error:?}").contains(&url),
+            "upstream address leaked: {error:?}"
+        );
         task.abort();
         let _ = task.await;
     }

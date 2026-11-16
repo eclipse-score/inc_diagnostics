@@ -200,11 +200,14 @@ impl ReadableDataResource for Utf8 {
     type Value = Value<String>;
 
     async fn read(&self) -> Result<Self::Value, DataError> {
-        let bytes = self.0.read_bytes().await?;
-        String::from_utf8(bytes)
-            .map(Value::new)
-            .map_err(|_| DataError::Internal("DID payload is not UTF-8".to_owned()))
+        utf8_value(self.0.read_bytes().await?)
     }
+}
+
+fn utf8_value(bytes: Vec<u8>) -> Result<Value<String>, DataError> {
+    String::from_utf8(bytes)
+        .map(Value::new)
+        .map_err(|_| DataError::Internal("DID payload is not UTF-8".to_owned()))
 }
 
 #[cfg(test)]
@@ -322,6 +325,11 @@ mod tests {
     async fn utf8_payload_renders_as_string() {
         let reader = ReadDid::demo(0, 0, Duration::from_secs(5)).expect("reader");
         assert_eq!(Utf8(reader).read().await.expect("utf8").value, "1.0.0");
+    }
+
+    #[test]
+    fn non_utf8_payload_is_an_error() {
+        assert!(matches!(utf8_value(vec![0xff, 0xfe]), Err(DataError::Internal(_))));
     }
 
     #[tokio::test(flavor = "current_thread")]
