@@ -11,11 +11,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_rust//rust:defs.bzl", "rust_test")
 
 alias(
     name = "opensovd-cda",
     actual = "@classic-diagnostic-adapter//:opensovd-cda",
+)
+
+# Packaging target: the consumer chooses the install location.
+pkg_files(
+    name = "cda_files",
+    srcs = [":opensovd-cda"],
+    attributes = pkg_attributes(mode = "0755"),
+    strip_prefix = strip_prefix.files_only(),
+    visibility = ["//visibility:public"],
 )
 
 rust_test(
