@@ -128,4 +128,28 @@ TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
     score_diag_read_release(request);
     score_diag_reader_release(reader);
 }
+
+TEST(ReadDidBridge, CompletedReadsDoNotHoldAdmissionUntilReleased)
+{
+    auto* reader = score_diag_demo_reader_create(0U, 0U);
+    ASSERT_NE(reader, nullptr);
+    std::vector<Completion> replies(9U);
+    std::vector<ScoreDiagReadRequest*> requests;
+    for (std::size_t index = 0U; index < 8U; ++index)
+    {
+        requests.push_back(score_diag_read_start(reader, &replies[index], Complete));
+        ASSERT_NE(requests.back(), nullptr);
+        EXPECT_TRUE(replies[index].Wait());
+        EXPECT_EQ(replies[index].status, SCORE_DIAG_READ_OK);
+    }
+    requests.push_back(score_diag_read_start(reader, &replies[8U], Complete));
+    EXPECT_NE(requests.back(), nullptr);
+    EXPECT_TRUE(replies[8U].Wait());
+    EXPECT_EQ(replies[8U].status, SCORE_DIAG_READ_OK);
+    for (auto* request : requests)
+    {
+        score_diag_read_release(request);
+    }
+    score_diag_reader_release(reader);
+}
 }  // namespace

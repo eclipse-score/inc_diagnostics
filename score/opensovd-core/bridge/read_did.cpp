@@ -16,6 +16,7 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <utility>
 
@@ -40,9 +41,11 @@ struct HandlerState
     std::atomic<std::size_t> active_requests{0U};
 };
 
-struct RequestState
+// Releases one admission slot. It is owned by the worker thread, so completed requests do not
+// keep their slot until the caller releases the request handle.
+struct Admission
 {
-    ~RequestState()
+    ~Admission()
     {
         if (owner)
         {
@@ -50,6 +53,11 @@ struct RequestState
         }
     }
 
+    std::shared_ptr<HandlerState> owner;
+};
+
+struct RequestState
+{
     std::shared_ptr<HandlerState> owner;
     score::cpp::stop_source stop_source;
     void* context;
@@ -102,11 +110,20 @@ void CompleteRead(const std::shared_ptr<RequestState>& state)
 {
     try
     {
-        auto future = [&state]() {
+        std::optional<Future<Result<ByteVector>>> future;
+        {
             std::lock_guard<std::mutex> guard{state->owner->dispatch_mutex};
-            return state->owner->handler->Read(MetaData{}, state->stop_source.get_token());
-        }();
-        auto completion = future.Get(state->stop_source.get_token());
+            if (!state->stop_source.stop_requested())
+            {
+                future.emplace(state->owner->handler->Read(MetaData{}, state->stop_source.get_token()));
+            }
+        }
+        if (!future.has_value())
+        {
+            state->completion(state->context, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
+            return;
+        }
+        auto completion = future->Get(state->stop_source.get_token());
         if (state->stop_source.stop_requested())
         {
             state->completion(state->context, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
@@ -117,7 +134,7 @@ void CompleteRead(const std::shared_ptr<RequestState>& state)
         }
         else if (!completion.value().has_value())
         {
-            const auto nrc = score::mw::diag::uds::ToNegativeResponseCode(*completion.value().error());
+            const auto nrc = score::mw::diag::uds::ToNegativeResponseCode(completion.value().error());
             if (nrc.has_value())
             {
                 state->completion(
@@ -205,18 +222,19 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
     std::unique_ptr<ScoreDiagReadRequest> request;
     try
     {
-        auto state = std::make_shared<RequestState>();
         if (reader->state->active_requests.fetch_add(1U) >= 8U)
         {
             score::cpp::ignore = reader->state->active_requests.fetch_sub(1U);
             completion(context, SCORE_DIAG_READ_BUSY, 0U, nullptr, 0U);
             return nullptr;
         }
+        Admission admission{reader->state};
+        auto state = std::make_shared<RequestState>();
         state->owner = reader->state;
         state->context = context;
         state->completion = completion;
         request = std::make_unique<ScoreDiagReadRequest>(ScoreDiagReadRequest{state});
-        std::thread([state]() {
+        std::thread([state, admission = std::move(admission)]() {
             CompleteRead(state);
         }).detach();
         return request.release();
@@ -230,6 +248,10 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
 
 extern "C" void score_diag_read_cancel(ScoreDiagReadRequest* request)
 {
+    if (request == nullptr)
+    {
+        return;
+    }
     score::cpp::ignore = request->state->stop_source.request_stop();
 }
 
