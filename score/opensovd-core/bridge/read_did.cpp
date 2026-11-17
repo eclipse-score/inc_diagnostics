@@ -41,19 +41,33 @@ struct HandlerState
     std::atomic<std::size_t> active_requests{0U};
 };
 
-// Releases one admission slot. It is owned by the worker thread, so completed requests do not
-// keep their slot until the caller releases the request handle.
-struct Admission
+// Owns one admission slot already reserved with fetch_add. It is released exactly once, before the
+// completion callback runs, so completed requests do not keep their slot until the caller releases
+// the request handle.
+class Admission
 {
+  public:
+    explicit Admission(std::shared_ptr<HandlerState> owner) : owner_{std::move(owner)} {}
+    Admission(Admission&& other) noexcept : owner_{std::move(other.owner_)} {}
+    Admission(const Admission&) = delete;
+    Admission& operator=(const Admission&) = delete;
+    Admission& operator=(Admission&&) = delete;
     ~Admission()
     {
-        if (owner)
+        Release();
+    }
+
+    void Release()
+    {
+        if (owner_)
         {
-            score::cpp::ignore = owner->active_requests.fetch_sub(1U);
+            score::cpp::ignore = owner_->active_requests.fetch_sub(1U);
+            owner_.reset();
         }
     }
 
-    std::shared_ptr<HandlerState> owner;
+  private:
+    std::shared_ptr<HandlerState> owner_;
 };
 
 struct RequestState
@@ -106,7 +120,18 @@ class DemoReader final : public ReadDataByIdentifier
     std::uint8_t nrc_;
 };
 
-void CompleteRead(const std::shared_ptr<RequestState>& state)
+void Complete(RequestState& state,
+              Admission& admission,
+              std::uint8_t status,
+              std::uint8_t nrc,
+              const std::uint8_t* data,
+              std::size_t size)
+{
+    admission.Release();
+    state.completion(state.context, status, nrc, data, size);
+}
+
+void CompleteRead(const std::shared_ptr<RequestState>& state, Admission& admission)
 {
     try
     {
@@ -120,44 +145,44 @@ void CompleteRead(const std::shared_ptr<RequestState>& state)
         }
         if (!future.has_value())
         {
-            state->completion(state->context, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
+            Complete(*state, admission, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
             return;
         }
         auto completion = future->Get(state->stop_source.get_token());
         if (state->stop_source.stop_requested())
         {
-            state->completion(state->context, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
+            Complete(*state, admission, SCORE_DIAG_READ_CANCELLED, 0U, nullptr, 0U);
         }
         else if (!completion.has_value())
         {
-            state->completion(state->context, SCORE_DIAG_READ_FAILED, 0U, nullptr, 0U);
+            Complete(*state, admission, SCORE_DIAG_READ_FAILED, 0U, nullptr, 0U);
         }
         else if (!completion.value().has_value())
         {
             const auto nrc = score::mw::diag::uds::ToNegativeResponseCode(completion.value().error());
             if (nrc.has_value())
             {
-                state->completion(
-                    state->context, SCORE_DIAG_READ_NRC, static_cast<std::uint8_t>(nrc.value()), nullptr, 0U);
+                Complete(*state, admission, SCORE_DIAG_READ_NRC, static_cast<std::uint8_t>(nrc.value()), nullptr, 0U);
             }
             else
             {
-                state->completion(state->context, SCORE_DIAG_READ_FAILED, 0U, nullptr, 0U);
+                Complete(*state, admission, SCORE_DIAG_READ_FAILED, 0U, nullptr, 0U);
             }
         }
         else
         {
             const auto& bytes = completion.value().value();
-            state->completion(state->context,
-                              SCORE_DIAG_READ_OK,
-                              0U,
-                              reinterpret_cast<const std::uint8_t*>(bytes.data()),
-                              bytes.size());
+            Complete(*state,
+                     admission,
+                     SCORE_DIAG_READ_OK,
+                     0U,
+                     reinterpret_cast<const std::uint8_t*>(bytes.data()),
+                     bytes.size());
         }
     }
     catch (...)
     {
-        state->completion(state->context, SCORE_DIAG_READ_FAILED, 0U, nullptr, 0U);
+        Complete(*state, admission, SCORE_DIAG_READ_FAILED, 0U, nullptr, 0U);
     }
 }
 }  // namespace
@@ -234,8 +259,8 @@ extern "C" ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader,
         state->context = context;
         state->completion = completion;
         request = std::make_unique<ScoreDiagReadRequest>(ScoreDiagReadRequest{state});
-        std::thread([state, admission = std::move(admission)]() {
-            CompleteRead(state);
+        std::thread([state, admission = std::move(admission)]() mutable {
+            CompleteRead(state, admission);
         }).detach();
         return request.release();
     }
