@@ -62,9 +62,11 @@ The requirements describe only what this component adds on top of ISO 17978 (SOV
 formats and error responses of the SOVD API itself are defined by the standard
 (:need:`feat_req__diagnostics__sovd_std`) and are not repeated here.
 
-The v1.0 gateway has no authentication, TLS or service discovery and forwards to one upstream over TCP.
-These are tracked as v1.0 work items in https://github.com/eclipse-score/inc_diagnostics/issues/66; until
-then :need:`aou_req__sovd_gateway__trusted_network` applies.
+The v1.0 gateway supports authentication (tokens checked against a JWKS endpoint) and service discovery via mDNS,
+and forwards to any number of upstream SOVD servers over TCP. When authentication is enabled, the gateway validates
+every request before it forwards the request. Connections to upstream servers do not use TLS. These are tracked as v1.0 work items in
+https://github.com/eclipse-score/inc_diagnostics/issues/66; until then :need:`aou_req__sovd_gateway__trusted_network`
+applies.
 
 * :need:`comp_req__sovd_gateway__single_entry_point`
 * :need:`comp_req__sovd_gateway__upstream_config`
@@ -76,6 +78,7 @@ then :need:`aou_req__sovd_gateway__trusted_network` applies.
 * :need:`comp_req__sovd_gateway__vehicle_lock`
 * :need:`comp_req__sovd_gateway__discovery_timeout`
 * :need:`comp_req__sovd_gateway__dot_segments`
+* :need:`comp_req__sovd_gateway__forwarded_auth`
 
 OpenSOVD Core Usage
 ===================
@@ -107,7 +110,9 @@ this repository, or is not used and ruled out by an assumption of use.
      - :need:`comp_req__sovd_gateway__vehicle_lock`
    * - ``opensovd_extra``: ``ServerUri``
      - :need:`comp_req__sovd_gateway__reference_rewrite`
-   * - ``opensovd_extra``: ``ForwardRoute::Authorize``, ``opensovd_server``: ``Authenticator``, ``Authorizer``
+   * - ``opensovd_server``: ``Authenticator``
+     - :need:`comp_req__sovd_gateway__forwarded_auth`
+   * - ``opensovd_extra``: ``ForwardRoute::Authorize``, ``opensovd_server``: ``Authorizer``
      - Not used: :need:`aou_req__sovd_gateway__trusted_network`
    * - ``opensovd_client``: ``Client``
      - Used only by tests and the ``sovd-client`` example, not part of a component of this repository

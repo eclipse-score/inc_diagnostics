@@ -40,7 +40,7 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__sovd_gateway
 
-   The SOVD gateway shall serve the entities it hosts and the entities of its upstream SOVD server under one
+   The SOVD gateway shall serve the entities it hosts and the entities of its upstream SOVD servers under one
    SOVD API base URL.
 
 .. comp_req:: Upstream Configuration
@@ -53,8 +53,9 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__sovd_gateway
 
-   The SOVD gateway shall take its listen address from ``SCORE_GATEWAY_ADDRESS`` and the base URL of its
-   upstream SOVD server from ``SCORE_UPSTREAM_URL``, and shall forward nothing when no upstream is configured.
+   The SOVD gateway shall take its listen address from ``SCORE_GATEWAY_ADDRESS`` and the base URLs of its
+   upstream SOVD servers from ``SCORE_UPSTREAM_URL``, a comma-separated list in which each URL includes its
+   transport scheme, such as ``http://``, and shall forward nothing when no upstream is configured.
 
 .. comp_req:: Forwarding to the Upstream
    :id: comp_req__sovd_gateway__forwarding
@@ -131,8 +132,10 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__sovd_gateway
 
-   The SOVD gateway shall acquire a lock of the whole vehicle from its upstream SOVD server, answer it with a
-   lock ID of its own and release what it acquired when the upstream refuses, without keeping lock state.
+   The SOVD gateway shall acquire a lock of the whole vehicle from every SOVD server of the vehicle, its upstream
+   SOVD servers and the SOVD server within the gateway itself, answer it with a lock ID of its own, keep track of
+   the lock until it is released, and never release it on only some of these servers. When an upstream refuses,
+   the SOVD gateway shall release what it acquired.
 
 .. comp_req:: Discovery Time Limit
    :id: comp_req__sovd_gateway__discovery_timeout
@@ -160,6 +163,19 @@ Functional Requirements
    The SOVD gateway shall not forward a request whose path contains a ``.`` or ``..`` segment, also
    percent-encoded.
 
+.. comp_req:: Authentication Before Forwarding
+   :id: comp_req__sovd_gateway__forwarded_auth
+   :reqtype: Functional
+   :security: YES
+   :safety: QM
+   :derived_from: feat_req__diagnostics__sovd_gateway, feat_req__diagnostics__sovd_server
+   :status: valid
+   :version: 1
+   :satisfied_by: comp__sovd_gateway
+
+   When authentication is enabled, the SOVD gateway shall validate the access token of every request before
+   forwarding the request to an upstream SOVD server, and shall not forward a request whose token is not valid.
+
 Assumptions of Use (AoU)
 ========================
 
@@ -171,8 +187,9 @@ Assumptions of Use (AoU)
    :status: valid
    :version: 1
 
-   The integrator shall make the SOVD gateway and its upstream SOVD server reachable only from trusted
-   clients, as the gateway does not authenticate clients and connects to the upstream without TLS.
+   The integrator shall make the SOVD gateway reachable only from trusted clients, and each upstream SOVD server
+   reachable only from the gateway, as a lock taken on an upstream server directly would not be held on the other
+   servers of the vehicle. The gateway connects to the upstream without TLS.
 
 Verification in OpenSOVD Core
 =============================

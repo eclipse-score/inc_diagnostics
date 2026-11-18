@@ -59,9 +59,9 @@ Component
 Specification
 =============
 
-The fault library is not integrated into this repository yet: no S-CORE component reports faults through it
-and the SOVD gateway does not serve faults of S-CORE entities. The requirements describe the fault library as
-it is implemented in fault-lib, so that the integration has a baseline.
+The fault library is not part of S-CORE v1.0 and is not integrated into this repository yet: no S-CORE component
+reports faults through it and the SOVD gateway does not serve faults of S-CORE entities. The requirements describe
+the fault library as it is implemented in fault-lib, so that the integration has a baseline.
 
 The fault library relays faults over iceoryx2. :need:`feat_req__diagnostics__internal_com` asks for
 S-CORE::COM, which is open.

@@ -36,7 +36,7 @@ Functional Requirements
    :security: YES
    :safety: QM
    :derived_from: feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__uds_data_bridge
 
@@ -49,12 +49,25 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__uds_data_bridge
 
    For data resources declared as text, the UDS data bridge shall return the UDS payload as a JSON string and
    shall return an error instead of a value when the payload is not valid UTF-8.
+
+.. comp_req:: Binary Data Values
+   :id: comp_req__uds_data_bridge__octet_stream_data
+   :reqtype: Functional
+   :security: NO
+   :safety: QM
+   :derived_from: feat_req__diagnostics__sovd_server
+   :status: invalid
+   :version: 1
+   :satisfied_by: comp__uds_data_bridge
+
+   For data resources, the UDS data bridge shall return the UDS payload as ``application/octet-stream`` when the
+   HTTP Accept header of the request asks for it.
 
 .. comp_req:: Negative Response Codes
    :id: comp_req__uds_data_bridge__nrc_errors
@@ -62,7 +75,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__uds_data_bridge
 
@@ -75,7 +88,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__uds_data_bridge
 
@@ -88,7 +101,7 @@ Functional Requirements
    :security: YES
    :safety: QM
    :derived_from: feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__uds_data_bridge
 
@@ -104,7 +117,7 @@ Non-Functional Requirements
    :security: YES
    :safety: QM
    :derived_from: feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__uds_data_bridge
 

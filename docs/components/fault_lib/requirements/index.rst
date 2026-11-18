@@ -35,7 +35,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_lib_catalog
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_lib
 
@@ -48,7 +48,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_lib
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_lib
 
@@ -61,7 +61,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_lib
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_lib
 
@@ -73,7 +73,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_lib_debounce
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_lib
 
@@ -86,7 +86,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_lib
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_lib
 
@@ -99,7 +99,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_lib, feat_req__diagnostics__fault_manager
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_lib
 
@@ -112,7 +112,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_lib
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_lib
 

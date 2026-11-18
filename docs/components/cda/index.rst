@@ -33,7 +33,8 @@ Abstract
 ========
 
 The classic diagnostic adapter (CDA, ``//score/opensovd-cda:opensovd-cda``) of Eclipse OpenSOVD translates SOVD
-requests into UDS for classic ECUs. It is the upstream SOVD server of the :doc:`SOVD gateway <../sovd_gateway/index>`.
+requests into UDS for classic ECUs. It is one of the upstream SOVD servers that the
+:doc:`SOVD gateway <../sovd_gateway/index>` can forward to.
 
 Motivation and Rationale
 ========================

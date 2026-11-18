@@ -36,6 +36,8 @@ The UDS data bridge (``//score/opensovd-core:read_did_bridge`` and ``bridge/read
 resources of the :doc:`SOVD gateway <../sovd_gateway/index>` whose values are read from existing C++
 ``ReadDataByIdentifier`` handlers of ``score::mw::diag``.
 
+The UDS data bridge is not part of S-CORE v1.0. Its code is in this repository, but no v1.0 use case depends on it.
+
 Motivation and Rationale
 ========================
 
@@ -63,6 +65,7 @@ formats and error responses of the SOVD API itself are defined by the standard
 
 * :need:`comp_req__uds_data_bridge__read_handlers`
 * :need:`comp_req__uds_data_bridge__utf8_data`
+* :need:`comp_req__uds_data_bridge__octet_stream_data`
 * :need:`comp_req__uds_data_bridge__nrc_errors`
 * :need:`comp_req__uds_data_bridge__read_timeout`
 * :need:`comp_req__uds_data_bridge__read_admission`

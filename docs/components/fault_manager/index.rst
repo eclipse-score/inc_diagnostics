@@ -59,8 +59,8 @@ Component
 Specification
 =============
 
-The diagnostic fault manager is not integrated into this repository yet: the SOVD gateway does not query it,
-so the faults it holds are not served through SOVD. The requirements describe the fault manager as it is
+The diagnostic fault manager is not part of S-CORE v1.0 and is not integrated into this repository yet: the SOVD
+gateway does not query it, so the faults it holds are not served through SOVD. The requirements describe the fault manager as it is
 implemented in fault-lib, so that the integration has a baseline. How faults are represented in SOVD is defined
 by ISO 17978 and not repeated here.
 

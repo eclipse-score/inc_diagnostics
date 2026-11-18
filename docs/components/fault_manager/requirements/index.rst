@@ -35,7 +35,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_catalog_agg
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_manager
 
@@ -48,7 +48,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_manager, feat_req__diagnostics__db
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_manager
 
@@ -61,7 +61,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_manager, feat_req__diagnostics__db
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_manager
 
@@ -74,7 +74,7 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_manager
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_manager
 
@@ -88,12 +88,13 @@ Functional Requirements
    :security: NO
    :safety: QM
    :derived_from: feat_req__diagnostics__db_persistence
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_manager
 
-   The diagnostic fault manager shall store the status of all faults persistently, so that it survives a
-   restart, and shall remove the stored status of faults that are deleted.
+   The diagnostic fault manager shall store the status, the environment data, the occurrence counters and the
+   timestamps of all faults persistently, so that they survive a restart, and shall remove the stored data of
+   faults that are deleted.
 
 .. comp_req:: Fault Queries
    :id: comp_req__fault_manager__queries
@@ -101,7 +102,7 @@ Functional Requirements
    :security: YES
    :safety: QM
    :derived_from: feat_req__diagnostics__fault_manager, feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__fault_manager
 
