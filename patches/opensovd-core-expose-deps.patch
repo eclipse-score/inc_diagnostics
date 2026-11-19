@@ -1,10 +1,10 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index 5c73599..d5bac24 100644
+index 754407e..69b50c9 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -23,3 +23,88 @@ alias(
-     name = "opensovd-http-proxy",
-     actual = "//opensovd-extra:opensovd_extra_http_proxy",
+@@ -28,3 +28,88 @@ alias(
+     name = "opensovd-mdns",
+     actual = "//opensovd-extra:opensovd_extra_mdns",
  )
 +
 +alias(
