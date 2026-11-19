@@ -41,27 +41,3 @@ Functional Requirements
    :satisfied_by: comp__classic_diagnostic_adapter
 
    The classic diagnostic adapter shall fulfil :need:`req~sovd-api-http-server-port`.
-
-.. comp_req:: CDA Components Collection
-   :id: comp_req__cda__components_collection
-   :reqtype: Functional
-   :security: NO
-   :safety: QM
-   :derived_from: feat_req__diagnostics__classic_adapter
-   :status: valid
-   :version: 1
-   :satisfied_by: comp__classic_diagnostic_adapter
-
-   The classic diagnostic adapter shall fulfil :need:`req~sovd-api-components-entity-collection`.
-
-.. comp_req:: CDA Database Loading
-   :id: comp_req__cda__database_loading
-   :reqtype: Functional
-   :security: NO
-   :safety: QM
-   :derived_from: feat_req__diagnostics__classic_adapter_odx
-   :status: valid
-   :version: 1
-   :satisfied_by: comp__classic_diagnostic_adapter
-
-   The classic diagnostic adapter shall fulfil :need:`req~dt-database-loading`.

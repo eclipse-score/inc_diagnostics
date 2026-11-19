@@ -62,5 +62,3 @@ Specification
 Content and acceptance criteria are those of the referenced CDA requirement.
 
 * :need:`comp_req__cda__http_server_port`
-* :need:`comp_req__cda__components_collection`
-* :need:`comp_req__cda__database_loading`

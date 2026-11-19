@@ -103,8 +103,12 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__fault_lib
 
-   The fault library shall relay reports to the diagnostic fault manager and, while it does not answer, keep
-   them in a bounded queue that drops the oldest report when full and is retried with growing delays.
+   The fault library shall relay reports to the diagnostic fault manager over iceoryx2. A report whose send fails
+   with a transient error (transport down, timeout, queue full or rate limited) shall be kept in a retry queue of
+   512 reports, which drops the oldest report when full. Each report shall be retried up to 10 times, with the
+   delay doubling from 100 ms up to 5 s, and shall be dropped after the tenth failed attempt. A report whose send
+   fails with any other error shall be dropped at once. A successful send counts as relayed; the fault library
+   does not wait for an acknowledgement from the fault manager.
 
 .. comp_req:: Reporting Errors
    :id: comp_req__fault_lib__report_errors
