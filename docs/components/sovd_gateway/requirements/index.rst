@@ -53,9 +53,9 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__sovd_gateway
 
-   The SOVD gateway shall take its listen address from ``SCORE_GATEWAY_ADDRESS`` and the base URLs of its
-   upstream SOVD servers from ``SCORE_UPSTREAM_URL``, a comma-separated list in which each URL includes its
-   transport scheme, such as ``http://``, and shall forward nothing when no upstream is configured.
+   The SOVD gateway shall take its listen address from ``SCORE_GATEWAY_ADDRESS`` and the base URL of its
+   upstream SOVD server from ``SCORE_UPSTREAM_URL``, which shall start with ``http://``, and shall refuse to start
+   with any other URL. It shall forward nothing when ``SCORE_UPSTREAM_URL`` is unset or empty.
 
 .. comp_req:: Forwarding to the Upstream
    :id: comp_req__sovd_gateway__forwarding
@@ -169,12 +169,13 @@ Functional Requirements
    :security: YES
    :safety: QM
    :derived_from: feat_req__diagnostics__sovd_gateway, feat_req__diagnostics__sovd_server
-   :status: valid
+   :status: invalid
    :version: 1
    :satisfied_by: comp__sovd_gateway
 
-   When authentication is enabled, the SOVD gateway shall validate the access token of every request before
+   When authentication is enabled in the SOVD gateway, it shall validate the access token of every request before
    forwarding the request to an upstream SOVD server, and shall not forward a request whose token is not valid.
+   The v1.0 gateway does not enable authentication, so this requirement is not part of v1.0.
 
 Assumptions of Use (AoU)
 ========================
@@ -196,7 +197,7 @@ Verification in OpenSOVD Core
 
 The tests of this repository are linked to the requirements they verify. Behavior that the gateway takes over
 from ``opensovd-extra``'s ``Federation`` unchanged is also verified by the tests of OpenSOVD Core at commit
-``3fd3148``. These do not carry requirement IDs, so they are listed here.
+``d296ccd``. These do not carry requirement IDs, so they are listed here.
 
 .. list-table::
    :header-rows: 1
@@ -205,12 +206,12 @@ from ``opensovd-extra``'s ``Federation`` unchanged is also verified by the tests
    * - Requirement
      - Tests in OpenSOVD Core
    * - :need:`comp_req__sovd_gateway__vehicle_lock`
-     - `a_single_upstream_also_gets_a_lock_of_the_server <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/vehicle_locks.rs>`__, `a_refused_lock_releases_what_was_acquired <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/vehicle_locks.rs>`__, `acquiring_again_renews_the_lock <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/vehicle_locks.rs>`__
+     - `a_single_upstream_also_gets_a_lock_of_the_server <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/vehicle_locks.rs>`__, `a_refused_lock_releases_what_was_acquired <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/vehicle_locks.rs>`__, `acquiring_again_renews_the_lock <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/vehicle_locks.rs>`__
    * - :need:`comp_req__sovd_gateway__hosted_entities`
-     - `the_servers_own_entities_never_go_upstream <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/upstreams.rs>`__
+     - `the_servers_own_entities_never_go_upstream <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/upstreams.rs>`__
    * - :need:`comp_req__sovd_gateway__discovery_timeout`
-     - `a_list_stands_without_an_upstream_that_hangs <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/upstreams.rs>`__, `an_upstream_that_hangs_answers_for_an_unknown_entity <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/upstreams.rs>`__
+     - `a_list_stands_without_an_upstream_that_hangs <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/upstreams.rs>`__, `an_upstream_that_hangs_answers_for_an_unknown_entity <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/upstreams.rs>`__
    * - :need:`comp_req__sovd_gateway__dot_segments`
-     - `a_path_with_a_dot_segment_goes_to_no_upstream <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/upstreams.rs>`__
+     - `a_path_with_a_dot_segment_goes_to_no_upstream <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/upstreams.rs>`__
    * - :need:`comp_req__sovd_gateway__merged_discovery`
-     - `lists_hold_the_entities_of_all_upstreams_once <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/upstreams.rs>`__, `the_root_holds_the_links_each_upstream_serves <https://github.com/eclipse-opensovd/opensovd-core/blob/3fd31487c89b344985c8201ad9b27c0dd5b0262b/opensovd-extra/tests/upstreams.rs>`__
+     - `lists_hold_the_entities_of_all_upstreams_once <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/upstreams.rs>`__, `the_root_holds_the_links_each_upstream_serves <https://github.com/eclipse-opensovd/opensovd-core/blob/d296ccddd63e317694e9bce3017ff30836205394/opensovd-extra/tests/upstreams.rs>`__

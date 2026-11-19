@@ -62,9 +62,9 @@ The requirements describe only what this component adds on top of ISO 17978 (SOV
 formats and error responses of the SOVD API itself are defined by the standard
 (:need:`feat_req__diagnostics__sovd_std`) and are not repeated here.
 
-The v1.0 gateway supports authentication (tokens checked against a JWKS endpoint) and service discovery via mDNS,
-and forwards to any number of upstream SOVD servers over TCP. When authentication is enabled, the gateway validates
-every request before it forwards the request. Connections to upstream servers do not use TLS. These are tracked as v1.0 work items in
+The v1.0 gateway forwards to one upstream SOVD server over plain HTTP. It does not enable authentication and does
+not announce itself via mDNS. OpenSOVD Core provides both, but this gateway does not use them yet. Connections to
+upstream servers do not use TLS. These are tracked as v1.0 work items in
 https://github.com/eclipse-score/inc_diagnostics/issues/66; until then :need:`aou_req__sovd_gateway__trusted_network`
 applies.
 
@@ -111,7 +111,9 @@ this repository, or is not used and ruled out by an assumption of use.
    * - ``opensovd_extra``: ``ServerUri``
      - :need:`comp_req__sovd_gateway__reference_rewrite`
    * - ``opensovd_server``: ``Authenticator``
-     - :need:`comp_req__sovd_gateway__forwarded_auth`
+     - Not used in v1.0: :need:`comp_req__sovd_gateway__forwarded_auth`
+   * - ``opensovd_extra``: ``MdnsAnnouncer``
+     - Not used in v1.0
    * - ``opensovd_extra``: ``ForwardRoute::Authorize``, ``opensovd_server``: ``Authorizer``
      - Not used: :need:`aou_req__sovd_gateway__trusted_network`
    * - ``opensovd_client``: ``Client``
