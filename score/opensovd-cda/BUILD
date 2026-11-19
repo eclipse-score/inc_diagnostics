@@ -14,6 +14,7 @@
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_python//python:py_binary.bzl", "py_binary")
 load("@rules_rust//rust:defs.bzl", "rust_test")
+load("//tools/rust_junit:defs.bzl", "rust_junit_test")
 load(":needs.bzl", "cda_needs_json")
 
 alias(
@@ -30,29 +31,31 @@ pkg_files(
     visibility = ["//visibility:public"],
 )
 
+_INTEGRATION_DATA = [
+    "mdd/functional_groups.mdd",
+    "mdd/functional_groups.mdd.license",
+    "opensovd-cda.sample.toml",
+    ":opensovd-cda",
+    "//score/examples/sovd-client",
+    "//score/opensovd-core:opensovd-gateway",
+]
+
 rust_test(
-    name = "integration_test",
+    name = "integration_test_binary",
     srcs = ["tests/integration.rs"],
-    data = [
-        "mdd/functional_groups.mdd",
-        "mdd/functional_groups.mdd.license",
-        "opensovd-cda.sample.toml",
-        ":opensovd-cda",
-        "//score/examples/sovd-client",
-        "//score/opensovd-core:opensovd-gateway",
-    ],
+    data = _INTEGRATION_DATA,
+    tags = ["manual"],
     deps = [
         "@opensovd_core//:opensovd-client",
         "@opensovd_core//:tokio",
     ],
 )
 
-filegroup(
-    name = "requirement_sources",
-    srcs = [
-        "tests/integration.rs",
-    ],
-    visibility = ["//:__pkg__"],
+rust_junit_test(
+    name = "integration_test",
+    test = ":integration_test_binary",
+    sources = ["tests/integration.rs"],
+    data = _INTEGRATION_DATA,
 )
 
 py_binary(

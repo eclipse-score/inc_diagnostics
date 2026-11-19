@@ -49,7 +49,6 @@ docs(
         "@score_process//:needs_json",
     ],
     scan_code = [
-        "//score/opensovd-cda:requirement_sources",
         "//score/opensovd-core:requirement_sources",
     ],
     source_dir = "docs",
