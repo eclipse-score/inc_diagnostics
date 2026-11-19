@@ -1,10 +1,10 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index b85730d..f5e5726 100644
+index 5c73599..d5bac24 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -18,3 +18,88 @@ alias(
-     name = "opensovd-gateway",
-     actual = "//opensovd-cli/gateway:opensovd_gateway",
+@@ -23,3 +23,88 @@ alias(
+     name = "opensovd-http-proxy",
+     actual = "//opensovd-extra:opensovd_extra_http_proxy",
  )
 +
 +alias(

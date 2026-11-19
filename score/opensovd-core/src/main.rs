@@ -97,11 +97,7 @@ fn gateway(
         Some(url) => {
             tracing::info!(target: "forwarding", "Forwarding to {url}");
             let upstream = upstream::upstream(url)?;
-            Some(
-                Federation::new(vec![upstream], topology.clone())?
-                    .base(BASE_PATH)
-                    .into_layer(),
-            )
+            Some(Federation::new(vec![upstream], topology.clone())?.into_layer())
         },
         None => None,
     };
