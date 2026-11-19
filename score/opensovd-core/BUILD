@@ -39,26 +39,21 @@ rust_binary(
     srcs = [
         "bridge/read_did.rs",
         "src/main.rs",
-        "src/upstream.rs",
     ],
+    # Not opensovd_gateway, the crate of the gateway of opensovd-core that this one runs.
+    crate_name = "score_gateway",
     edition = "2021",
     features = ["link_std_cpp_lib"],
-    # opensovd-mdns is a second build of the opensovd_extra crate, with only the mdns feature.
-    aliases = {"@opensovd_core//:opensovd-mdns": "opensovd_extra_mdns"},
     proc_macro_deps = ["@opensovd_core//:async-trait"],
     visibility = ["//visibility:public"],
     deps = [
         ":read_did_bridge",
-        "@opensovd_core//:http",
         "@opensovd_core//:opensovd-core",
-        # opensovd_extra with the federation and the upstream proxy of opensovd-core.
-        "@opensovd_core//:opensovd-http-proxy",
-        "@opensovd_core//:opensovd-mdns",
+        # The gateway of opensovd-core: options, upstreams, authentication, TLS and mDNS.
+        "@opensovd_core//:opensovd-gateway-lib",
         "@opensovd_core//:opensovd-models",
         "@opensovd_core//:opensovd-providers",
-        "@opensovd_core//:opensovd-server",
         "@opensovd_core//:tokio",
-        "@opensovd_core//:tower",
         "@opensovd_core//:tracing",
         "@opensovd_core//:tracing-subscriber",
     ],

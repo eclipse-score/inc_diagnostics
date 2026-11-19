@@ -87,8 +87,8 @@ async fn start_gateway(binary: &Path, upstream: &str) -> Option<(ChildGuard, Cli
     let address = format!("127.0.0.1:{}", free_port());
     let mut child = ChildGuard(
         Command::new(binary)
-            .env("SCORE_GATEWAY_ADDRESS", &address)
-            .env("SCORE_UPSTREAM_URL", upstream)
+            .env("SOVD_URL", format!("http://{address}/sovd"))
+            .env("SOVD_UPSTREAM_URL", upstream)
             .stdout(Stdio::null())
             .stderr(Stdio::inherit())
             .spawn()

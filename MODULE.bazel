@@ -36,10 +36,11 @@ bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "opensovd_core", version = "0.0.0")
 
 # TODO: back to feat/score-integration once eclipse-opensovd/opensovd-core#280 is merged. This is
-# the head of #280 (feat/score-integration plus the public mDNS target //:opensovd-mdns).
+# the head of #280: feat/score-integration (with the embeddable gateway runner of #282) plus the
+# public mDNS target //:opensovd-mdns.
 git_override(
     module_name = "opensovd_core",
-    commit = "9db08159514325e469ebb427c3039d461e1c3830",
+    commit = "815b6c155e21d06b0d98b3297854facf9cb7b541",
     patch_strip = 1,
     patches = [
         "//patches:opensovd-core-expose-deps.patch",

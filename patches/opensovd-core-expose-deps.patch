@@ -1,26 +1,11 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index 754407e..69b50c9 100644
+index 4eba4cd..91c110e 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -28,3 +28,88 @@ alias(
+@@ -48,3 +48,73 @@ alias(
      name = "opensovd-mdns",
      actual = "//opensovd-extra:opensovd_extra_mdns",
  )
-+
-+alias(
-+    name = "opensovd-core",
-+    actual = "//opensovd-core:opensovd_core",
-+)
-+
-+alias(
-+    name = "opensovd-models",
-+    actual = "//opensovd-models:opensovd_models",
-+)
-+
-+alias(
-+    name = "opensovd-providers",
-+    actual = "//opensovd-providers:opensovd_providers",
-+)
 +
 +alias(
 +    name = "opensovd-server",
