@@ -134,8 +134,8 @@ Functional Requirements
 
    The SOVD gateway shall acquire a lock of the whole vehicle from every SOVD server of the vehicle, its upstream
    SOVD servers and the SOVD server within the gateway itself, answer it with a lock ID of its own, keep track of
-   the lock until it is released, and never release it on only some of these servers. When an upstream refuses,
-   the SOVD gateway shall release what it acquired.
+   the lock until it is released, and shall release it on all of these servers together, never on a part of them.
+   When an upstream refuses, the SOVD gateway shall release what it acquired.
 
 .. comp_req:: Discovery Time Limit
    :id: comp_req__sovd_gateway__discovery_timeout

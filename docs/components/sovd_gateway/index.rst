@@ -62,11 +62,13 @@ The requirements describe only what this component adds on top of ISO 17978 (SOV
 formats and error responses of the SOVD API itself are defined by the standard
 (:need:`feat_req__diagnostics__sovd_std`) and are not repeated here.
 
-The v1.0 gateway forwards to one upstream SOVD server over plain HTTP. It does not enable authentication and does
-not announce itself via mDNS. OpenSOVD Core provides both, but this gateway does not use them yet. Connections to
-upstream servers do not use TLS. These are tracked as v1.0 work items in
-https://github.com/eclipse-score/inc_diagnostics/issues/66; until then :need:`aou_req__sovd_gateway__trusted_network`
-applies.
+OpenSOVD Core, on which this gateway is built, offers these options:
+
+* Upstreams: any number of upstream SOVD servers, each reached over HTTP on TCP or a Unix domain socket.
+* Authentication: can be enabled.
+* Service discovery: the gateway can announce itself via mDNS.
+
+Open v1.0 work items are tracked in https://github.com/eclipse-score/inc_diagnostics/issues/66.
 
 * :need:`comp_req__sovd_gateway__single_entry_point`
 * :need:`comp_req__sovd_gateway__upstream_config`

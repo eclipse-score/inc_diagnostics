@@ -103,7 +103,7 @@ Functional Requirements
    :version: 1
    :satisfied_by: comp__fault_lib
 
-   The fault library shall relay reports to the diagnostic fault manager over iceoryx2. A report whose send fails
+   The fault library shall relay report to the diagnostic fault manager over IPC. A report whose send fails
    with a transient error (transport down, timeout, queue full or rate limited) shall be kept in a retry queue of
    512 reports, which drops the oldest report when full. Each report shall be retried up to 10 times, with the
    delay doubling from 100 ms up to 5 s, and shall be dropped after the tenth failed attempt. A report whose send
