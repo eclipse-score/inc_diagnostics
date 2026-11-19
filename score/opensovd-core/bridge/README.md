@@ -55,11 +55,11 @@ unreachable upstream.
 
 ## Local Walkthrough
 
-Start the gateway in one terminal (loopback only, no production authorization). With `SCORE_UPSTREAM_URL` it
+Start the gateway in one terminal (loopback only, no production authorization). With `SOVD_UPSTREAM_URL` it
 forwards everything it does not host, for example to a CDA, and lists the CDA's entities next to its own:
 
 ```sh
-SCORE_UPSTREAM_URL=http://127.0.0.1:20002/vehicle/v15 \
+SOVD_UPSTREAM_URL=http://127.0.0.1:20002/vehicle/v15 \
   bazel run --config=score_diag_x86_64_linux //score/opensovd-core:opensovd-gateway
 ```
 
