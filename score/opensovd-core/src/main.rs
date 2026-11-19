@@ -252,6 +252,55 @@ mod tests {
         let _ = task.await;
     }
 
+    /// A fake CDA on a Unix domain socket: every request gets one component, with an href to the
+    /// CDA's own API, as the CDA sends them.
+    fn serve_socket_upstream(path: &std::path::Path) -> tokio::task::JoinHandle<()> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::UnixListener::bind(path).expect("socket");
+        tokio::spawn(async move {
+            while let Ok((mut stream, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    let mut request = Vec::new();
+                    let mut buffer = [0u8; 1024];
+                    while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                        match stream.read(&mut buffer).await {
+                            Ok(0) | Err(_) => return,
+                            Ok(read) => request.extend_from_slice(&buffer[..read]),
+                        }
+                    }
+                    let body = r#"{"items":[{"id":"ecu1","name":"ecu1","href":"http://localhost/Vehicle/v15/components/ecu1"}]}"#;
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                        body.len()
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                });
+            }
+        })
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn upstream_entities_are_listed_over_a_unix_socket() {
+        let dir = std::env::temp_dir().join(format!("score-gateway-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("directory");
+        let path = dir.join("cda.sock");
+        let _ = std::fs::remove_file(&path);
+        let cda = serve_socket_upstream(&path);
+        let url = format!("unix:{}:/vehicle/v15", path.display());
+        let (task, client) = serve(Some(&url)).await;
+        let components = client.list_components().send().await.expect("list components");
+        let ecu = components.items.iter().find(|component| component.id == "ecu1");
+        let ecu = ecu.unwrap_or_else(|| panic!("ecu1 not listed: {components:?}"));
+        let href = &ecu.href.0;
+        assert!(
+            href.starts_with("http://127.0.0.1:") && href.ends_with("/sovd/v1/components/ecu1"),
+            "href not rewritten to the gateway: {href}"
+        );
+        task.abort();
+        cda.abort();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn unreachable_upstream_keeps_local_entities_available() {
         let unused = std::net::TcpListener::bind("127.0.0.1:0").expect("port");
