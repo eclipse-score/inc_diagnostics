@@ -37,10 +37,24 @@ enum
 typedef void (
     *ScoreDiagReadCompletion)(void* context, ScoreDiagReadStatus status, uint8_t nrc, const uint8_t* data, size_t size);
 
-ScoreDiagReader* score_diag_demo_reader_create(uint32_t delay_ms, uint8_t nrc);
-ScoreDiagReader* score_diag_reader_clone(const ScoreDiagReader* reader);
+/* Outcome of a call into the bridge. On anything but SCORE_DIAG_OK the out-parameter is left NULL. */
+typedef uint8_t ScoreDiagStatus;
+enum
+{
+    SCORE_DIAG_OK = 0,
+    SCORE_DIAG_INVALID_ARGUMENT = 1,
+    SCORE_DIAG_BUSY = 2,
+    SCORE_DIAG_FAILED = 3
+};
+
+ScoreDiagStatus score_diag_demo_reader_create(uint32_t delay_ms, uint8_t nrc, ScoreDiagReader** out);
+ScoreDiagStatus score_diag_reader_clone(const ScoreDiagReader* reader, ScoreDiagReader** out);
 void score_diag_reader_release(ScoreDiagReader* reader);
-ScoreDiagReadRequest* score_diag_read_start(ScoreDiagReader* reader, void* context, ScoreDiagReadCompletion completion);
+/* On a status other than SCORE_DIAG_OK, completion is not called. */
+ScoreDiagStatus score_diag_read_start(ScoreDiagReader* reader,
+                                      void* context,
+                                      ScoreDiagReadCompletion completion,
+                                      ScoreDiagReadRequest** out);
 void score_diag_read_cancel(ScoreDiagReadRequest* request);
 void score_diag_read_release(ScoreDiagReadRequest* request);
 
@@ -48,11 +62,13 @@ void score_diag_read_release(ScoreDiagReadRequest* request);
 }
 
 #include "score/mw/diag/uds/read_data_by_identifier.h"
+#include "score/result/result.h"
 #include <memory>
 
 namespace score::opensovd::bridge
 {
-ScoreDiagReader* RegisterReadDataByIdentifier(std::shared_ptr<score::mw::diag::uds::ReadDataByIdentifier> handler);
+score::Result<ScoreDiagReader*> RegisterReadDataByIdentifier(
+    std::shared_ptr<score::mw::diag::uds::ReadDataByIdentifier> handler);
 }
 #endif
 

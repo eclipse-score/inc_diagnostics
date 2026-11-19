@@ -47,10 +47,7 @@ rust_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":read_did_bridge",
-        "@opensovd_core//:bytes",
         "@opensovd_core//:http",
-        "@opensovd_core//:http-body-util",
-        "@opensovd_core//:hyper-util",
         "@opensovd_core//:opensovd-core",
         "@opensovd_core//:opensovd-extra",
         "@opensovd_core//:opensovd-models",
@@ -58,7 +55,6 @@ rust_binary(
         "@opensovd_core//:opensovd-server",
         "@opensovd_core//:serde_json",
         "@opensovd_core//:tokio",
-        "@opensovd_core//:tower",
         "@opensovd_core//:tracing",
         "@opensovd_core//:tracing-subscriber",
     ],

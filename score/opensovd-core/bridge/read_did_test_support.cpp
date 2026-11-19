@@ -91,9 +91,16 @@ extern "C" ScoreDiagTestControl* score_diag_test_control_create(void)
     return new ScoreDiagTestControl{std::make_shared<ControlledReader>()};
 }
 
-extern "C" ScoreDiagReader* score_diag_test_control_register(const ScoreDiagTestControl* control)
+extern "C" ScoreDiagStatus score_diag_test_control_register(const ScoreDiagTestControl* control, ScoreDiagReader** out)
 {
-    return score::opensovd::bridge::RegisterReadDataByIdentifier(control->reader);
+    *out = nullptr;
+    auto reader = score::opensovd::bridge::RegisterReadDataByIdentifier(control->reader);
+    if (!reader.has_value())
+    {
+        return SCORE_DIAG_FAILED;
+    }
+    *out = reader.value();
+    return SCORE_DIAG_OK;
 }
 
 extern "C" size_t score_diag_test_control_started(const ScoreDiagTestControl* control)

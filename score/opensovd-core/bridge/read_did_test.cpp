@@ -57,6 +57,20 @@ void Complete(void* context, std::uint8_t status, std::uint8_t, const std::uint8
     reply.changed.notify_one();
 }
 
+ScoreDiagReader* Register(const std::shared_ptr<ReadDataByIdentifier>& handler)
+{
+    auto reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
+    EXPECT_TRUE(reader.has_value());
+    return reader.has_value() ? reader.value() : nullptr;
+}
+
+ScoreDiagReadRequest* StartRead(ScoreDiagReader* reader, void* context, ScoreDiagReadCompletion completion)
+{
+    ScoreDiagReadRequest* request = nullptr;
+    EXPECT_EQ(score_diag_read_start(reader, context, completion, &request), SCORE_DIAG_OK);
+    return request;
+}
+
 class DeferredReader final : public ReadDataByIdentifier
 {
   public:
@@ -88,12 +102,56 @@ class DeferredReader final : public ReadDataByIdentifier
     bool invoked{false};
 };
 
+class GatedReader final : public ReadDataByIdentifier
+{
+  public:
+    Future<Result<ByteVector>> Read(const MetaData&, score::cpp::stop_token) override
+    {
+        std::unique_lock<std::mutex> guard{mutex};
+        ++invocations;
+        changed.notify_all();
+        changed.wait(guard, [this]() {
+            return open;
+        });
+        return promise.GetInterruptibleFuture().value();
+    }
+
+    bool WaitForInvocations(std::size_t count)
+    {
+        std::unique_lock<std::mutex> guard{mutex};
+        return changed.wait_for(guard, std::chrono::seconds{2}, [this, count]() {
+            return invocations >= count;
+        });
+    }
+
+    void Open()
+    {
+        std::lock_guard<std::mutex> guard{mutex};
+        open = true;
+        changed.notify_all();
+    }
+
+    std::size_t Invocations()
+    {
+        std::lock_guard<std::mutex> guard{mutex};
+        return invocations;
+    }
+
+    score::mw::diag::Promise<Result<ByteVector>> promise;
+
+  private:
+    std::mutex mutex;
+    std::condition_variable changed;
+    std::size_t invocations{0U};
+    bool open{false};
+};
+
 TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
 {
     auto handler = std::make_shared<DeferredReader>();
-    auto* reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
+    auto* reader = Register(handler);
     Completion reply;
-    auto* request = score_diag_read_start(reader, &reply, Complete);
+    auto* request = StartRead(reader, &reply, Complete);
     ASSERT_NE(request, nullptr);
     ASSERT_TRUE(handler->WaitForInvocation());
     score_diag_reader_release(reader);
@@ -114,9 +172,9 @@ TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
 TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
 {
     auto handler = std::make_shared<DeferredReader>();
-    auto* reader = score::opensovd::bridge::RegisterReadDataByIdentifier(handler);
+    auto* reader = Register(handler);
     Completion reply;
-    auto* request = score_diag_read_start(reader, &reply, Complete);
+    auto* request = StartRead(reader, &reply, Complete);
     ASSERT_NE(request, nullptr);
     ASSERT_TRUE(handler->WaitForInvocation());
     score_diag_read_cancel(request);
@@ -129,20 +187,45 @@ TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
     score_diag_reader_release(reader);
 }
 
+TEST(ReadDidBridge, ReadCancelledWhileQueuedIsNotDispatched)
+{
+    auto handler = std::make_shared<GatedReader>();
+    auto* reader = Register(handler);
+    Completion first_reply;
+    Completion queued_reply;
+    auto* first = StartRead(reader, &first_reply, Complete);
+    ASSERT_NE(first, nullptr);
+    ASSERT_TRUE(handler->WaitForInvocations(1U));
+    auto* queued = StartRead(reader, &queued_reply, Complete);
+    ASSERT_NE(queued, nullptr);
+    score_diag_read_cancel(queued);
+    handler->Open();
+    EXPECT_TRUE(queued_reply.Wait());
+    EXPECT_EQ(queued_reply.status, SCORE_DIAG_READ_CANCELLED);
+    EXPECT_TRUE(handler->promise.SetValue(Result<ByteVector>{ByteVector{std::byte{0x12}}}).has_value());
+    EXPECT_TRUE(first_reply.Wait());
+    EXPECT_EQ(first_reply.status, SCORE_DIAG_READ_OK);
+    EXPECT_EQ(handler->Invocations(), 1U);
+    score_diag_read_release(queued);
+    score_diag_read_release(first);
+    score_diag_reader_release(reader);
+}
+
 TEST(ReadDidBridge, CompletedReadsDoNotHoldAdmissionUntilReleased)
 {
-    auto* reader = score_diag_demo_reader_create(0U, 0U);
+    ScoreDiagReader* reader = nullptr;
+    ASSERT_EQ(score_diag_demo_reader_create(0U, 0U, &reader), SCORE_DIAG_OK);
     ASSERT_NE(reader, nullptr);
     std::vector<Completion> replies(9U);
     std::vector<ScoreDiagReadRequest*> requests;
     for (std::size_t index = 0U; index < 8U; ++index)
     {
-        requests.push_back(score_diag_read_start(reader, &replies[index], Complete));
+        requests.push_back(StartRead(reader, &replies[index], Complete));
         ASSERT_NE(requests.back(), nullptr);
         EXPECT_TRUE(replies[index].Wait());
         EXPECT_EQ(replies[index].status, SCORE_DIAG_READ_OK);
     }
-    requests.push_back(score_diag_read_start(reader, &replies[8U], Complete));
+    requests.push_back(StartRead(reader, &replies[8U], Complete));
     EXPECT_NE(requests.back(), nullptr);
     EXPECT_TRUE(replies[8U].Wait());
     EXPECT_EQ(replies[8U].status, SCORE_DIAG_READ_OK);

@@ -23,7 +23,7 @@ extern "C" {
 typedef struct ScoreDiagTestControl ScoreDiagTestControl;
 
 ScoreDiagTestControl* score_diag_test_control_create(void);
-ScoreDiagReader* score_diag_test_control_register(const ScoreDiagTestControl* control);
+ScoreDiagStatus score_diag_test_control_register(const ScoreDiagTestControl* control, ScoreDiagReader** out);
 size_t score_diag_test_control_started(const ScoreDiagTestControl* control);
 size_t score_diag_test_control_stopped(const ScoreDiagTestControl* control);
 void score_diag_test_control_complete(ScoreDiagTestControl* control);

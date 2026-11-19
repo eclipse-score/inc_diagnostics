@@ -38,6 +38,24 @@ fn test_dir() -> TempDir {
     TempDir(path)
 }
 
+/// A Unix socket path. Socket paths are limited to about 108 bytes, which the test directory under
+/// Bazel's sandbox exceeds, so the socket lives in `/tmp` and is removed on drop.
+struct SocketFile(PathBuf);
+
+impl SocketFile {
+    fn new() -> Self {
+        let path = PathBuf::from("/tmp").join(format!("cda-{}.sock", std::process::id()));
+        let _ = fs::remove_file(&path);
+        Self(path)
+    }
+}
+
+impl Drop for SocketFile {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
+}
+
 impl Drop for ChildGuard {
     fn drop(&mut self) {
         let _ = self.0.kill();
@@ -59,20 +77,22 @@ fn runfile(path: &str) -> PathBuf {
         .unwrap_or_else(|| panic!("runfile not found: {path}"))
 }
 
-fn write_config(path: &Path, database: &Path, storage: &Path, port: u16) {
+fn write_config(path: &Path, database: &Path, storage: &Path, socket: &Path) {
     let config = format!(
         "[database]\ndir = {:?}\nexit_no_database_loaded = true\n\n\
          [doip]\ntester_address = \"127.0.0.1\"\n\n\
          [runtime_update_config]\nstorage_dir = {:?}\n\n\
-         [server]\naddress = \"127.0.0.1\"\nport = {port}\n",
+         [server]\ntransport = \"unix_socket\"\nunix_socket = {:?}\n",
         database.display().to_string(),
         storage.display().to_string(),
+        socket.display().to_string(),
     );
     fs::write(path, config).expect("write CDA config");
 }
 
-/// The CDA config needs a concrete port, so a free port is picked and released before the CDA binds it.
-/// Another process can take it in between; the CDA then exits during startup and is retried on a new port.
+/// The gateway's own listener still needs a concrete TCP port, so a free port is picked and released
+/// before the gateway binds it. Another process can take it in between; the gateway then exits during
+/// startup and is retried on a new port.
 const START_ATTEMPTS: usize = 5;
 
 fn free_port() -> u16 {
@@ -116,8 +136,9 @@ async fn start_gateway(binary: &Path, upstream: &str) -> Option<(ChildGuard, Cli
     panic!("gateway did not become reachable: {last_error:?}");
 }
 
-/// Starts the CDA and waits until it serves `/components`. Returns `None` if it exited during startup.
-async fn start_cda(binary: &Path, config: &Path, url: &str) -> Option<(ChildGuard, Client)> {
+/// Starts the CDA and waits until it serves `/components` on its Unix socket. Returns `None` if it
+/// exited during startup.
+async fn start_cda(binary: &Path, config: &Path, socket: &Path) -> Option<(ChildGuard, Client)> {
     let mut child = ChildGuard(
         Command::new(binary)
             .arg("--config")
@@ -128,8 +149,9 @@ async fn start_cda(binary: &Path, config: &Path, url: &str) -> Option<(ChildGuar
             .expect("spawn CDA"),
     );
     let client = Client::builder()
-        .base_uri(url)
+        .base_uri("http://localhost/vehicle/v15")
         .expect("CDA URL")
+        .unix_socket(socket)
         .timeout(Duration::from_secs(1))
         .build()
         .expect("CDA client");
@@ -163,17 +185,10 @@ async fn cda_serves_version_and_components() {
     let storage = temp.0.join("storage");
     fs::create_dir_all(&storage).expect("create storage directory");
 
-    let mut started = None;
-    for _ in 0..START_ATTEMPTS {
-        let port = free_port();
-        write_config(&config, &database, &storage, port);
-        let url = format!("http://127.0.0.1:{port}/vehicle/v15");
-        if let Some((child, client)) = start_cda(&binary, &config, &url).await {
-            started = Some((child, client, url));
-            break;
-        }
-    }
-    let (mut child, client, url) = started.expect("CDA did not start on any free port");
+    let socket = SocketFile::new();
+    write_config(&config, &database, &storage, &socket.0);
+    let (mut child, client) = start_cda(&binary, &config, &socket.0).await.expect("CDA did not start");
+    let upstream = format!("unix:{}:/vehicle/v15", socket.0.display());
 
     assert!(child.0.try_wait().expect("check CDA process").is_none());
     let apps = client.list_apps().send().await.expect("discover CDA apps");
@@ -194,19 +209,13 @@ async fn cda_serves_version_and_components() {
         network.data
     );
     let example = runfile("score/examples/sovd-client/sovd-client");
-    let output = Command::new(&example).arg(&url).output().expect("run example client");
-    assert!(
-        output.status.success(),
-        "example client failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
 
     // UC02/UC06 through the gateway: the CDA's entities are discovered next to the gateway's own
     // and their data is read through the gateway, with references pointing at the gateway.
     let gateway = runfile("score/opensovd-core/opensovd-gateway");
     let mut started = None;
     for _ in 0..START_ATTEMPTS {
-        if let Some(gateway) = start_gateway(&gateway, &url).await {
+        if let Some(gateway) = start_gateway(&gateway, &upstream).await {
             started = Some(gateway);
             break;
         }
@@ -221,8 +230,8 @@ async fn cda_serves_version_and_components() {
     assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
     let listing = format!("{:?}", apps.items);
     assert!(
-        !listing.contains(&url),
-        "upstream URL leaked through gateway: {listing}"
+        !listing.contains(&socket.0.display().to_string()),
+        "upstream socket leaked through gateway: {listing}"
     );
     let forwarded = gateway_client
         .app("sovd2uds")

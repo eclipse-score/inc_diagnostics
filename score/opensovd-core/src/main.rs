@@ -154,9 +154,8 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn unreachable_upstream_keeps_local_entities_available() {
-        let unused = std::net::TcpListener::bind("127.0.0.1:0").expect("port");
-        let url = format!("http://{}/vehicle/v15", unused.local_addr().expect("address"));
-        drop(unused);
+        let socket = std::env::temp_dir().join(format!("opensovd-unreachable-{}.sock", std::process::id()));
+        let url = format!("unix:{}:/vehicle/v15", socket.display());
         let (task, client) = serve(Some(&url)).await;
         let apps = client.list_apps().send().await.expect("list apps");
         assert!(apps.items.iter().any(|app| app.id == "score-diagnostics"));
@@ -171,7 +170,7 @@ mod tests {
             "{error:?}"
         );
         assert!(
-            !format!("{error:?}").contains(&url),
+            !format!("{error:?}").contains(&socket.display().to_string()),
             "upstream address leaked: {error:?}"
         );
         task.abort();
