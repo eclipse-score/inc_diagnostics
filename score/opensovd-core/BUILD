@@ -43,6 +43,8 @@ rust_binary(
     ],
     edition = "2021",
     features = ["link_std_cpp_lib"],
+    # opensovd-mdns is a second build of the opensovd_extra crate, with only the mdns feature.
+    aliases = {"@opensovd_core//:opensovd-mdns": "opensovd_extra_mdns"},
     proc_macro_deps = ["@opensovd_core//:async-trait"],
     visibility = ["//visibility:public"],
     deps = [
@@ -53,6 +55,7 @@ rust_binary(
         "@opensovd_core//:hyper-util",
         "@opensovd_core//:opensovd-core",
         "@opensovd_core//:opensovd-extra",
+        "@opensovd_core//:opensovd-mdns",
         "@opensovd_core//:opensovd-models",
         "@opensovd_core//:opensovd-providers",
         "@opensovd_core//:opensovd-server",
