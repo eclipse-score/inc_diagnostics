@@ -148,6 +148,13 @@ class GatedReader final : public ReadDataByIdentifier
 
 TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__uds_data_bridge__read_handlers");
+    RecordProperty("Description",
+                   "Check that a read started on a registered ReadDataByIdentifier handler completes with its data "
+                   "after the registration is released.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto handler = std::make_shared<DeferredReader>();
     auto* reader = Register(handler);
     Completion reply;
@@ -171,6 +178,13 @@ TEST(ReadDidBridge, PendingReadSurvivesRegistrationRelease)
 
 TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__uds_data_bridge__read_timeout");
+    RecordProperty(
+        "Description",
+        "Check that cancelling a pending read completes it once as cancelled and requests the handler to stop.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto handler = std::make_shared<DeferredReader>();
     auto* reader = Register(handler);
     Completion reply;
@@ -189,6 +203,13 @@ TEST(ReadDidBridge, CancellationCompletesOnceAndStopsHandlerToken)
 
 TEST(ReadDidBridge, ReadCancelledWhileQueuedIsNotDispatched)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__uds_data_bridge__read_timeout");
+    RecordProperty("Description",
+                   "Check that a read cancelled while it waits for the dispatch of another read is never passed to "
+                   "the handler.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     auto handler = std::make_shared<GatedReader>();
     auto* reader = Register(handler);
     Completion first_reply;
@@ -213,6 +234,13 @@ TEST(ReadDidBridge, ReadCancelledWhileQueuedIsNotDispatched)
 
 TEST(ReadDidBridge, CompletedReadsDoNotHoldAdmissionUntilReleased)
 {
+    RecordProperty("PartiallyVerifies", "comp_req__uds_data_bridge__read_admission");
+    RecordProperty("Description",
+                   "Check that completed reads keep no admission slot, so that a ninth read starts after eight "
+                   "completed reads whose handles are still held.");
+    RecordProperty("TestType", "requirements-based");
+    RecordProperty("DerivationTechnique", "requirements-analysis");
+
     ScoreDiagReader* reader = nullptr;
     ASSERT_EQ(score_diag_demo_reader_create(0U, 0U, &reader), SCORE_DIAG_OK);
     ASSERT_NE(reader, nullptr);

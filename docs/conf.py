@@ -11,6 +11,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
+from collections.abc import Callable
+from typing import cast
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -31,14 +34,7 @@ version = "0.1"
 
 
 extensions = [
-    "sphinx_design",
-    "sphinx_needs",
-    "sphinxcontrib.plantuml",
-    "score_plantuml",
-    "score_metamodel",
-    "score_draw_uml_funcs",
-    "score_source_code_linker",
-    "score_layout",
+    "score_sphinx_bundle",
 ]
 
 exclude_patterns = [
@@ -54,3 +50,25 @@ templates_path = ["templates"]
 
 # Enable numref
 numfig = True
+
+# The CDA requirements are built from the pinned CDA sources by
+# //score/opensovd-cda:needs_json. Link them to the CDA's published documentation
+# instead of the docs-as-code default of <project_url>/main.
+CDA_DOCS_URL = "https://eclipse-opensovd.github.io/classic-diagnostic-adapter"
+
+
+def _link_cda_needs_to_cda_docs(_app: object, config: object) -> None:
+    sources: object = getattr(config, "needs_external_needs", [])
+    if not isinstance(sources, list):
+        return
+    for source in cast(list[object], sources):
+        if isinstance(source, dict):
+            entry = cast(dict[str, object], source)
+            if "/score/opensovd-cda/needs_json/" in str(entry.get("json_path", "")):
+                entry["base_url"] = CDA_DOCS_URL
+
+
+def setup(app: object) -> None:
+    # After score_metamodel registers the external needs (priority 425).
+    connect = cast(Callable[..., object], getattr(app, "connect"))
+    _ = connect("config-inited", _link_cda_needs_to_cda_docs, priority=500)

@@ -26,6 +26,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 ///
 /// `url` is `http://host:port/base`, or `unix:<socket>[:<base>]` for a Unix domain socket, such as
 /// `unix:/run/cda.sock:/vehicle/v15`.
+// # req-Id: comp_req__sovd_gateway__forwarding, comp_req__sovd_gateway__upstream_config
 pub fn upstream(url: &str) -> Result<Upstream, String> {
     let proxy = match url.strip_prefix("unix:") {
         Some(rest) => {
@@ -61,6 +62,7 @@ pub fn upstream(url: &str) -> Result<Upstream, String> {
 mod tests {
     use super::*;
 
+    // # verifies: comp_req__sovd_gateway__upstream_config
     #[test]
     fn only_http_and_unix_upstreams_are_accepted() {
         assert!(upstream("https://cda:20002/vehicle/v15").is_err());

@@ -14,6 +14,7 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
+load("//tools/rust_junit:defs.bzl", "rust_junit_test")
 
 cc_library(
     name = "read_did_bridge",
@@ -70,11 +71,22 @@ pkg_files(
 )
 
 rust_test(
-    name = "application_registration_test",
+    name = "application_registration_test_binary",
     crate = ":opensovd-gateway",
+    tags = ["manual"],
     deps = [
         ":read_did_test_support",
         "@opensovd_core//:opensovd-client",
+    ],
+)
+
+rust_junit_test(
+    name = "application_registration_test",
+    test = ":application_registration_test_binary",
+    sources = [
+        "bridge/read_did.rs",
+        "src/main.rs",
+        "src/upstream.rs",
     ],
 )
 
@@ -84,4 +96,17 @@ cc_library(
     srcs = ["bridge/read_did_test_support.cpp"],
     hdrs = ["bridge/read_did_test_support.h"],
     deps = [":read_did_bridge"],
+)
+
+# Implementation sources only: test code verifies requirements through the test reports, so a
+# `req-Id:` annotation in a test would count as implementation coverage.
+filegroup(
+    name = "requirement_sources",
+    srcs = [
+        "bridge/read_did.cpp",
+        "bridge/read_did.rs",
+        "src/main.rs",
+        "src/upstream.rs",
+    ],
+    visibility = ["//:__pkg__"],
 )

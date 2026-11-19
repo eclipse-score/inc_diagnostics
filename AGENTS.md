@@ -63,6 +63,18 @@ On the Rust side, map the status to a typed error (`ReadError::Busy`, `ReadError
 - Run the CI test set: `bazel test --config=score_diag_x86_64_linux -- //examples/... //tests/... //score/...`.
 - If you cannot run it, say so in your summary.
 
+## Requirements traceability
+
+The documentation links requirements to code and to tests. Keep the two apart:
+
+- **Implementation links** come from `req-Id:` comments in the files listed in a `requirement_sources` filegroup, which `scan_code` in the root `BUILD` scans. Put them directly above the function that implements the requirement. Never put them in test code, because a test would then count as implementation coverage.
+- **Verification** comes from the test reports. Each test names the requirements it verifies:
+  - C++ tests call `RecordProperty("PartiallyVerifies", "<id>")`, with `TestType` set to `requirements-based` and `DerivationTechnique` set to `requirements-analysis`.
+  - Rust tests put `// # verifies: <id>[, <id>...]` directly above the `#[test]` function, and run through `rust_junit_test` from `//tools/rust_junit:defs.bzl`. The `rust_test` binary it wraps is tagged `manual`, so only the wrapper runs.
+- CI uploads the reports as the `test-reports` artifact, and the documentation build downloads it. To check locally, run the tests (so `bazel-testlogs` exists), then `bazel run //:docs`, and read `_build/metrics.json`.
+
+Requirements that no local code implements (for example, ones the upstream CDA or `opensovd-extra` implements) get a test link and no code link. Do not add a `req-Id:` for them to a local file.
+
 ## Pre-commit hooks
 
 The repository uses [pre-commit](https://pre-commit.com) (`.pre-commit-config.yaml`). The hook is installed in `.git/hooks/pre-commit`, so `git commit` runs it. Hooks cover YAML, TOML and JSON checks, whitespace and end-of-file fixes, merge conflicts, private keys, large files, Bazel module and lockfile checks, `actionlint`, `ruff`, `BasedPyright`, copyright headers, and `clang-format` for C and C++.

@@ -43,6 +43,7 @@ fn init_tracing() {
     tracing_subscriber::fmt().with_env_filter(filter).init();
 }
 
+// # req-Id: comp_req__sovd_gateway__hosted_entities, comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__utf8_data
 async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
     let provider = DataProviderBuilder::new()
         .read_data(
@@ -85,6 +86,7 @@ type Gateway = Server<VendorInfo>;
 
 /// The gateway on `listener`. With `upstream_url`, what it does not host is forwarded there and
 /// discovery lists the upstream's entities next to its own.
+// # req-Id: comp_req__sovd_gateway__upstream_config
 fn gateway(
     listener: TcpListener,
     topology: Topology,
@@ -133,6 +135,7 @@ mod tests {
         (task, client)
     }
 
+    // # verifies: comp_req__uds_data_bridge__read_handlers, comp_req__uds_data_bridge__utf8_data, comp_req__sovd_gateway__hosted_entities
     #[tokio::test(flavor = "current_thread")]
     async fn registered_application_is_discoverable_and_serves_data() {
         let (task, client) = serve(None).await;
@@ -152,6 +155,7 @@ mod tests {
         let _ = task.await;
     }
 
+    // # verifies: comp_req__sovd_gateway__upstream_unavailable, comp_req__sovd_gateway__upstream_config
     #[tokio::test(flavor = "current_thread")]
     async fn unreachable_upstream_keeps_local_entities_available() {
         let socket = std::env::temp_dir().join(format!("opensovd-unreachable-{}.sock", std::process::id()));
