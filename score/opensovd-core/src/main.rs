@@ -12,14 +12,15 @@
 // *******************************************************************************
 
 use opensovd_core::{App, Component};
-use opensovd_extra::{Federation, FederationLayer};
+use opensovd_extra::Federation;
+use opensovd_extra_mdns::Announcement;
 use opensovd_models::data::DataCategory;
 use opensovd_providers::data::{Constant, DataProviderBuilder};
 use opensovd_server::{Server, Topology, VendorInfo};
+use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tower::layer::util::{Identity, Stack};
-use tower::util::Either;
+use tower::layer::util::Identity;
 use tracing_subscriber::EnvFilter;
 
 #[path = "../bridge/read_did.rs"]
@@ -38,6 +39,58 @@ fn address() -> String {
 /// `http://127.0.0.1:20002/vehicle/v15`. Without it the gateway serves only its own entities.
 fn upstream_url() -> Option<String> {
     std::env::var("SCORE_UPSTREAM_URL").ok().filter(|url| !url.is_empty())
+}
+
+/// The mDNS/DNS-SD announcement of the gateway (ISO 17978-3 §5.11), or `None` when
+/// `SCORE_GATEWAY_MDNS` is unset or empty. Its value is the vehicle identification, published in
+/// the `identification` TXT record, e.g. the VIN. `SCORE_GATEWAY_MDNS_HOST` sets the host label
+/// (`<host>.local`), `SCORE_GATEWAY_MDNS_INTERFACE` limits an unspecified address to the named,
+/// comma separated interfaces. `env` reads a variable.
+fn announcement(addr: SocketAddr, env: impl Fn(&str) -> Option<String>) -> Result<Option<Announcement>, String> {
+    let set = |name: &str| env(name).filter(|value| !value.trim().is_empty());
+    let Some(identification) = set("SCORE_GATEWAY_MDNS") else {
+        return Ok(None);
+    };
+    if addr.ip().is_loopback() {
+        return Err(format!(
+            "SCORE_GATEWAY_MDNS cannot announce the loopback address {addr}: set SCORE_GATEWAY_ADDRESS to \
+             0.0.0.0 or an interface address"
+        ));
+    }
+    let mut announcement = Announcement::new(addr)
+        .identification(identification)
+        .access("http", BASE_PATH);
+    if let Some(host) = set("SCORE_GATEWAY_MDNS_HOST") {
+        announcement = announcement.host(host);
+    }
+    if let Some(interfaces) = set("SCORE_GATEWAY_MDNS_INTERFACE") {
+        announcement = announcement.interfaces(
+            interfaces
+                .split(',')
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>(),
+        );
+    }
+    Ok(Some(announcement))
+}
+
+/// Resolves on SIGTERM, which the launch manager sends to stop the gateway, or on Ctrl-C.
+async fn shutdown_signal() {
+    use tokio::signal::unix::{signal, SignalKind};
+    match signal(SignalKind::terminate()) {
+        Ok(mut terminate) => {
+            tokio::select! {
+                _ = terminate.recv() => {},
+                _ = tokio::signal::ctrl_c() => {},
+            }
+        },
+        Err(error) => {
+            tracing::warn!("Cannot handle SIGTERM: {error}");
+            let _ = tokio::signal::ctrl_c().await;
+        },
+    }
 }
 
 fn init_tracing() {
@@ -83,7 +136,7 @@ async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
     Ok(topology)
 }
 
-type Gateway = Server<VendorInfo, Stack<Either<FederationLayer, Identity>, Identity>>;
+type Gateway = Server<VendorInfo, Identity>;
 
 /// The gateway on `listener`. With `upstream_url`, what it does not host is forwarded there and
 /// discovery lists the upstream's entities next to its own.
@@ -93,30 +146,41 @@ fn gateway(
     upstream_url: Option<&str>,
 ) -> Result<Gateway, Box<dyn std::error::Error>> {
     let address = listener.local_addr()?;
-    let federation = match upstream_url {
-        Some(url) => {
-            tracing::info!(target: "forwarding", "Forwarding to {url}");
-            let upstream = upstream::upstream(url)?;
-            Some(Federation::new(vec![upstream], topology.clone())?.into_layer())
-        },
-        None => None,
-    };
-    let server = Server::builder()
-        .layer(tower::util::option_layer(federation))
+    let mut builder = Server::builder()
         .base_uri(format!("http://{address}{BASE_PATH}"))?
         .listener(listener)
-        .topology(topology)
-        .build()?;
-    Ok(server)
+        .topology(topology.clone());
+    // An inner layer: only there does a request carry the base path of the server, which the
+    // federation needs to tell API requests from others (opensovd-core#260). As an outer layer it
+    // would pass every request to the gateway's own routes.
+    if let Some(url) = upstream_url {
+        tracing::info!(target: "forwarding", "Forwarding to {url}");
+        let upstream = upstream::upstream(url)?;
+        builder = builder.inner_layer(Federation::new(vec![upstream], topology)?.into_layer());
+    }
+    Ok(builder.build()?)
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_tracing();
     let listener = TcpListener::bind(address()).await?;
+    let announcement = announcement(listener.local_addr()?, |name| std::env::var(name).ok())?;
     let server = gateway(listener, topology().await?, upstream_url().as_deref())?;
-    server.serve().await?;
-    Ok(())
+    // Announced once the server is set up, so a client that finds it can connect. Withdrawn with
+    // a goodbye when the gateway stops, so clients do not wait for the records to expire.
+    let announcer = match announcement {
+        Some(announcement) => Some(announcement.announce().await?),
+        None => None,
+    };
+    let result: Result<(), Box<dyn std::error::Error>> = tokio::select! {
+        result = server.serve() => result.map_err(Into::into),
+        () = shutdown_signal() => Ok(()),
+    };
+    if let Some(announcer) = announcer {
+        announcer.shutdown().await;
+    }
+    result
 }
 
 #[cfg(test)]
@@ -140,6 +204,35 @@ mod tests {
         (task, client)
     }
 
+    fn env<'a>(vars: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
+        move |name| vars.iter().find(|(key, _)| *key == name).map(|(_, value)| (*value).to_owned())
+    }
+
+    #[test]
+    fn mdns_is_off_without_an_identification() {
+        let addr: SocketAddr = "0.0.0.0:7690".parse().expect("address");
+        assert!(announcement(addr, env(&[])).expect("no error").is_none());
+        assert!(announcement(addr, env(&[("SCORE_GATEWAY_MDNS", " ")])).expect("no error").is_none());
+    }
+
+    #[test]
+    fn mdns_announces_an_interface_address() {
+        let addr: SocketAddr = "0.0.0.0:7690".parse().expect("address");
+        let vars = [
+            ("SCORE_GATEWAY_MDNS", "SCORE0DEMO0000001"),
+            ("SCORE_GATEWAY_MDNS_HOST", "score-pi"),
+            ("SCORE_GATEWAY_MDNS_INTERFACE", "eth0, br0"),
+        ];
+        assert!(announcement(addr, env(&vars)).expect("no error").is_some());
+    }
+
+    #[test]
+    fn mdns_rejects_the_loopback_address() {
+        let addr: SocketAddr = "127.0.0.1:7690".parse().expect("address");
+        let error = announcement(addr, env(&[("SCORE_GATEWAY_MDNS", "SCORE0DEMO0000001")])).expect_err("loopback");
+        assert!(error.contains("loopback"), "{error}");
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn registered_application_is_discoverable_and_serves_data() {
         let (task, client) = serve(None).await;
@@ -157,6 +250,55 @@ mod tests {
         assert_eq!(version.data["value"].as_str(), Some("1.0.0"));
         task.abort();
         let _ = task.await;
+    }
+
+    /// A fake CDA on a Unix domain socket: every request gets one component, with an href to the
+    /// CDA's own API, as the CDA sends them.
+    fn serve_socket_upstream(path: &std::path::Path) -> tokio::task::JoinHandle<()> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::UnixListener::bind(path).expect("socket");
+        tokio::spawn(async move {
+            while let Ok((mut stream, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    let mut request = Vec::new();
+                    let mut buffer = [0u8; 1024];
+                    while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                        match stream.read(&mut buffer).await {
+                            Ok(0) | Err(_) => return,
+                            Ok(read) => request.extend_from_slice(&buffer[..read]),
+                        }
+                    }
+                    let body = r#"{"items":[{"id":"ecu1","name":"ecu1","href":"http://localhost/Vehicle/v15/components/ecu1"}]}"#;
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                        body.len()
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                });
+            }
+        })
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn upstream_entities_are_listed_over_a_unix_socket() {
+        let dir = std::env::temp_dir().join(format!("score-gateway-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("directory");
+        let path = dir.join("cda.sock");
+        let _ = std::fs::remove_file(&path);
+        let cda = serve_socket_upstream(&path);
+        let url = format!("unix:{}:/vehicle/v15", path.display());
+        let (task, client) = serve(Some(&url)).await;
+        let components = client.list_components().send().await.expect("list components");
+        let ecu = components.items.iter().find(|component| component.id == "ecu1");
+        let ecu = ecu.unwrap_or_else(|| panic!("ecu1 not listed: {components:?}"));
+        let href = &ecu.href.0;
+        assert!(
+            href.starts_with("http://127.0.0.1:") && href.ends_with("/sovd/v1/components/ecu1"),
+            "href not rewritten to the gateway: {href}"
+        );
+        task.abort();
+        cda.abort();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[tokio::test(flavor = "current_thread")]
