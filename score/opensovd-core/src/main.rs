@@ -12,14 +12,12 @@
 // *******************************************************************************
 
 use opensovd_core::{App, Component};
-use opensovd_extra::{Federation, FederationLayer};
+use opensovd_extra::Federation;
 use opensovd_models::data::DataCategory;
 use opensovd_providers::data::{Constant, DataProviderBuilder};
 use opensovd_server::{Server, Topology, VendorInfo};
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tower::layer::util::{Identity, Stack};
-use tower::util::Either;
 use tracing_subscriber::EnvFilter;
 
 #[path = "../bridge/read_did.rs"]
@@ -83,7 +81,7 @@ async fn topology() -> Result<Topology, Box<dyn std::error::Error>> {
     Ok(topology)
 }
 
-type Gateway = Server<VendorInfo, Stack<Either<FederationLayer, Identity>, Identity>>;
+type Gateway = Server<VendorInfo>;
 
 /// The gateway on `listener`. With `upstream_url`, what it does not host is forwarded there and
 /// discovery lists the upstream's entities next to its own.
@@ -93,21 +91,16 @@ fn gateway(
     upstream_url: Option<&str>,
 ) -> Result<Gateway, Box<dyn std::error::Error>> {
     let address = listener.local_addr()?;
-    let federation = match upstream_url {
-        Some(url) => {
-            tracing::info!(target: "forwarding", "Forwarding to {url}");
-            let upstream = upstream::upstream(url)?;
-            Some(Federation::new(vec![upstream], topology.clone())?.into_layer())
-        },
-        None => None,
-    };
-    let server = Server::builder()
-        .layer(tower::util::option_layer(federation))
+    let mut builder = Server::builder()
         .base_uri(format!("http://{address}{BASE_PATH}"))?
         .listener(listener)
-        .topology(topology)
-        .build()?;
-    Ok(server)
+        .topology(topology.clone());
+    if let Some(url) = upstream_url {
+        tracing::info!(target: "forwarding", "Forwarding to {url}");
+        let upstream = upstream::upstream(url)?;
+        builder = builder.inner_layer(Federation::new(vec![upstream], topology)?.into_layer());
+    }
+    Ok(builder.build()?)
 }
 
 #[tokio::main(flavor = "current_thread")]
