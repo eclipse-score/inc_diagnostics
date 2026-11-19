@@ -70,7 +70,7 @@ async fn client_lists_demo_component() {
             Ok(response) => {
                 assert!(response.items.iter().any(|c| c.id == "score-demo"));
                 return;
-            }
+            },
             Err(error) => last_error = Some(error),
         }
         sleep(Duration::from_millis(25)).await;

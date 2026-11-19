@@ -190,12 +190,14 @@ const score::result::ErrorDomain& GetDiagUdsErrorDomain() noexcept
 
 std::optional<NegativeResponseCode> ToNegativeResponseCode(const score::result::Error& error) noexcept
 {
-    const auto response_code = ToNegativeResponseCode(*error);
-    if (!response_code.has_value() || error != MakeError(*response_code))
+    // score::result::Error exposes no domain accessor. The probe copies code and user message, so it differs from
+    // `error` only in its domain, independent of whether operator== also compares user messages.
+    const score::result::Error probe{*error, GetDiagUdsErrorDomain(), error.UserMessage()};
+    if (error != probe)
     {
         return std::nullopt;
     }
-    return response_code;
+    return ToNegativeResponseCode(*error);
 }
 
 score::result::Error MakeError(const NegativeResponseCode code, const std::string_view user_message) noexcept

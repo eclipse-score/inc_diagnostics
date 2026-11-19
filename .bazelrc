@@ -39,10 +39,13 @@ run --extra_toolchains=@score_gcc_x86_64_toolchain//:x86_64-linux-gcc_12.2.0
 build:_score_diag_common_build_settings --cxxopt=-std=c++17
 build:_score_diag_common_build_settings --features=minimal_warnings
 build:_score_diag_common_build_settings --features=strict_warnings
-# Enforce warning errors for main-repository sources only (pattern ^//.* matches internal sources).
-# External dependencies and vendored code are automatically excluded since they don't match the pattern.
-# This is safer than global warnings_as_errors with exceptions, as it ensures no third-party code
-# accidentally gets covered by -Werror, which could block builds due to warnings in external code.
+# Enforce warning errors for main-repository sources only. The regex is matched against labels;
+# the ^ anchor matters: labels in external repositories start with @ (e.g. @score_baselibs+//...),
+# so ^//.* matches only targets of this repository and external repositories keep their own flags.
+# Without the anchor, //.* would also match inside external labels. Code vendored into this repository
+# is not excluded. The host variant covers main-repository tools built for the exec configuration.
+# CI checks with bazel aquery that -Werror reaches main-repository compile actions and no external
+# ones (see build_linux.yml).
 build:_score_diag_common_build_settings --per_file_copt=^//.*@-Werror
 build:_score_diag_common_build_settings --host_per_file_copt=^//.*@-Werror
 build:_score_diag_common_build_settings --incompatible_strict_action_env

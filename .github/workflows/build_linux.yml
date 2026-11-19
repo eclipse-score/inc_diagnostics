@@ -46,15 +46,20 @@ jobs:
       - name: Setup Bazel Cache
         uses: eclipse-score/cicd-actions/setup-bazel-cache@e2a2a587a759b681632040ec1e1294015a0405f5
         with:
-          unique-cache-name: ${{ github.workflow }}-${{ github.job }}
+          disk-cache-key: ${{ github.workflow }}-${{ github.job }}
 
-      - name: Install native dependencies
+      - name: Verify -Werror on main-repository compile actions
         run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            liblzma-dev \
-            libssl-dev \
-            pkg-config
+          # Fails if -Werror is missing from this repository's C++ compiles, or if it leaks into
+          # external repositories (e.g. because the ^ anchor in .bazelrc was dropped).
+          werror() {
+            bazel aquery --config=score_diag_x86_64_linux --output=jsonproto "mnemonic(\"CppCompile\", $1)" \
+              | jq -e "(.actions | length > 0) and ([.actions[].arguments | index(\"-Werror\") != null] | $2)"
+          }
+          werror //score/mw/diag/uds:negative_response_code all \
+            || { echo "-Werror missing on main-repository compile actions"; exit 1; }
+          werror @score_baselibs//score/result:error 'any | not' \
+            || { echo "-Werror applied to external repository compile actions"; exit 1; }
 
       - name: Bazel Build
         run: |
